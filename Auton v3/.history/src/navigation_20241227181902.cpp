@@ -2558,8 +2558,8 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //double avgMotorVoltage = 0;
     double minLaunchSpeedVoltage = 2;
     double percentSpeedLoss = 0.2;
-    double slipThresholdSpotTurn = 1;
-    double ABSLockThresholdSpotTurn = 0.8;
+    double slipThresholdSpotTurn = 1.1;
+    double ABSLockThresholdSpotTurn = 0;
     //double totalMotorRadiansPerSecond = 0.0;
     double minRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (minSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert minspeed to percentage first
     double maxRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (maxSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert maxspeed to percentage first
@@ -2608,7 +2608,7 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //launchControl (60, 60, 20);
         
     // Loop to continuously adjust motor power based on PID control 
-while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 3.5) && turnCompleted == false) {
+while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 2) && turnCompleted == false) {
 
        //Check if passed the target because max range is 0 to +-180 then it changes signs at 0 and 180 mark.
     if (std::round(currentNormHeading) * normTargetHeading < 0){
@@ -2710,16 +2710,16 @@ decel = true;
         //Left Side
         ABSReturn leftResult = ABSControllerLeft[i].ABSSpeedReduction(motorVoltageLeft[i], leftMotorAngularRadians[i], robotRadiansPerSecond); // Get ABSResult containing motor voltage and brake mode
         motorVoltageLeft[i] = leftResult.motorVoltage; // Extract motor voltage from ABSResult
-        //leftMotor[i].setBrake(coast); // Set brake mode from ABSResult
-        leftMotor[i].stop(leftResult.brakeMode);
+        leftMotor[i].setBrake(coast); // Set brake mode from ABSResult
+        leftMotor[i].stop(brake);
 
         //Right Side
         ABSReturn rightResult = ABSControllerRight[i].ABSSpeedReduction(motorVoltageRight[i], rightMotorAngularRadians[i], robotRadiansPerSecond); // Get ABSResult containing motor voltage and brake mode
         motorVoltageRight[i] = rightResult.motorVoltage; // Extract motor voltage from ABSResult
-        //rightMotor[i].setBrake(coast); // Set brake mode from ABSResult
-        //double brakingType = static_cast<double>(rightResult.brakeMode);
-        //     Brain.Screen.printAt(60, 60, "Braking Type: %.2f", brakingType);
-        rightMotor[i].stop(rightResult.brakeMode);
+        rightMotor[i].setBrake(coast); // Set brake mode from ABSResult
+        double brakingType = static_cast<double>(rightResult.brakeMode);
+             Brain.Screen.printAt(60, 60, "Braking Type: %.2f", brakingType);
+        rightMotor[i].stop(brake);
         
         //Brain.Screen.printAt(10, 120, "Right Brake Mode: %d", static_cast<int>(rightResult.brakeMode));
 
@@ -2757,7 +2757,7 @@ if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLos
 
 //Final Approach Phase 
 } else if (decelCompleted == true) {
-    //break;
+    break;
         Brain.Screen.printAt(10, 20, "Approach Phase");    
         Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted); 
 
@@ -2808,13 +2808,20 @@ if (!decel == true || decelCompleted == true)
 
         vex::task::sleep(20);
     }
-  
-    // Stop all motors at end of routine after approach
+/*  
+ // Set brake mode to brake for all motors
     for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brake);
-        rightMotor[2-i].stop(brake);
+        leftMotor[i].setBrake(brakeType::coast);
+        rightMotor[2-i].setBrake(brakeType::coast);
+    }
+    
+    // Stop all motors simultaneously
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].stop();
+        rightMotor[2-i].stop();
     }
 
+*/
 
 /*
     //task::sleep(800);  // Small delay to prevent overwhelming the CPU

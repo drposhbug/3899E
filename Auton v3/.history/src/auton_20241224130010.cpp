@@ -457,7 +457,7 @@ void autonRoutine7() {
 //pidStraightDistanceSlipABS(0, 120, 95, 0.4, 0, 0, 1, 0, 0, 16, 20);
 //pidStraightDistanceLaunchABS(0, 160, 95, 0.4, 0, 0, 0, 1.5, 10, 75);
 //spotTurnMP(90, 50, 15, 20);
-spotTurnMP(-180, 100, 10, 91);
+spotTurnMP(-180, 100, 2, 100);
 //spotTurn(-80, 10, 2, 0.4, 0, 0.05);
 
 }

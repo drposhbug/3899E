@@ -2558,8 +2558,8 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //double avgMotorVoltage = 0;
     double minLaunchSpeedVoltage = 2;
     double percentSpeedLoss = 0.2;
-    double slipThresholdSpotTurn = 1;
-    double ABSLockThresholdSpotTurn = 0.8;
+    double slipThresholdSpotTurn = 1.1;
+    double ABSLockThresholdSpotTurn = 0;
     //double totalMotorRadiansPerSecond = 0.0;
     double minRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (minSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert minspeed to percentage first
     double maxRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (maxSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert maxspeed to percentage first
@@ -2581,7 +2581,6 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     double motorRadiansPerSecond[3] = {0, 0, 0};
     double lowestMotorVoltage = 12;
      
-    bool decel = false;
     bool decelCompleted = false;
     bool accelCompleted = false;
     bool turnCompleted = false;
@@ -2608,7 +2607,7 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //launchControl (60, 60, 20);
         
     // Loop to continuously adjust motor power based on PID control 
-while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 3.5) && turnCompleted == false) {
+while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 2) && turnCompleted == false) {
 
        //Check if passed the target because max range is 0 to +-180 then it changes signs at 0 and 180 mark.
     if (std::round(currentNormHeading) * normTargetHeading < 0){
@@ -2699,8 +2698,7 @@ for (int i = 0; i < 3; i++) {
 
 //If declerating then go to ABS routine
 } else if (std::abs(currentDistanceInDegrees) >= (std::abs(targetDistanceInDegrees) - breakDistanceInDegrees) && decelCompleted == false) {
-//break;   
-decel = true; 
+//break;    
  
   Brain.Screen.printAt(10, 20, "Decel Phase");
    
@@ -2709,17 +2707,17 @@ decel = true;
         
         //Left Side
         ABSReturn leftResult = ABSControllerLeft[i].ABSSpeedReduction(motorVoltageLeft[i], leftMotorAngularRadians[i], robotRadiansPerSecond); // Get ABSResult containing motor voltage and brake mode
-        motorVoltageLeft[i] = leftResult.motorVoltage; // Extract motor voltage from ABSResult
-        //leftMotor[i].setBrake(coast); // Set brake mode from ABSResult
-        leftMotor[i].stop(leftResult.brakeMode);
+        motorVoltageLeft[i] = 0; // Extract motor voltage from ABSResult
+        leftMotor[i].setBrake(coast); // Set brake mode from ABSResult
+        leftMotor[i].stop(coast);
 
         //Right Side
         ABSReturn rightResult = ABSControllerRight[i].ABSSpeedReduction(motorVoltageRight[i], rightMotorAngularRadians[i], robotRadiansPerSecond); // Get ABSResult containing motor voltage and brake mode
-        motorVoltageRight[i] = rightResult.motorVoltage; // Extract motor voltage from ABSResult
-        //rightMotor[i].setBrake(coast); // Set brake mode from ABSResult
-        //double brakingType = static_cast<double>(rightResult.brakeMode);
-        //     Brain.Screen.printAt(60, 60, "Braking Type: %.2f", brakingType);
-        rightMotor[i].stop(rightResult.brakeMode);
+        motorVoltageRight[i] = 0; // Extract motor voltage from ABSResult
+        rightMotor[i].setBrake(coast); // Set brake mode from ABSResult
+        double brakingType = static_cast<double>(rightResult.brakeMode);
+             Brain.Screen.printAt(60, 60, "Braking Type: %.2f", brakingType);
+        rightMotor[i].stop(coast);
         
         //Brain.Screen.printAt(10, 120, "Right Brake Mode: %d", static_cast<int>(rightResult.brakeMode));
 
@@ -2739,7 +2737,7 @@ decel = true;
     // If all drivetrain motors decel to min speed then change DecelCompleted State variable to true to start Approach Phase
 
     
-if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLoss))) {
+if (abs(robotRadiansPerSecond) <= 0) {
     decelCompleted = true;
 
     /*
@@ -2757,7 +2755,7 @@ if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLos
 
 //Final Approach Phase 
 } else if (decelCompleted == true) {
-    //break;
+    break;
         Brain.Screen.printAt(10, 20, "Approach Phase");    
         Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted); 
 
@@ -2784,8 +2782,7 @@ if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLos
 // Power Drive Motors        
 
 //turnDirection = std::copysign(turnDirection, normTargetHeading);
-if (!decel == true || decelCompleted == true)
-{
+
         for (int i = 0; i < 3; i++) {   
  
         //leftMotor[i].spin(forward, motorVoltageLeft[i] * turnDirection, voltageUnits::volt);
@@ -2795,7 +2792,7 @@ if (!decel == true || decelCompleted == true)
         leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
         rightMotor[2-i].spin(forward, -motorVoltageRight[i], voltageUnits::volt);
         }
-}       
+       
         //Brain.Screen.printAt(10, 20, "Rotation Sensor: %.2f degrees", rotationDegrees);
         //Brain.Screen.printAt(10, 40, "Current Distance: %.4f", currentDistance);
         //Brain.Screen.printAt(10, 80, "Break Distance: %.2f", (targetDistance - breakDistance));
@@ -2808,13 +2805,20 @@ if (!decel == true || decelCompleted == true)
 
         vex::task::sleep(20);
     }
-  
-    // Stop all motors at end of routine after approach
+/*  
+ // Set brake mode to brake for all motors
     for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brake);
-        rightMotor[2-i].stop(brake);
+        leftMotor[i].setBrake(brakeType::coast);
+        rightMotor[2-i].setBrake(brakeType::coast);
+    }
+    
+    // Stop all motors simultaneously
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].stop();
+        rightMotor[2-i].stop();
     }
 
+*/
 
 /*
     //task::sleep(800);  // Small delay to prevent overwhelming the CPU

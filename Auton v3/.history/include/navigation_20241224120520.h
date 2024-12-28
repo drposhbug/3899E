@@ -149,7 +149,7 @@ private:
     double ABSLockThreshold;
     vex::brakeType brakeMode;  // Added brakeMode as a member variable
 
-//    static constexpr double ABSLockThreshold = 0.05; // Class-wide constant
+    static constexpr double ABSLockThreshold = 0.05; // Class-wide constant
 };
 
 #endif // PID_TASKS_H

@@ -2559,7 +2559,7 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     double minLaunchSpeedVoltage = 2;
     double percentSpeedLoss = 0.2;
     double slipThresholdSpotTurn = 1;
-    double ABSLockThresholdSpotTurn = 0.8;
+    double ABSLockThresholdSpotTurn = 0.9;
     //double totalMotorRadiansPerSecond = 0.0;
     double minRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (minSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert minspeed to percentage first
     double maxRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (maxSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert maxspeed to percentage first
@@ -2608,7 +2608,7 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //launchControl (60, 60, 20);
         
     // Loop to continuously adjust motor power based on PID control 
-while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 3.5) && turnCompleted == false) {
+while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 10) && turnCompleted == false) {
 
        //Check if passed the target because max range is 0 to +-180 then it changes signs at 0 and 180 mark.
     if (std::round(currentNormHeading) * normTargetHeading < 0){
