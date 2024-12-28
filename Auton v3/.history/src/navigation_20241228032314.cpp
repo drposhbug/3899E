@@ -2610,7 +2610,7 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //launchControl (60, 60, 20);
         
     // Loop to continuously adjust motor power based on PID control 
-while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 5) && turnCompleted == false) {
+while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 3.5) && turnCompleted == false) {
 
        //Check if passed the target because max range is 0 to +-180 then it changes signs at 0 and 180 mark.
     if (std::round(currentNormHeading) * normTargetHeading < 0){
@@ -2747,10 +2747,10 @@ decel = true;
 
     
 //if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLoss))) {
- averageMotorVoltage = (motorVoltageLeft[0] + motorVoltageRight[0] + motorVoltageLeft[1] + motorVoltageRight[1] + motorVoltageLeft[2] + motorVoltageRight[2]) / numberDriveMotor;
-if (abs(averageMotorVoltage) <= abs(minSpeedVoltage)) {    
-    decelCompleted = true;
+//    decelCompleted = true;
 
+if (abs(averageMotorVoltage) <= abs(minSpeedVoltage)) {
+    decelCompleted = true;
     
 
     /*

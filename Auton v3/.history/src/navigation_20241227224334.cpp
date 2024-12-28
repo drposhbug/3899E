@@ -2556,11 +2556,10 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     // Calculate minimum speed voltage and match its sign with targetDistance.
     double minSpeedVoltage = std::copysign(minSpeed * 0.01 * 12, normTargetHeading);
     //double avgMotorVoltage = 0;
-    double minLaunchSpeedVoltage = 6;
+    double minLaunchSpeedVoltage = 2;
     double percentSpeedLoss = 0.2;
-    double slipThresholdSpotTurn = 0.7; // the lower it is below 1, the slower and more controlled it will be
+    double slipThresholdSpotTurn = 1;
     double ABSLockThresholdSpotTurn = 0.8;
-    //double ABSLockThresholdSpotTurn = 0;
     //double totalMotorRadiansPerSecond = 0.0;
     double minRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (minSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert minspeed to percentage first
     double maxRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (maxSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert maxspeed to percentage first
@@ -2577,7 +2576,6 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     double leftMotorAngularRadians[3];
     double rightMotorAngularRadians[3];
     double robotRadiansPerSecond = 0;
-    double averageMotorVoltage;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     double motorRadiansPerSecond[3] = {0, 0, 0};
@@ -2610,7 +2608,7 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //launchControl (60, 60, 20);
         
     // Loop to continuously adjust motor power based on PID control 
-while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 5) && turnCompleted == false) {
+while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 3.5) && turnCompleted == false) {
 
        //Check if passed the target because max range is 0 to +-180 then it changes signs at 0 and 180 mark.
     if (std::round(currentNormHeading) * normTargetHeading < 0){
@@ -2646,8 +2644,8 @@ while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) 
     //avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2])/6;
 
 //Launch Phase
-//if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - breakDistanceInDegrees) && !accelCompleted && !turnCompleted) {
-if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - breakDistanceInDegrees) && !turnCompleted) {
+if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - breakDistanceInDegrees) && !accelCompleted && !turnCompleted) {
+
     for (int i = 0; i < 3; i++) {   
         // Use leftLaunchControl if minLaunchPower threshold is met for the left side
         motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], leftMotorAngularRadians[i], robotRadiansPerSecond);      // get slip voltage 
@@ -2661,15 +2659,10 @@ if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - br
         motorVoltageLeft[i] = lowerVoltage;
     }  
 
-        averageMotorVoltage = (motorVoltageLeft[0] + motorVoltageRight[0] + motorVoltageLeft[1] + motorVoltageRight[1] + motorVoltageLeft[2] + motorVoltageRight[2]) / numberDriveMotor;
     //    Brain.Screen.printAt(10, 20, "Launch Phase");
     
 
-  //  if (std::abs(robotRadiansPerSecond) >= maxRadiansPerSecond * (1 - percentSpeedLoss)){
-  //      accelCompleted = true;
-  //  }
-
-    if (std::abs(averageMotorVoltage) >= maxSpeedVoltage){
+     if (std::abs(robotRadiansPerSecond) >= maxRadiansPerSecond * (1 - percentSpeedLoss)){
         accelCompleted = true;
     }
 
@@ -2746,12 +2739,8 @@ decel = true;
     // If all drivetrain motors decel to min speed then change DecelCompleted State variable to true to start Approach Phase
 
     
-//if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLoss))) {
- averageMotorVoltage = (motorVoltageLeft[0] + motorVoltageRight[0] + motorVoltageLeft[1] + motorVoltageRight[1] + motorVoltageLeft[2] + motorVoltageRight[2]) / numberDriveMotor;
-if (abs(averageMotorVoltage) <= abs(minSpeedVoltage)) {    
+if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLoss))) {
     decelCompleted = true;
-
-    
 
     /*
          // Stop the motors

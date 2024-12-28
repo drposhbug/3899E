@@ -2558,9 +2558,9 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //double avgMotorVoltage = 0;
     double minLaunchSpeedVoltage = 6;
     double percentSpeedLoss = 0.2;
-    double slipThresholdSpotTurn = 0.7; // the lower it is below 1, the slower and more controlled it will be
-    double ABSLockThresholdSpotTurn = 0.8;
-    //double ABSLockThresholdSpotTurn = 0;
+    double slipThresholdSpotTurn = 0.5; // the lower it is below 1, the slower and more controlled it will be
+    //double ABSLockThresholdSpotTurn = 0.8;
+    double ABSLockThresholdSpotTurn = 0;
     //double totalMotorRadiansPerSecond = 0.0;
     double minRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (minSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert minspeed to percentage first
     double maxRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (maxSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert maxspeed to percentage first
@@ -2577,7 +2577,6 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     double leftMotorAngularRadians[3];
     double rightMotorAngularRadians[3];
     double robotRadiansPerSecond = 0;
-    double averageMotorVoltage;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     double motorRadiansPerSecond[3] = {0, 0, 0};
@@ -2610,7 +2609,7 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //launchControl (60, 60, 20);
         
     // Loop to continuously adjust motor power based on PID control 
-while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 5) && turnCompleted == false) {
+while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 3.5) && turnCompleted == false) {
 
        //Check if passed the target because max range is 0 to +-180 then it changes signs at 0 and 180 mark.
     if (std::round(currentNormHeading) * normTargetHeading < 0){
@@ -2661,15 +2660,10 @@ if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - br
         motorVoltageLeft[i] = lowerVoltage;
     }  
 
-        averageMotorVoltage = (motorVoltageLeft[0] + motorVoltageRight[0] + motorVoltageLeft[1] + motorVoltageRight[1] + motorVoltageLeft[2] + motorVoltageRight[2]) / numberDriveMotor;
     //    Brain.Screen.printAt(10, 20, "Launch Phase");
     
 
-  //  if (std::abs(robotRadiansPerSecond) >= maxRadiansPerSecond * (1 - percentSpeedLoss)){
-  //      accelCompleted = true;
-  //  }
-
-    if (std::abs(averageMotorVoltage) >= maxSpeedVoltage){
+     if (std::abs(robotRadiansPerSecond) >= maxRadiansPerSecond * (1 - percentSpeedLoss)){
         accelCompleted = true;
     }
 
@@ -2692,7 +2686,7 @@ for (int i = 0; i < 3; i++) {
 //Cruise Phase      
 
 } else if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - breakDistanceInDegrees) && accelCompleted == true) {
-//break;   
+break;   
     accelCompleted = true;
     Brain.Screen.printAt(10, 20, "Cruise Phase");    // Else condition - specify actions here if the if condition is not met
     for (int i = 0; i < 3; i++) {
@@ -2706,7 +2700,7 @@ for (int i = 0; i < 3; i++) {
 
 //If declerating then go to ABS routine
 } else if (std::abs(currentDistanceInDegrees) >= (std::abs(targetDistanceInDegrees) - breakDistanceInDegrees) && decelCompleted == false) {
-//break;   
+break;   
 decel = true; 
  
   Brain.Screen.printAt(10, 20, "Decel Phase");
@@ -2746,12 +2740,8 @@ decel = true;
     // If all drivetrain motors decel to min speed then change DecelCompleted State variable to true to start Approach Phase
 
     
-//if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLoss))) {
- averageMotorVoltage = (motorVoltageLeft[0] + motorVoltageRight[0] + motorVoltageLeft[1] + motorVoltageRight[1] + motorVoltageLeft[2] + motorVoltageRight[2]) / numberDriveMotor;
-if (abs(averageMotorVoltage) <= abs(minSpeedVoltage)) {    
+if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLoss))) {
     decelCompleted = true;
-
-    
 
     /*
          // Stop the motors
@@ -2768,7 +2758,7 @@ if (abs(averageMotorVoltage) <= abs(minSpeedVoltage)) {
 
 //Final Approach Phase 
 } else if (decelCompleted == true) {
-    //break;
+    break;
         Brain.Screen.printAt(10, 20, "Approach Phase");    
         Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted); 
 
