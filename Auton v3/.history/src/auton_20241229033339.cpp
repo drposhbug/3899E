@@ -458,7 +458,9 @@ void autonRoutine7() {
 //pidStraightDistanceLaunchABS(0, 160, 95, 0.4, 0, 0, 0, 1.5, 10, 75);
 //spotTurnMP(90, 50, 15, 20);
 //spotTurnMP(-45, 100, 7, 40); // good setting for 45 degrees.
-spotTurnMP(180, 100, 8.5, 90); //good decel distance and min speed without load
+//spotTurnMP(-180, 100, 7.5, 85); //good 180 degrees decel distance and min speed without load
+spotTurnMP(-180, 100, 7.5, 110);
+
 //spotTurn(-80, 10, 2, 0.4, 0, 0.05);
 
 }

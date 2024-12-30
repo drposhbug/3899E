@@ -2804,8 +2804,8 @@ if (!decel == true || decelCompleted == true)
 
         //Pair left and right motor based on front, middle, back depending on the direction of the wheel.
         leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
-        //rightMotor[i].spin(forward, -motorVoltageRight[i], voltageUnits::volt);
-        rightMotor[2-i].spin(forward, -motorVoltageRight[i], voltageUnits::volt);
+        rightMotor[i].spin(forward, -motorVoltageRight[i], voltageUnits::volt);
+        // rightMotor[2-i].spin(forward, -motorVoltageRight[i], voltageUnits::volt);
         }
 }       
         //Brain.Screen.printAt(10, 20, "Rotation Sensor: %.2f degrees", rotationDegrees);
@@ -2824,8 +2824,8 @@ if (!decel == true || decelCompleted == true)
     // Stop all motors at end of routine after approach
     for (int i = 0; i < 3; i++) {
         leftMotor[i].stop(brake);
-        //rightMotor[i].stop(brake);
-        rightMotor[2-i].stop(brake);
+        rightMotor[i].stop(brake);
+        //rightMotor[2-i].stop(brake);
     }
 
 

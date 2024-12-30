@@ -2671,6 +2671,11 @@ if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - br
 
     if (std::abs(averageMotorVoltage) >= maxSpeedVoltage){
         accelCompleted = true;
+
+        for (int i = 0; i < 3; i++) {  
+        motorVoltageRight[i] = maxSpeedVoltage;
+        motorVoltageLeft[i] = maxSpeedVoltage;
+        }
     }
 
 //currentPhase = LAUNCH; 

@@ -2671,6 +2671,11 @@ if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - br
 
     if (std::abs(averageMotorVoltage) >= maxSpeedVoltage){
         accelCompleted = true;
+
+        for (int i = 0; i < 3; i++) {  
+        motorVoltageRight[i] = maxSpeedVoltage;
+        motorVoltageLeft[i] = maxSpeedVoltage;
+        }
     }
 
 //currentPhase = LAUNCH; 
@@ -2697,8 +2702,17 @@ for (int i = 0; i < 3; i++) {
     Brain.Screen.printAt(10, 20, "Cruise Phase");    // Else condition - specify actions here if the if condition is not met
     for (int i = 0; i < 3; i++) {
         // Example action: Set motor voltage to target voltage directly
-        motorVoltageLeft[i] = maxSpeedVoltage;
-        motorVoltageRight[i] = maxSpeedVoltage;
+        // motorVoltageLeft[i] = maxSpeedVoltage;
+        // motorVoltageRight[i] = maxSpeedVoltage;
+        motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], leftMotorAngularRadians[i], robotRadiansPerSecond);      // get slip voltage 
+        motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], rightMotorAngularRadians[i], robotRadiansPerSecond);   
+
+        //Find the lower of the 2 voltages
+        double lowerVoltage = std::min(motorVoltageLeft[i], motorVoltageRight[i]);
+
+        //Set left and right to the lowest motor voltage to reduce slip but keep it balanced on both side so the center of the spin is consistent
+        motorVoltageRight[i] = lowerVoltage;
+        motorVoltageLeft[i] = lowerVoltage;
     }
     
 
