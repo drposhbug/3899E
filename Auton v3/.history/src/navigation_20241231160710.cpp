@@ -2556,8 +2556,8 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     // Calculate minimum speed voltage and match its sign with targetDistance.
     double minSpeedVoltage = std::copysign(minSpeed * 0.01 * 12, targetDistanceInDegrees);
     //double avgMotorVoltage = 0;
-    double launchVoltage = std::copysign(2, targetDistanceInDegrees);
-    double minLaunchSpeedVoltage = std::min(abs(maxSpeedVoltage), abs(launchVoltage));
+    double launchVoltage = 6;
+    double minLaunchSpeedVoltage = std::min(maxSpeedVoltage, launchVoltage);
     double percentSpeedLoss = 0.2;
     double slipThresholdSpotTurn = 0.7; // the lower it is below 1, the slower and more controlled it will be
     double ABSLockThresholdSpotTurn = 0.8;

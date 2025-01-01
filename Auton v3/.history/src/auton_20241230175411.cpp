@@ -458,7 +458,7 @@ void autonRoutine7() {
 //pidStraightDistanceLaunchABS(0, 160, 95, 0.4, 0, 0, 0, 1.5, 10, 75);
 //spotTurnMP(90, 50, 15, 20);
 //spotTurnMP(-45, 100, 7, 40); // good setting for 45 degrees.
-spotTurnMP(-180, 100, 9, 85); //good decel distance and min speed without load
+spotTurnMP(180, 100, 8.5, 90); //good decel distance and min speed without load
 //spotTurn(-80, 10, 2, 0.4, 0, 0.05);
 
 }
@@ -479,9 +479,9 @@ spotTurn(29, 70, 2, 0.4, 0, 0.05);
 
 pidStraightDistanceABS(29, -40, 70, .15, 0, 0, 1, 0, 0, 20, 20);
 goalPneumatics.set(true);
-intakeMotor.spinFor(-8000, rotationUnits::deg, 100, velocityUnits::pct, false);
+intakeMotor.spinFor(-2000, rotationUnits::deg, 100, velocityUnits::pct, false);
 spotTurn(150, 70, 2, 0.4, 0, 0.05);
-pidStraightDistanceABS(150, 30, 70, .15, 0, 0, 1, 0, 0, 15, 15);
+pidStraightDistanceABS(150, 40, 70, .15, 0, 0, 1, 0, 0, 15, 20);
 /*
 
 //score alliance stake 
@@ -510,6 +510,5 @@ pidStraightDistanceABS(80, 75, 30, .15, 0, 0, 1, 0, 0, 15, 15);
 */
 }
 
+
     // Reset
-
-

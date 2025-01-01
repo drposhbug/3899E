@@ -2551,13 +2551,13 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     
     //Convert % Speed input to voltage with max voltage of 12
     // Calculate maximum speed voltage and match its sign with targetDistance.
-    double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * 12, targetDistanceInDegrees);
+    double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * 12, normTargetHeading);
 
     // Calculate minimum speed voltage and match its sign with targetDistance.
-    double minSpeedVoltage = std::copysign(minSpeed * 0.01 * 12, targetDistanceInDegrees);
+    double minSpeedVoltage = std::copysign(minSpeed * 0.01 * 12, normTargetHeading);
     //double avgMotorVoltage = 0;
-    double launchVoltage = std::copysign(2, targetDistanceInDegrees);
-    double minLaunchSpeedVoltage = std::min(abs(maxSpeedVoltage), abs(launchVoltage));
+    double launchVoltage = 6;
+    double minLaunchSpeedVoltage = std::min(maxSpeedVoltage, launchVoltage);
     double percentSpeedLoss = 0.2;
     double slipThresholdSpotTurn = 0.7; // the lower it is below 1, the slower and more controlled it will be
     double ABSLockThresholdSpotTurn = 0.8;
@@ -2611,7 +2611,7 @@ void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double b
     //launchControl (60, 60, 20);
         
     // Loop to continuously adjust motor power based on PID control 
-while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 5) && turnCompleted == false) {
+while ((std::abs(currentDistanceInDegrees) <= std::abs(targetDistanceInDegrees) - 6) && turnCompleted == false) {
 
        //Check if passed the target because max range is 0 to +-180 then it changes signs at 0 and 180 mark.
     if (std::round(currentNormHeading) * normTargetHeading < 0){
@@ -2662,7 +2662,7 @@ if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - br
         motorVoltageLeft[i] = lowerVoltage;
     }  
 
-        averageMotorVoltage = (abs(motorVoltageLeft[0]) + abs(motorVoltageRight[0]) + abs(motorVoltageLeft[1]) + abs(motorVoltageRight[1]) + abs(motorVoltageLeft[2]) + abs(motorVoltageRight[2])) / numberDriveMotor;
+        averageMotorVoltage = (motorVoltageLeft[0] + motorVoltageRight[0] + motorVoltageLeft[1] + motorVoltageRight[1] + motorVoltageLeft[2] + motorVoltageRight[2]) / numberDriveMotor;
     //    Brain.Screen.printAt(10, 20, "Launch Phase");
     
 
@@ -2700,7 +2700,7 @@ for (int i = 0; i < 3; i++) {
 //testing cruise with traction control
 
 } else if (std::abs(currentDistanceInDegrees) < (std::abs(targetDistanceInDegrees) - breakDistanceInDegrees) && accelCompleted == true) {
-break;   
+//break;   
     //accelCompleted = true;
     Brain.Screen.printAt(10, 20, "Cruise Phase");    // Else condition - specify actions here if the if condition is not met
     for (int i = 0; i < 3; i++) {
@@ -2714,7 +2714,7 @@ break;
 
 //If declerating then go to ABS routine
 } else if (std::abs(currentDistanceInDegrees) >= (std::abs(targetDistanceInDegrees) - breakDistanceInDegrees) && decelCompleted == false) {
-break;   
+//break;   
 decel = true; 
  
   Brain.Screen.printAt(10, 20, "Decel Phase");
@@ -2755,7 +2755,7 @@ decel = true;
 
     
 //if (abs(robotRadiansPerSecond) <= abs(minRadiansPerSecond * (1 - percentSpeedLoss))) {
- averageMotorVoltage = (abs(motorVoltageLeft[0]) + abs(motorVoltageRight[0]) + abs(motorVoltageLeft[1]) + abs(motorVoltageRight[1]) + abs(motorVoltageLeft[2]) + abs(motorVoltageRight[2])) / numberDriveMotor;
+ averageMotorVoltage = (motorVoltageLeft[0] + motorVoltageRight[0] + motorVoltageLeft[1] + motorVoltageRight[1] + motorVoltageLeft[2] + motorVoltageRight[2]) / numberDriveMotor;
 if (abs(averageMotorVoltage) <= abs(minSpeedVoltage)) {    
     decelCompleted = true;
 
@@ -2776,7 +2776,7 @@ if (abs(averageMotorVoltage) <= abs(minSpeedVoltage)) {
 
 //Final Approach Phase 
 } else if (decelCompleted == true) {
-    break;
+    //break;
         Brain.Screen.printAt(10, 20, "Approach Phase");    
         Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted); 
 
@@ -2867,7 +2867,7 @@ tractionControl::tractionControl(double minSpeedVoltage, double maxSpeedVoltage,
     }
     
     // Clamp voltage between the min and max while keeping the sign of maxSpeedVoltage.
-   motorVoltage = std::copysign(std::max(minSpeedVoltage, std::min(std::abs(motorVoltage), std::abs(maxSpeedVoltage))), maxSpeedVoltage);                   
+    motorVoltage = std::copysign(std::max(minSpeedVoltage, std::min(std::abs(motorVoltage), std::abs(maxSpeedVoltage))), maxSpeedVoltage);                      
 
     return motorVoltage;
 }  
