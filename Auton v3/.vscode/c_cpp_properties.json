@@ -10,7 +10,14 @@
 			"${vex_sdkPath}/gcc/include",
 			"${vex_sdkPath}/include/**",
 			"${workspaceFolder}/include/**",
-			"${workspaceFolder}/src/**"
+			"${workspaceFolder}/src/**",
+			"${workspaceFolder}\\include",
+			"${workspaceFolder}\\src",
+			"C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\vexrobotics.vexcode\\sdk\\cpp\\V5\\V5_20240223_11_00_00\\vexv5\\clang\\8.0.0\\include",
+			"C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\vexrobotics.vexcode\\sdk\\cpp\\V5\\V5_20240223_11_00_00\\vexv5\\gcc\\include\\c++\\4.9.3",
+			"C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\vexrobotics.vexcode\\sdk\\cpp\\V5\\V5_20240223_11_00_00\\vexv5\\gcc\\include\\c++\\4.9.3\\arm-none-eabi\\thumb",
+			"C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\vexrobotics.vexcode\\sdk\\cpp\\V5\\V5_20240223_11_00_00\\vexv5\\gcc\\include",
+			"C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\vexrobotics.vexcode\\sdk\\cpp\\V5\\V5_20240223_11_00_00\\vexv5\\include"
 		]
 	},
 	"configurations": [
