@@ -459,7 +459,7 @@ void autonRoutine7() {
 //spotTurnMP(90, 50, 15, 20);
 //spotTurnMP(-45, 100, 7, 40); // good setting for 45 degrees.
 //spotTurnMP(-180, 100, 15, 95); //good decel distance and min speed without load
-straight(-100, 100, 0, 50);
+straight(-100, 95, 0, 50);
 //spotTurn(-80, 10, 2, 0.4, 0, 0.05);
 
 }

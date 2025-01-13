@@ -3000,7 +3000,7 @@ if (std::abs(currentDistance) < (std::abs(targetDistance) - breakDistance) && !a
         //Call traction cotrol class and get adjusted motor voltage
         motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], avgEncoderRPM, leftEncoderRPM, accelFactorLaunch) + (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);      // get slip voltage and Adjust for heading correction
         motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], avgEncoderRPM, rightEncoderRPM, accelFactorLaunch) - (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);   
-          
+        scaleVoltages(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);  
     }  
 
     if (std::fabs(avgMotorVoltage) >= std::fabs(maxSpeedVoltage)){
@@ -3017,8 +3017,9 @@ if (std::abs(currentDistance) < (std::abs(targetDistance) - breakDistance) && !a
     
     for (int i = 0; i < 3; i++) {
         // Example action: Set motor voltage to target voltage directly
-        motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection);
-        motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection);
+        motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection * adjustedHeadingCorrection);
+        motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection * adjustedHeadingCorrection);
+        scaleVoltages(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
     }  
 
 // Decel Phase
@@ -3090,6 +3091,7 @@ if (fabs(avgEncoderRPM) <= fabs(minDriveMotorRPM)) {
         // Example action: Set motor voltage to target voltage directly
         motorVoltageLeft[i] = minSpeedVoltage + (adjustedHeadingCorrection * approachHeadingScaling);
         motorVoltageRight[i] = minSpeedVoltage - (adjustedHeadingCorrection * approachHeadingScaling);
+        scaleVoltages(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
     }
     Brain.Screen.printAt(10, 20, "Approach Phase");
 } 

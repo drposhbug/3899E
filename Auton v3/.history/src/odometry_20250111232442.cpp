@@ -86,98 +86,105 @@ void updateOdometry() {
 //   distance: Reference parameter - will be set to distance to target (in cm)
 //   heading: Reference parameter - will be set to required heading (in degrees)
 void calculatePathToTarget(double currentX, double currentY, 
-                         double targetX, double targetY, 
-                         double& distance, double& heading) {
-    // Calculate straight-line distance using Pythagorean theorem
-    distance = sqrt(pow(targetX - currentX, 2) + pow(targetY - currentY, 2));
-    
-    // Calculate required heading using atan2
-    heading = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
+                        double targetX, double targetY, 
+                        double& distance, double& heading) {
+   // Calculate straight-line distance using Pythagorean theorem
+   // sqrt((x2-x1)^2 + (y2-y1)^2)
+   distance = sqrt(pow(targetX - currentX, 2) + pow(targetY - currentY, 2));
+   
+   // Calculate required heading using atan2
+   // atan2 gives angle in radians from -π to π, convert to degrees
+   // atan2(y2-y1, x2-x1) gives angle between points
+   heading = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
 }
 
 // Function to turn robot to face a specific (x,y) coordinate
 // Parameters:
 //   targetX, targetY: The point we want to face (in cm)
 //   turnSpeed: Maximum speed for the turn (0-100)
+//   tolerance: How close to target heading is acceptable (in degrees)
 //   minSpeed: Minimum speed to maintain during turn
-//   breakDistance: Break distance in degrees for motion profiling
+//   slipThreshold: Factor to help prevent slipping during turn
+//   accelFactor: Controls how quickly we accelerate during turn
 void turnToPoint(double targetX, double targetY, 
-                double turnSpeed, double minSpeed, 
-                double breakDistance) {
-    // Start timer for timeout safety
-    double startTime = Brain.Timer.time(msec);
-    const double TIMEOUT = 3000; // 3 seconds maximum for turn
+               double turnSpeed = 50, double tolerance = 5.0, 
+               double minSpeed = 5.0, double slipThreshold = 1.1, 
+               double accelFactor = 1.4) {
+   // Start timer for timeout safety
+   double startTime = Brain.Timer.time(msec);
+   const double TIMEOUT = 3000; // 3 seconds maximum for turn
 
-    // Get current position from odometry
-    double currentX = globalX;
-    double currentY = globalY;
-    double currentHeading = globalHeading;
+   // Get current position from odometry
+   double currentX = globalX;
+   double currentY = globalY;
+   double currentHeading = globalHeading;
 
-    // Calculate target heading using arctangent
-    double targetHeading = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
-    targetHeading = normalizeHeading(targetHeading);
+   // Calculate target heading using arctangent
+   // atan2 gives us angle in radians, convert to degrees
+   double targetHeading = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
+   targetHeading = normalizeHeading(targetHeading); // Normalize to 0-360 degrees
 
-    // Disable X-encoder tracking during the turn
-    bool previousXEncoderState = xEncoderEnabled;
-    xEncoderEnabled = false;
+   // Disable X-encoder tracking during the turn to prevent false readings
+   bool previousXEncoderState = xEncoderEnabled;
+   xEncoderEnabled = false;
 
-    // Perform the spot turn with motion profiling
-    spotTurnMP(targetHeading, turnSpeed, minSpeed, breakDistance);
+   // Perform the spot turn with motion profiling
+   spotTurnMP(targetHeading, turnSpeed, minSpeed, tolerance);
 
-    // Check if we've exceeded timeout
-    if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
-        Brain.Screen.printAt(10, 40, "Turn timeout");
-    }
+   // Check if we've exceeded timeout
+   if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
+       Brain.Screen.printAt(10, 40, "Turn timeout");
+   }
 
-    // Re-enable X-encoder tracking
-    xEncoderEnabled = previousXEncoderState;
+   // Re-enable X-encoder tracking
+   xEncoderEnabled = previousXEncoderState;
 
-    // Update odometry after completing turn
-    updateOdometry();
+   // Update odometry after completing turn
+   updateOdometry();
 }
 
 // Function to move robot in a straight line to a specific (x,y) coordinate
 // Parameters:
 //   targetX, targetY: The point to move to (in cm)
 //   straightSpeed: Maximum forward speed (0-100)
-//   breakDistance: Break distance for motion profiling (in cm)
+//   stopTolerance: How close to target point is acceptable (in cm)
 //   kp_heading: Proportional gain for heading correction
 //   ki_heading: Integral gain for heading correction
 //   kd_heading: Derivative gain for heading correction
 //   accelHeadingScaling: Heading correction scaling during acceleration
 //   decelHeadingScaling: Heading correction scaling during deceleration
-//   approachHeadingScaling: Heading correction scaling during final approach
 //   minSpeed: Minimum speed to maintain during movement
 void straightTo(double targetX, double targetY, 
-               double straightSpeed, double breakDistance,
-               double kp_heading, double ki_heading, 
-               double kd_heading, double accelHeadingScaling,
-               double decelHeadingScaling, double approachHeadingScaling, 
-               double minSpeed) {
-    // Start timer for timeout safety
-    double startTime = Brain.Timer.time(msec);
-    const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
+              double straightSpeed, double stopTolerance = 1.0,
+              double kp_heading, double ki_heading, 
+              double kd_heading, double accelHeadingScaling,
+              double decelHeadingScaling, double approachHeadingScaling, double minSpeed) {
+   // Start timer for timeout safety
+   double startTime = Brain.Timer.time(msec);
+   const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
 
-    // Get current position from odometry
-    double currentX = globalX;
-    double currentY = globalY;
-    double currentHeading = globalHeading;
+   // Get current position from odometry
+   double currentX = globalX;
+   double currentY = globalY;
+   double currentHeading = globalHeading;
 
-    // Calculate path to target
-    double distanceToTarget, targetHeading;
-    calculatePathToTarget(currentX, currentY, targetX, targetY, distanceToTarget, targetHeading);
-    targetHeading = normalizeHeading(targetHeading);
+   // Calculate path to target (distance and required heading)
+   double distanceToTarget, targetHeading;
+   calculatePathToTarget(currentX, currentY, targetX, targetY, distanceToTarget, targetHeading);
 
-    // Move straight with PID heading correction
-    straight(distanceToTarget, straightSpeed, targetHeading, breakDistance,
-            kp_heading, ki_heading, kd_heading, accelHeadingScaling,
-            decelHeadingScaling, approachHeadingScaling, minSpeed);
+   // Normalize heading to 0-360 degrees
+   targetHeading = normalizeHeading(targetHeading);
 
-    // Check if we've exceeded timeout
-    if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
-        Brain.Screen.printAt(10, 60, "Straight move timeout");
-    }
+   // Move straight with PID heading correction
+   straight(distanceToTarget, straightSpeed, targetHeading, stopTolerance,
+           kp_heading, ki_heading, kd_heading, accelHeadingScaling,
+           decelHeadingScaling, 1.0, minSpeed);
 
-    // Update odometry after completing movement
-    updateOdometry();
+   // Check if we've exceeded timeout
+   if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
+       Brain.Screen.printAt(10, 60, "Straight move timeout");
+   }
+
+   // Update odometry after completing movement
+   updateOdometry();
 }

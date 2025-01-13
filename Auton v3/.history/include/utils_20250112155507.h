@@ -66,6 +66,5 @@ enum ColorType {
 void checkColor(ColorType colorToDetect, ActionFunction action);
 
 void scaleVoltages(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage); 
-void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage);
 
 #endif // UTILS_H

@@ -26,20 +26,16 @@ void calculatePathToTarget(double currentX, double currentY,
                          double targetX, double targetY, 
                          double& distance, double& heading);  // Calculates path parameters to target
 
-void turnToPoint(double targetX, double targetY,            
-                double turnSpeed = 50,                     // maxSpeed 
-                double minSpeed = 5.0,                     // minSpeed
-                double breakDistance = 5.0);               // breakDistanceInDegrees
+// Navigation Movement Functions
+void turnToPoint(double targetX, double targetY,            // Turn to face a point
+                double turnSpeed = 50, double tolerance = 5.0, 
+                double minSpeed = 5.0, double slipThreshold = 1.1, 
+                double accelFactor = 1.4);
 
-void straightTo(double targetX, double targetY,             
-               double straightSpeed = 70,                  // maxSpeed
-               double breakDistance = 1.0,                 // breakDistance
-               double kp_heading = 1.0,                    // kp_heading
-               double ki_heading = 0.0,                    // ki_heading
-               double kd_heading = 0.0,                    // kd_heading
-               double accelHeadingScaling = 0.5,          // accelHeadingScaling
-               double decelHeadingScaling = 1.0,          // decelHeadingScaling
-               double approachHeadingScaling = 1.0,       // approachHeadingScaling
-               double minSpeed = 10.0);                    // minSpeed
+void straightTo(double targetX, double targetY,             // Move straight to a point
+               double straightSpeed = 70, double stopTolerance = 1.0,
+               double kp_heading = 1.0, double ki_heading = 0.0, 
+               double kd_heading = 0.0, double accelHeadingScaling = 0.5,
+               double decelHeadingScaling = 1.0, double minSpeed = 10.0);
 
 #endif // ODOMETRY_H

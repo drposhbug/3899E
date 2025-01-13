@@ -285,15 +285,16 @@ void scaleVoltages(double& leftVoltage, double& rightVoltage, double absoluteMax
     }
 }
 
-void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage) {
+
+void scaleVoltages(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage) {
     double pidCorrectionDiff = fabs(leftVoltage - rightVoltage);
-    
     if (std::abs(leftVoltage) > absoluteMaxVoltage) {
-        leftVoltage = std::copysign(absoluteMaxVoltage, leftVoltage);
-        rightVoltage = leftVoltage - std::copysign(pidCorrectionDiff, leftVoltage);
+        leftVoltage = 12;
+        rightVoltage = 12 - pidCorrectionDiff;
     }
-    else if (std::abs(rightVoltage) > absoluteMaxVoltage) {
-        rightVoltage = std::copysign(absoluteMaxVoltage, rightVoltage);
-        leftVoltage = rightVoltage - std::copysign(pidCorrectionDiff, rightVoltage);
+
+      if (std::abs(rightVoltage) > absoluteMaxVoltage) {
+        leftVoltage = 12 - pidCorrectionDiff;
+        rightVoltage = 12;
     }
 }

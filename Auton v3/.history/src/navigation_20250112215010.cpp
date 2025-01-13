@@ -2909,13 +2909,13 @@ void straight(double targetDistance, double maxSpeed, double targetHeading, doub
     passiveEncoderLeft.resetPosition();
     passiveEncoderRight.resetPosition();  
 
-    double normTargetHeading = normHeading(targetHeading);
-
     // Initialize PID controllers
     PID headingPID(kp_heading, ki_heading, kd_heading);
     
     headingPID.pidReset();
   
+
+    double normTargetHeading = normHeading(targetHeading);
     //Convert % Speed input to voltage with max voltage of 12
     // Calculate maximum speed voltage and match its sign with targetDistance.
     double headingDirection = (targetDistance > 0) ? 1.0 : -1.0; //Need this as a multiplier to reverse PID corrections when going backwards
@@ -3000,7 +3000,7 @@ if (std::abs(currentDistance) < (std::abs(targetDistance) - breakDistance) && !a
         //Call traction cotrol class and get adjusted motor voltage
         motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], avgEncoderRPM, leftEncoderRPM, accelFactorLaunch) + (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);      // get slip voltage and Adjust for heading correction
         motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], avgEncoderRPM, rightEncoderRPM, accelFactorLaunch) - (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);   
-          
+        PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);  
     }  
 
     if (std::fabs(avgMotorVoltage) >= std::fabs(maxSpeedVoltage)){
@@ -3017,8 +3017,9 @@ if (std::abs(currentDistance) < (std::abs(targetDistance) - breakDistance) && !a
     
     for (int i = 0; i < 3; i++) {
         // Example action: Set motor voltage to target voltage directly
-        motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection);
-        motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection);
+        motorVoltageLeft[i] = maxSpeedVoltage + (adjustedHeadingCorrection);
+        motorVoltageRight[i] = maxSpeedVoltage - (adjustedHeadingCorrection);
+        PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
     }  
 
 // Decel Phase
@@ -3061,6 +3062,8 @@ if (rightBrakeMode == brakeType::coast) {
     Brain.Screen.printAt(10, 140, "motorVoltageLeft: %d", static_cast<int>(motorVoltageLeft[2]));
     Brain.Screen.printAt(10, 160, "motorVoltageRight: %d", static_cast<int>(motorVoltageRight[2]));
 
+    PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
+
     //Right Side
 
 
@@ -3090,6 +3093,7 @@ if (fabs(avgEncoderRPM) <= fabs(minDriveMotorRPM)) {
         // Example action: Set motor voltage to target voltage directly
         motorVoltageLeft[i] = minSpeedVoltage + (adjustedHeadingCorrection * approachHeadingScaling);
         motorVoltageRight[i] = minSpeedVoltage - (adjustedHeadingCorrection * approachHeadingScaling);
+        PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
     }
     Brain.Screen.printAt(10, 20, "Approach Phase");
 } 

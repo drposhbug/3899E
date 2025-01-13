@@ -2919,10 +2919,10 @@ void straight(double targetDistance, double maxSpeed, double targetHeading, doub
     //Convert % Speed input to voltage with max voltage of 12
     // Calculate maximum speed voltage and match its sign with targetDistance.
     double headingDirection = (targetDistance > 0) ? 1.0 : -1.0; //Need this as a multiplier to reverse PID corrections when going backwards
-    double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
+    double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * 12, targetDistance);
 
     // Calculate minimum speed voltage and match its sign with targetDistance.
-    double minSpeedVoltage = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
+    double minSpeedVoltage = std::copysign(minSpeed * 0.01 * 12, targetDistance);
     double avgMotorVoltage = 0;
     double launchVoltage = std::copysign(5, targetDistance); 
     double minLaunchSpeedVoltage = std::copysign(std::min(abs(maxSpeedVoltage), abs(launchVoltage)), targetDistance);
@@ -2999,8 +2999,7 @@ if (std::abs(currentDistance) < (std::abs(targetDistance) - breakDistance) && !a
     for (int i = 0; i < 3; i++) {   
         //Call traction cotrol class and get adjusted motor voltage
         motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], avgEncoderRPM, leftEncoderRPM, accelFactorLaunch) + (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);      // get slip voltage and Adjust for heading correction
-        motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], avgEncoderRPM, rightEncoderRPM, accelFactorLaunch) - (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);   
-          
+        motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], avgEncoderRPM, rightEncoderRPM, accelFactorLaunch) - (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);     
     }  
 
     if (std::fabs(avgMotorVoltage) >= std::fabs(maxSpeedVoltage)){
@@ -3082,7 +3081,7 @@ if (fabs(avgEncoderRPM) <= fabs(minDriveMotorRPM)) {
 
 //Final Approach Phase 
 } else if (decelCompleted == true) {
-    //break;
+    break;
         Brain.Screen.printAt(10, 20, "Approach Phase");    
         Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted); 
 

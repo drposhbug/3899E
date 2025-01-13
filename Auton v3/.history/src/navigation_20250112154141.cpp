@@ -2999,8 +2999,7 @@ if (std::abs(currentDistance) < (std::abs(targetDistance) - breakDistance) && !a
     for (int i = 0; i < 3; i++) {   
         //Call traction cotrol class and get adjusted motor voltage
         motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], avgEncoderRPM, leftEncoderRPM, accelFactorLaunch) + (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);      // get slip voltage and Adjust for heading correction
-        motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], avgEncoderRPM, rightEncoderRPM, accelFactorLaunch) - (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);   
-          
+        motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], avgEncoderRPM, rightEncoderRPM, accelFactorLaunch) - (adjustedHeadingCorrection * accelHeadingScaling * headingDirection);     
     }  
 
     if (std::fabs(avgMotorVoltage) >= std::fabs(maxSpeedVoltage)){

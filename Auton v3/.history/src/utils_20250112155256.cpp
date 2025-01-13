@@ -2,7 +2,6 @@
 #include "utils.h"
 #include <cmath> // Include the header for fmod function
 #include "robot-config.h" 
-#include <algorithm>
 
 using namespace vex;
 
@@ -282,18 +281,5 @@ void scaleVoltages(double& leftVoltage, double& rightVoltage, double absoluteMax
         double scale = absoluteMaxVoltage / std::max(std::abs(leftVoltage), std::abs(rightVoltage));
         leftVoltage *= scale;
         rightVoltage *= scale;
-    }
-}
-
-void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage) {
-    double pidCorrectionDiff = fabs(leftVoltage - rightVoltage);
-    
-    if (std::abs(leftVoltage) > absoluteMaxVoltage) {
-        leftVoltage = std::copysign(absoluteMaxVoltage, leftVoltage);
-        rightVoltage = leftVoltage - std::copysign(pidCorrectionDiff, leftVoltage);
-    }
-    else if (std::abs(rightVoltage) > absoluteMaxVoltage) {
-        rightVoltage = std::copysign(absoluteMaxVoltage, rightVoltage);
-        leftVoltage = rightVoltage - std::copysign(pidCorrectionDiff, rightVoltage);
     }
 }
