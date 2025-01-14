@@ -2978,8 +2978,8 @@ void straight(double targetDistance,
 
         // Calculate the heading correction using the PID controller 
         double headingCorrection = headingPID.calculate(normTargetHeading, normHeading(InertialSensor.heading()));
-        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (wheelCircumferenceCM / encoderWheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (wheelCircumferenceCM / encoderWheelCircumferenceCM);
         double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM)/2;
         //double adjustedHeadingCorrection = headingCorrection * avgEncoderRPM / absoluteMaxRPM; //dynamically reduce heading correction at slower speed based on percentage of max speed
 

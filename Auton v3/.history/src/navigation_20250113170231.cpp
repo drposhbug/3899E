@@ -2945,9 +2945,9 @@ void straight(double targetDistance,
     double rightMotorRPM[3] = {0, 0, 0};
 
     // Traction Control Parameters
-    double slipThreshold = 10;
+    double slipThreshold = 1.2;
     //double accelFactorLaunch = 1.4; //good starting launch acceleration factor
-    double accelFactorLaunch = 2; //test, temporary
+    double accelFactorLaunch = 1.05; //test, temporary
 
     // PID and Heading Control
     double normTargetHeading = normHeading(targetHeading);
@@ -2978,13 +2978,13 @@ void straight(double targetDistance,
 
         // Calculate the heading correction using the PID controller 
         double headingCorrection = headingPID.calculate(normTargetHeading, normHeading(InertialSensor.heading()));
-        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM)/2;
+        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm);
+        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm);
+        double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM)/2  * (wheelCircumferenceCM / encoderWheelCircumferenceCM);
         //double adjustedHeadingCorrection = headingCorrection * avgEncoderRPM / absoluteMaxRPM; //dynamically reduce heading correction at slower speed based on percentage of max speed
 
         //Quadratics scaling factor for PID
-        double scaleFactorPower = 2;
+        double scaleFactorPower = 5;
         double speedRatio = std::min(1.0, std::fabs(avgEncoderRPM / maxDriveMotorRPM)); //caps max speed ratio at 1:1
         double scaleFactor = std::pow(speedRatio, scaleFactorPower);
         double adjustedHeadingCorrection = headingCorrection * scaleFactor;
@@ -3013,13 +3013,6 @@ void straight(double targetDistance,
 
         if (std::fabs(avgMotorVoltage) >= std::fabs(maxSpeedVoltage)){
             accelCompleted = true;
-               // Stop all motors at end of routine after approach
-        for (int i = 0; i < 3; i++) {
-            motorVoltageLeft[i] = 0;
-            motorVoltageRight[i] = 0;
-            leftMotor[i].stop(brake);
-            rightMotor[i].stop(brake);
-        }
         }
     
         Brain.Screen.printAt(10, 20, "Launch Phase");
@@ -3125,7 +3118,7 @@ void straight(double targetDistance,
             }
     //}       
             double avgMotorRPM = (leftMotorRPM[0] + leftMotorRPM[1] + leftMotorRPM[2] + rightMotorRPM[0] + rightMotorRPM[1] + rightMotorRPM[2])/6;
-            Brain.Screen.printAt(10, 60, "Motor: %.2f, Robot L: %.2f, Robot R: %.2f", leftMotorRPM[1],leftEncoderRPM, rightEncoderRPM); 
+            Brain.Screen.printAt(10, 60, "Motor Speed: %.2f, Robot Speed: %.2f", leftMotorRPM[1],avgEncoderRPM ); 
         // Brain.Screen.printAt(10, 60, "Left Encoder: %.2f degrees", leftEncoderRPM);
         // Brain.Screen.printAt(10, 80, "Right Encoder: %.2f", rightEncoderRPM);
             //Brain.Screen.printAt(10, 120, "Lt Motor Speed: %.2f", leftMotor[2].velocity(vex::velocityUnits::pct));

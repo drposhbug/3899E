@@ -18,7 +18,7 @@ void pidStraightDistanceSlipABS(double targetHeading, double targetDistance, dou
 void pidStraightDistanceLaunchABS(double targetHeading, double targetDistance, double maxSpeed = 70, double kp_heading = 0.4, double ki_heading = 0, double kd_heading = 0.0, double minSpeed = 10, double accelHeadingScaling = 0, double decelHeadingScaling = 1.25, double breakDistance = 25); 
 void absControl(double targetLeftVoltage, double targetRightVoltage);
 void spotTurnMP(double targetHeading, double maxSpeed, double minSpeed, double breakDistanceInDegrees);
-void straight(double targetDistance, double maxSpeed = 100, double targetHeading = 0, double breakDistance = 90, double kp_heading = 0.5, double ki_heading = 0.0, double kd_heading = 0.0, double accelHeadingScaling = 0.2, double decelHeadingScaling = 1, double approachHeadingScaling = 1, double minSpeed = 15);
+void straight(double targetDistance, double maxSpeed = 100, double targetHeading = 0, double breakDistance = 90, double kp_heading = 1.2, double ki_heading = 0.0, double kd_heading = 0.0, double accelHeadingScaling = 0.0, double decelHeadingScaling = 1, double approachHeadingScaling = 1, double minSpeed = 15);
 double launchControl(double targetDriverSpeed, vex::motor& motor, vex::rotation& encoder);
 
 

@@ -46,7 +46,7 @@ vex::aivision visionSensor(vex::PORT6, red1);
 
 //Define Constants
 const double wheelCircumferenceCM = 21.94; // circumference of the motorized wheel in cm
-const double encoderWheelCircumferenceCM = 15.96; // Circumference of the encoder wheel in cm
+const double encoderWheelCircumferenceCM = 15.9593; // Circumference of the encoder wheel in cm
 const double trackWidth = 31; // distance between left and right wheels in cm 
 
 ArmPosition armstat = ArmPosition::Starting;

@@ -290,11 +290,10 @@ void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double a
     
     if (std::abs(leftVoltage) > absoluteMaxVoltage) {
         leftVoltage = std::copysign(absoluteMaxVoltage, leftVoltage);
-        rightVoltage = std::copysign((absoluteMaxVoltage - pidCorrectionDiff), rightVoltage);
+        rightVoltage = leftVoltage - std::copysign(pidCorrectionDiff, leftVoltage);
     }
     else if (std::abs(rightVoltage) > absoluteMaxVoltage) {
-        leftVoltage = std::copysign((absoluteMaxVoltage - pidCorrectionDiff), leftVoltage);
         rightVoltage = std::copysign(absoluteMaxVoltage, rightVoltage);
+        leftVoltage = rightVoltage - std::copysign(pidCorrectionDiff, rightVoltage);
     }
-
 }
