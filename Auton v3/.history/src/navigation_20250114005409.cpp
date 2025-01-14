@@ -2906,7 +2906,7 @@ double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSp
    // Calculate slip ratio = (Wheel Speed - Robot Speed) / Wheel Speed
    // This gives us percentage of wheel spin relative to actual travel speed
    // 0 = no slip, 0.2 = 20% slip, etc.
-   double slipRatio = fabs((wheelSpeed - robotSpeed) / wheelSpeed);
+   double slipRatio = fabs((wheelSpeed) - (robotSpeed) / (wheelSpeed));
 
    // If slip exceeds threshold, reduce power to regain traction
    // If slip is under control, gradually increase available power
@@ -2990,10 +2990,10 @@ void straight(double targetDistance,
     double rightMotorRPM[3] = {0, 0, 0};
 
     // Traction Control Parameters
-    // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
-    double slipThreshold = 100;
+    // slipThreshold: 0-1 range (0 = no slip, 1 = full slip)
+    double slipThreshold = 0.25;
     //double accelFactorLaunch = 1.4; //good starting launch acceleration factor
-    double accelFactorLaunch = 1.4; //test, temporary
+    double accelFactorLaunch = 1.2; //test, temporary
 
     // PID and Heading Control
     double normTargetHeading = normHeading(targetHeading);

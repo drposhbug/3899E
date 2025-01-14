@@ -2991,7 +2991,7 @@ void straight(double targetDistance,
 
     // Traction Control Parameters
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
-    double slipThreshold = 100;
+    double slipThreshold = 0.15;
     //double accelFactorLaunch = 1.4; //good starting launch acceleration factor
     double accelFactorLaunch = 1.4; //test, temporary
 

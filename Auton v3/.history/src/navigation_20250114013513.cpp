@@ -2912,10 +2912,6 @@ double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSp
    // If slip is under control, gradually increase available power
    if (slipRatio > slipThreshold) {                      
        motorVoltage = motorVoltage / accelFactor;    // Reduce power when slipping
-   
-   } else {
-       motorVoltage = motorVoltage * accelFactor;    // Increase power when grip is good
-           // Debug prints
     Brain.Screen.setCursor(1,1);
     Brain.Screen.print("WS: %.3f", fabs(wheelSpeed));
     Brain.Screen.setCursor(2,1);
@@ -2924,6 +2920,12 @@ double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSp
     Brain.Screen.print("Slip: %.3f", slipRatio);
     Brain.Screen.setCursor(8,1);
     Brain.Screen.print("Condition: %d", slipRatio > slipThreshold);
+
+
+   } else {
+       motorVoltage = motorVoltage * accelFactor;    // Increase power when grip is good
+           // Debug prints
+
    }
    
    // Clamp voltage between the min and max while keeping the sign of maxSpeedVoltage

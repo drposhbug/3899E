@@ -2906,7 +2906,7 @@ double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSp
    // Calculate slip ratio = (Wheel Speed - Robot Speed) / Wheel Speed
    // This gives us percentage of wheel spin relative to actual travel speed
    // 0 = no slip, 0.2 = 20% slip, etc.
-   double slipRatio = fabs((wheelSpeed - robotSpeed) / wheelSpeed);
+   double slipRatio = (fabs(wheelSpeed) - fabs(robotSpeed)) / fabs(wheelSpeed);
 
    // If slip exceeds threshold, reduce power to regain traction
    // If slip is under control, gradually increase available power
@@ -2915,21 +2915,14 @@ double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSp
    
    } else {
        motorVoltage = motorVoltage * accelFactor;    // Increase power when grip is good
-           // Debug prints
-    Brain.Screen.setCursor(1,1);
-    Brain.Screen.print("WS: %.3f", fabs(wheelSpeed));
-    Brain.Screen.setCursor(2,1);
-    Brain.Screen.print("RS: %.3f", fabs(robotSpeed));
-    Brain.Screen.setCursor(3,1);
-    Brain.Screen.print("Slip: %.3f", slipRatio);
-    Brain.Screen.setCursor(8,1);
-    Brain.Screen.print("Condition: %d", slipRatio > slipThreshold);
    }
    
    // Clamp voltage between the min and max while keeping the sign of maxSpeedVoltage
    // This ensures we stay within safe operating voltage range while preserving direction
-   motorVoltage = std::copysign(std::max(std::fabs(minSpeedVoltage), std::min(std::fabs(motorVoltage), std::fabs(maxSpeedVoltage))), motorVoltage);
-   
+   motorVoltage = std::copysign(std::max(std::fabs(minSpeedVoltage), 
+                               std::min(std::fabs(motorVoltage), std::fabs(maxSpeedVoltage))), 
+                               motorVoltage);                   
+
    return motorVoltage;
 }
 
@@ -2975,7 +2968,7 @@ void straight(double targetDistance,
     // Target Speeds & Voltages
     double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
     double minSpeedVoltage = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
-    double launchVoltage = std::copysign(2, targetDistance);
+    double launchVoltage = std::copysign(5, targetDistance);
     double minLaunchSpeedVoltage = std::copysign(std::min(abs(maxSpeedVoltage), abs(launchVoltage)), targetDistance);
 
     // RPM Parameters
@@ -2990,10 +2983,9 @@ void straight(double targetDistance,
     double rightMotorRPM[3] = {0, 0, 0};
 
     // Traction Control Parameters
-    // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
-    double slipThreshold = 100;
+    double slipThreshold = 0;
     //double accelFactorLaunch = 1.4; //good starting launch acceleration factor
-    double accelFactorLaunch = 1.4; //test, temporary
+    double accelFactorLaunch = 12; //test, temporary
 
     // PID and Heading Control
     double normTargetHeading = normHeading(targetHeading);
@@ -3048,7 +3040,7 @@ void straight(double targetDistance,
         for (int i = 0; i < 3; i++) {   
 
             // Print initial values
-            //Brain.Screen.printAt(10, 80, "Init L: %.2f, R: %.2f", motorVoltageLeft[i], motorVoltageRight[i]);
+            Brain.Screen.printAt(10, 80, "Init L: %.2f, R: %.2f", motorVoltageLeft[i], motorVoltageRight[i]);
             
             //Call traction cotrol class and get adjusted motor voltage
             motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], leftMotorRPM[i], avgEncoderRPM, accelFactorLaunch) + (adjustedHeadingCorrection * accelHeadingScaling);      // get slip voltage and Adjust for heading correction
@@ -3068,7 +3060,7 @@ void straight(double targetDistance,
         }
         }
     
-        //Brain.Screen.printAt(10, 20, "Launch Phase");
+        Brain.Screen.printAt(10, 20, "Launch Phase");
 
 
     //Cruise Phase      
@@ -3171,7 +3163,7 @@ void straight(double targetDistance,
             }
     //}       
             double avgMotorRPM = (leftMotorRPM[0] + leftMotorRPM[1] + leftMotorRPM[2] + rightMotorRPM[0] + rightMotorRPM[1] + rightMotorRPM[2])/6;
-          //  Brain.Screen.printAt(10, 60, "Motor: %.2f, Robot L: %.2f, Robot R: %.2f", leftMotorRPM[1],leftEncoderRPM, rightEncoderRPM); 
+            Brain.Screen.printAt(10, 60, "Motor: %.2f, Robot L: %.2f, Robot R: %.2f", leftMotorRPM[1],leftEncoderRPM, rightEncoderRPM); 
         // Brain.Screen.printAt(10, 60, "Left Encoder: %.2f degrees", leftEncoderRPM);
         // Brain.Screen.printAt(10, 80, "Right Encoder: %.2f", rightEncoderRPM);
             //Brain.Screen.printAt(10, 120, "Lt Motor Speed: %.2f", leftMotor[2].velocity(vex::velocityUnits::pct));
