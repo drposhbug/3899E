@@ -411,10 +411,10 @@ if (Controller.ButtonY.pressing()) {
     armMotor.spin(reverse, 40, velocityUnits::pct);  // Slower descent
     isMovingDown = true;
 }
-        }
-    } else {
-        wasYPressed = false; // Reset the state when the button is released
-    }
+
+} else {
+    wasBumperPressed = false;
+}
 
 
 
@@ -516,6 +516,7 @@ if (Controller.ButtonY.pressing()) {
         }
         }
 
+
 if (armBumper.value() == 1) {  // Bumper is pressed
     if (!wasBumperPressed && isMovingDown) {
         wasBumperPressed = true;
@@ -527,7 +528,6 @@ if (armBumper.value() == 1) {  // Bumper is pressed
 } else {
     wasBumperPressed = false;
 }
-
 
         LeftMotor1.spin(forward, motorPowerLeft[0], percent);
         RightMotor1.spin(forward, motorPowerRight[0], percent);

@@ -44,7 +44,6 @@ void driverControl() {
     bool wasLeftPressed = false;  
     bool wasBumperPressed = false; 
     bool bumperEngaged = false;
-    bool isMovingDown = false;
     // bool isHookPneumaticsActive = false;          // Variable to track clawPneumatics state
     //bool isIntakePneumaticsActive = false;        // Variable to track goalPneumatics state
     bool isGoalPneumaticsActive = true;           // Initial state reversed
@@ -406,10 +405,12 @@ if (Controller.ButtonY.pressing()) {
                 armMotor.spinToPosition(Load2, rotationUnits::deg, 100, velocityUnits::pct, false);
                 armstat = ArmPosition::Load2;
 
-} else if (armstat == ArmPosition::Load2) {
+} else if (armstat == ArmPosition::Load1 || armstat == ArmPosition::Load2) { // Added condition
+    // Move arm back to Ready position
+    armstat = ArmPosition::Starting;
     armMotor.setBrake(brakeType::hold);        
-    armMotor.spin(reverse, 40, velocityUnits::pct);  // Slower descent
-    isMovingDown = true;
+    armMotor.spin(reverse, 100, velocityUnits::pct);  // Spin downward until bumper hit
+    //armMotor.spinToPosition(Starting, rotationUnits::deg, 70, velocityUnits::pct, false);
 }
         }
     } else {
@@ -516,18 +517,24 @@ if (Controller.ButtonY.pressing()) {
         }
         }
 
+
+// Simplified bumper handling
 if (armBumper.value() == 1) {  // Bumper is pressed
-    if (!wasBumperPressed && isMovingDown) {
+    if (!wasBumperPressed) {  // First time pressing
         wasBumperPressed = true;
         armMotor.stop(brakeType::brake);
         armMotor.resetPosition();
-        armstat = ArmPosition::Starting;
-        isMovingDown = false;
+        armstat = ArmPosition::Starting;  // Update state to Starting
+        Brain.Screen.clearLine(1);
+        Brain.Screen.setCursor(1, 1);
+        Brain.Screen.print("ARM RESET!");
     }
 } else {
     wasBumperPressed = false;
+    Brain.Screen.clearLine(1);
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("NO RESET!");
 }
-
 
         LeftMotor1.spin(forward, motorPowerLeft[0], percent);
         RightMotor1.spin(forward, motorPowerRight[0], percent);

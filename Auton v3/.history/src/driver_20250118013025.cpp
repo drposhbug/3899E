@@ -44,7 +44,6 @@ void driverControl() {
     bool wasLeftPressed = false;  
     bool wasBumperPressed = false; 
     bool bumperEngaged = false;
-    bool isMovingDown = false;
     // bool isHookPneumaticsActive = false;          // Variable to track clawPneumatics state
     //bool isIntakePneumaticsActive = false;        // Variable to track goalPneumatics state
     bool isGoalPneumaticsActive = true;           // Initial state reversed
@@ -398,6 +397,10 @@ if (Controller.ButtonY.pressing()) {
                 armMotor.setBrake(brakeType::hold);
                 armMotor.spinToPosition(Load1, rotationUnits::deg, 100, velocityUnits::pct, false);
                 armstat = ArmPosition::Load1;
+                bumperEngaged = false; 
+                Brain.Screen.clearLine(1);
+                Brain.Screen.setCursor(1, 1);
+                Brain.Screen.print("ARM NOT RESET!");
 
             //Move from Load1 to Load2
             }else if (armstat == ArmPosition::Load1) {
@@ -405,11 +408,22 @@ if (Controller.ButtonY.pressing()) {
                 armMotor.setBrake(brakeType::hold);
                 armMotor.spinToPosition(Load2, rotationUnits::deg, 100, velocityUnits::pct, false);
                 armstat = ArmPosition::Load2;
+                
 
-} else if (armstat == ArmPosition::Load2) {
+} else if (armstat == ArmPosition::Load1 || armstat == ArmPosition::Load2) { // Added condition
+    // Move arm back to Ready position
     armMotor.setBrake(brakeType::hold);        
-    armMotor.spin(reverse, 40, velocityUnits::pct);  // Slower descent
-    isMovingDown = true;
+    armMotor.spin(reverse, 100, velocityUnits::pct);  // Spin downward until bumper hit
+    if (armBumper.value() == 1 && bumperEngaged == false) {  // Bumper is pressed
+            bumperEngaged = true;  // Mark that we've engaged the brake
+            armMotor.stop(brakeType::brake);
+            armMotor.resetPosition();
+            Brain.Screen.clearLine(1);
+            Brain.Screen.setCursor(1, 1);
+            Brain.Screen.print("ARM RESET!");
+            armstat = ArmPosition::Starting;
+        }
+    //armMotor.spinToPosition(Starting, rotationUnits::deg, 70, velocityUnits::pct, false);
 }
         }
     } else {
@@ -516,19 +530,28 @@ if (Controller.ButtonY.pressing()) {
         }
         }
 
+/*
+// Bumper Button 
 if (armBumper.value() == 1) {  // Bumper is pressed
-    if (!wasBumperPressed && isMovingDown) {
+    if (!wasBumperPressed) {  // First time pressing
         wasBumperPressed = true;
-        armMotor.stop(brakeType::brake);
-        armMotor.resetPosition();
-        armstat = ArmPosition::Starting;
-        isMovingDown = false;
+        if (armstat == ArmPosition::Starting && !bumperEngaged) {
+            bumperEngaged = true;  // Mark that we've engaged the brake
+            armMotor.stop(brakeType::brake);
+            armMotor.resetPosition();
+            Brain.Screen.clearLine(1);
+            Brain.Screen.setCursor(1, 1);
+            Brain.Screen.print("ARM RESET!");
+        }
     }
-} else {
+} else {  // Bumper is released
     wasBumperPressed = false;
+    bumperEngaged = false;  // Reset when bumper is released
+    Brain.Screen.clearLine(1);
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("NO RESET!");
 }
-
-
+*/
         LeftMotor1.spin(forward, motorPowerLeft[0], percent);
         RightMotor1.spin(forward, motorPowerRight[0], percent);
         

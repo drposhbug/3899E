@@ -406,10 +406,12 @@ if (Controller.ButtonY.pressing()) {
                 armMotor.spinToPosition(Load2, rotationUnits::deg, 100, velocityUnits::pct, false);
                 armstat = ArmPosition::Load2;
 
-} else if (armstat == ArmPosition::Load2) {
+} else if (armstat == ArmPosition::Load1 || armstat == ArmPosition::Load2) { // Added condition
+    // Move arm back to Ready position
+    armstat = ArmPosition::Starting;
     armMotor.setBrake(brakeType::hold);        
-    armMotor.spin(reverse, 40, velocityUnits::pct);  // Slower descent
-    isMovingDown = true;
+    armMotor.spin(reverse, 100, velocityUnits::pct);  // Spin downward until bumper hit
+    //armMotor.spinToPosition(Starting, rotationUnits::deg, 70, velocityUnits::pct, false);
 }
         }
     } else {
