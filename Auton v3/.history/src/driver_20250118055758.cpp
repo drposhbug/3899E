@@ -320,7 +320,6 @@ if (Controller.ButtonRight.pressing()) {
             armMotor.setBrake(brakeType::hold);
             armMotor.spinToPosition(Ready, rotationUnits::deg, 100, velocityUnits::pct, false);
             armstat = ArmPosition::Ready;
-            armPneumatics.set(true); 
                 // Fire piston immediately
             //armPneumatics.set(true); 
             // Start the timer for piston
@@ -329,7 +328,8 @@ if (Controller.ButtonRight.pressing()) {
 
         } else if (armstat == ArmPosition::Ready) { // Added condition
             // Move arm back to Ready position
-           armMotor.setBrake(brakeType::hold);        
+            armPneumatics.set(false); 
+            armMotor.setBrake(brakeType::hold);        
             armMotor.spinToPosition(Side, rotationUnits::deg, 100, velocityUnits::pct, false);
             armstat = ArmPosition::Side;
         

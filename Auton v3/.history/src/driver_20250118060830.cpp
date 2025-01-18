@@ -279,7 +279,8 @@ if (abs(RightMotor3.velocity(vex::velocityUnits::rpm)) > minLaunchRPM) {
             if (!wasXPressed) {
                 // Toggle the state
                 isDoinkerPneumaticsActive = !isDoinkerPneumaticsActive;
-                doinkerPneumatics.set(isDoinkerPneumaticsActive);
+                armPneumatics.set(true);
+                //doinkerPneumatics.set(isDoinkerPneumaticsActive);
                 wasXPressed = true;  // Prevent multiple toggles while the button is held
             }
         } else {

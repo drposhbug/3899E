@@ -320,16 +320,14 @@ if (Controller.ButtonRight.pressing()) {
             armMotor.setBrake(brakeType::hold);
             armMotor.spinToPosition(Ready, rotationUnits::deg, 100, velocityUnits::pct, false);
             armstat = ArmPosition::Ready;
-            armPneumatics.set(true); 
-                // Fire piston immediately
-            //armPneumatics.set(true); 
+            
             // Start the timer for piston
             //pistonStartTime = Brain.Timer.time(msec);
-            //pistonTimerActive = true; remove
+            //pistonTimerActive = true;
 
         } else if (armstat == ArmPosition::Ready) { // Added condition
             // Move arm back to Ready position
-           armMotor.setBrake(brakeType::hold);        
+            armMotor.setBrake(brakeType::hold);        
             armMotor.spinToPosition(Side, rotationUnits::deg, 100, velocityUnits::pct, false);
             armstat = ArmPosition::Side;
         
@@ -412,34 +410,17 @@ if (Controller.ButtonY.pressing()) {
                 armstat = ArmPosition::Load1;
 
             //Move from Load1 to Load2
-            } else if (armstat == ArmPosition::Load1) {
-                    intakeMotor.stop(); // Stop the motor
-                    intakeDirection = 0;
-                    intakeRunning = false;
-                    intakeMotor.spinFor(50, rotationUnits::deg, 62, velocityUnits::pct, false);
+            }else if (armstat == ArmPosition::Load1) {
                 // Move arm to Alliance position
                 armMotor.setBrake(brakeType::hold);
-                armMotor.spinToPosition(Load2, rotationUnits::deg, 30, velocityUnits::pct, false);
+                armMotor.spinToPosition(Load2, rotationUnits::deg, 20, velocityUnits::pct, false);
                 armstat = ArmPosition::Load2;
 
 } else if (armstat == ArmPosition::Load2) {
-    armMotor.setBrake(brakeType::brake);        
-    armMotor.spin(reverse, 50, velocityUnits::pct);  // Slower descent
+    armMotor.setBrake(brakeType::hold);        
+    armMotor.spin(reverse, 40, velocityUnits::pct);  // Slower descent
     isMovingDown = true;
-
-} else if (armstat == ArmPosition::Side) {
-                // Move arm to Alliance position
-                armMotor.setBrake(brakeType::hold);
-                armMotor.spinToPosition(Load1, rotationUnits::deg, 40, velocityUnits::pct, false);
-                armstat = ArmPosition::Load1;
-            }
-
-            else if (armstat == ArmPosition::Alliance) {
-                // Move arm to Alliance position
-                armMotor.setBrake(brakeType::hold);
-                armMotor.spinToPosition(Load1, rotationUnits::deg, 40, velocityUnits::pct, false);
-                armstat = ArmPosition::Load1;
-            }
+}
         }
     } else {
         wasYPressed = false; // Reset the state when the button is released
