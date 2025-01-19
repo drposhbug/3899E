@@ -335,12 +335,13 @@ if (Controller.ButtonRight.pressing()) {
         
         } else if (armstat == ArmPosition::Side) { // Added condition
             // Move arm back to Ready position
-            armPneumatics.set(false); 
             armMotor.setBrake(brakeType::hold);        
             armMotor.spinToPosition(Load1, rotationUnits::deg, 100, velocityUnits::pct, false);
             armstat = ArmPosition::Load1;
 
-          } else {
+            // To retract the piston
+            armPneumatics.set(false); 
+        } else {
             // Move arm to Side position from any othe position
             armMotor.setBrake(brakeType::hold);
             armMotor.spinToPosition(Side, rotationUnits::deg, 70, velocityUnits::pct, false);
@@ -428,7 +429,6 @@ if (Controller.ButtonY.pressing()) {
 
 } else if (armstat == ArmPosition::Side) {
                 // Move arm to Alliance position
-                armPneumatics.set(false); 
                 armMotor.setBrake(brakeType::hold);
                 armMotor.spinToPosition(Load1, rotationUnits::deg, 40, velocityUnits::pct, false);
                 armstat = ArmPosition::Load1;

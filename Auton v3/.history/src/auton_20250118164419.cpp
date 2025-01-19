@@ -447,10 +447,8 @@ goalPneumatics.set(true);
 spotTurn(210, 70, 2, 0.4, 0, 0.05);
 intakeMotor.spinFor(-10000, rotationUnits::deg, 100, velocityUnits::pct, false);
 vex::task::sleep(500);
-
-straight(45, 100, 210, 20); // use this one
-
 /*
+straight(45, 100, 210, 20); // use this one
 spotTurn(265, 70, 2, 0.4, 0, 0.05); 
 straight(110, 30, 275, 0);
 spotTurn(265, 70, 2, 0.4, 0, 0.05); 

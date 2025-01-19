@@ -422,60 +422,45 @@ void autonRoutine6() {
 //InertialSensor.setHeading(startingHeading, rotationUnits::deg);
 armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
 straight(-50, 100, 0, 20); // use this one
-armMotor.spinToPosition(-50, rotationUnits::deg, 100, velocityUnits::pct, false);
-spotTurn(55, 70, 2, 0.4, 0, 0.05);
-straight(-55, 100, 55, 40); // use this one
+armMotor.spinToPosition(0, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(70, 70, 2, 0.4, 0, 0.05);
+straight(-65, 100, 70, 40); // use this one
 goalPneumatics.set(true);
 spotTurn(150, 70, 2, 0.4, 0, 0.05);
 intakeMotor.spinFor(-8000, rotationUnits::deg, 100, velocityUnits::pct, false);
 vex::task::sleep(500);
 straight(70, 100, 150, 30); // use this one
 goalPneumatics.set(false);
-spotTurn(76, 70, 2, 0.4, 0, 0.05); 
-straight(-39, 30, 76, 10);
+spotTurn(75, 70, 2, 0.4, 0, 0.05); 
+straight(-25, 100, 75, 10);
 goalPneumatics.set(true);
 }
 
 void autonRoutine7() {
-straight(3, 100, 0, 1); // use this one
-armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
-straight(-80, 100, 0, 20); // use this one
-armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
-spotTurn(250, 70, 2, 0.4, 0, 0.05);
-straight(-57, 100, 250, 40); // use this one
-goalPneumatics.set(true);
-spotTurn(210, 70, 2, 0.4, 0, 0.05);
-intakeMotor.spinFor(-10000, rotationUnits::deg, 100, velocityUnits::pct, false);
-vex::task::sleep(500);
-
-straight(45, 100, 210, 20); // use this one
-
-/*
-spotTurn(265, 70, 2, 0.4, 0, 0.05); 
-straight(110, 30, 275, 0);
-spotTurn(265, 70, 2, 0.4, 0, 0.05); 
-*/
-
-
-
-}
-
-void autonRoutine8() {
-straight(10, 100, 0, 5); // use this one
-armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
-straight(-50, 100, 0, 20); // use this one
-armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
-spotTurn(250, 70, 2, 0.4, 0, 0.05);
-straight(-57, 100, 250, 40); // use this one
+armMotor.spinToPosition(450, rotationUnits::deg, 100, velocityUnits::pct, true);
+straight(-85, 100, 0, 20); // use this one
+armMotor.spinToPosition(0, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(120, 70, 2, 0.4, 0, 0.05);
+straight(-80, 100, 120, 40); // use this one
 goalPneumatics.set(true);
 spotTurn(150, 70, 2, 0.4, 0, 0.05);
-intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
-vex::task::sleep(500);
-straight(55, 100, 150, 30); // use this one
-spotTurn(240, 70, 2, 0.4, 0, 0.05); 
-straight(30, 30, 240, 10);
-straight(-20, 30, 240, 10);
-straight(20, 30, 225, 10);  
+intakeMotor.spinFor(-2000, rotationUnits::deg, 100, velocityUnits::pct, false);
+straight(70, 100, 150, 30); // use this one
+
+//pidStraightDistanceLaunch(0, 94, 100, 0.4, 0, 0, 1, 0, 0, 10, brakeType::brake);
+//pidStraightDistanceSlipABS(0, 120, 95, 0.4, 0, 0, 1, 0, 0, 16, 20);
+//pidStraightDistanceLaunchABS(0, 160, 95, 0.4, 0, 0, 0, 1.5, 10, 75);
+//spotTurnMP(90, 50, 15, 20);
+//spotTurnMP(-45, 100, 7, 40); // good setting for 45 degrees.
+//armTask(ArmPosition::Load2, 100, 500);
+//spotTurnMP(180, 100, 15, 95); //good decel distance and min speed without load
+//vex::task::sleep(4000);
+//spotTurnMP(-90, 100, 15, 95);
+//vex::task::sleep(4000);
+//spotTurnMP(180, 100, 15, 95);
+
+//spotTurn(180, 10, 15, 10);
+
 }
 
 

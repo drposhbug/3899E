@@ -73,8 +73,8 @@ enum ArmPosition {
 //original
 enum ArmPosition {
     Starting = 0,     // Position 0
-    Load1 = 140,  //85 original
-    Load2 = 185,
+    Load1 = 230,  //85 original
+    Load2 = 265,
     Ready = 300,
     Side = 600,   // Position -770 (Y button)
     Alliance = 800, // Position -550 (Right button)

@@ -444,20 +444,14 @@ armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false)
 spotTurn(250, 70, 2, 0.4, 0, 0.05);
 straight(-57, 100, 250, 40); // use this one
 goalPneumatics.set(true);
-spotTurn(210, 70, 2, 0.4, 0, 0.05);
-intakeMotor.spinFor(-10000, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(150, 70, 2, 0.4, 0, 0.05);
+intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
 vex::task::sleep(500);
-
-straight(45, 100, 210, 20); // use this one
-
-/*
-spotTurn(265, 70, 2, 0.4, 0, 0.05); 
-straight(110, 30, 275, 0);
-spotTurn(265, 70, 2, 0.4, 0, 0.05); 
-*/
-
-
-
+straight(55, 100, 150, 30); // use this one
+spotTurn(240, 70, 2, 0.4, 0, 0.05); 
+straight(30, 30, 240, 10);
+straight(-20, 30, 240, 10);
+straight(20, 30, 225, 10);  
 }
 
 void autonRoutine8() {
