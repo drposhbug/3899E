@@ -2807,13 +2807,12 @@ Brain.Screen.printAt(10, 20, "Decel Phase");
 
   //  decelCompleted = true;
     // If all drivetrain motors decel to min speed then change DecelCompleted State variable to true to start Approach Phase
-leftEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverage, 3);
-rightEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverage, 3);
+leftEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverag, 5);
 
 
 // Detect if robot slowed down to target minimum speed    
-if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) && 
-    fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM)) {
+if (fabs(leftEncoderRPM) <= fabs(minDriveMotorRPM) && 
+    fabs(rightEncoderRPM) <= fabs(minDriveMotorRPM)) {
     decelCompleted = true;
 }
 
@@ -2821,7 +2820,7 @@ if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
 
 //Final Approach Phase 
 } else if (decelCompleted == true) {
-//break;
+break;
         Brain.Screen.printAt(10, 20, "Approach Phase");    
         Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted); 
 
@@ -2886,8 +2885,8 @@ if (!decel == true || decelCompleted == true)
     for (int i = 0; i < 3; i++) {
         //leftMotor[i].stop(brake);
         //rightMotor[2-i].stop(brake);
-        leftMotor[i].stop(brake);
-        rightMotor[2-i].stop(brake);
+        leftMotor[i].stop(coast);
+        rightMotor[2-i].stop(coast);
     }
 
 }

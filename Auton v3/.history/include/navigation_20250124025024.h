@@ -135,16 +135,14 @@ private:
     double encoderRPMScaled;  // Encoder RPM value
 };
 
-// Revised ABSController to match:
 class ABSController {
 public:
-    ABSController(double lockThreshold);
+    ABSController();  // Constructor
     vex::brakeType ABSSpeedReduction(double wheelSpeed, double robotSpeed);
-
+    
 private:
-    double ABSLockThreshold;
+    static constexpr double ABSLockThreshold = 0.3;  // 0.3 seems to be ideal setting for our system, usually optimum should be between .20-.25
 };
-
 
 
 #endif // PID_TASKS_H

@@ -338,13 +338,6 @@ void armTask(ArmPosition position, int speed, int delayMs) {
     thread(armTask, (void*)&params).detach();
 }
 
-/**
-* Calculates rolling average of a value over N samples
-* @param newValue Latest measurement to include in average
-* @param currentAverage Previous rolling average value
-* @param n Number of samples to average over (typical: 5-10 for 50-100ms window at 10ms rate) 
-* @return Updated rolling average
-*/
-float rollingAverage(float newValue, float currentAverage, int n) {
-   return currentAverage * (n-1)/n + newValue/n;
+float rollingAverage(float newValue, float currentAverage, int n) { 
+    return currentAverage * (n-1)/n + newValue/n;
 }

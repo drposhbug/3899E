@@ -529,9 +529,9 @@ pidStraightDistanceABS(80, 75, 30, .15, 0, 0, 1, 0, 0, 15, 15);
 
 
     void autonRoutine9() { // Do not use, test only
-spotTurnMP(180, 100, 20, 80);
+spotTurnMP(180, 100, 15, 50);
 task::sleep (1500);
-spotTurnMP(-180, 100, 20, 80);
+spotTurnMP(-180, 100, 15, 50);
 
     }
 

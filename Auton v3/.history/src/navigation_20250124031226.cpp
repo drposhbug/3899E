@@ -2580,7 +2580,7 @@ void spotTurnMP(double turnDegrees, double maxSpeed, double minSpeed, double bre
     // 0.25 = 25% slip tolerance for balanced control
     // may need to go above 25% given built in difference between encoder and wheel spin speed
     const double SLIP_THRESHOLD_TRACTION = 0.35;
-    const double SLIP_THRESHOLD_ABS = 0.5;
+    const double SLIP_THRESHOLD_ABS = 0.30;
 
     double accelFactorLaunch = 1.4;
     double accelFactorCruise = 1.1;
@@ -2608,8 +2608,8 @@ void spotTurnMP(double turnDegrees, double maxSpeed, double minSpeed, double bre
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     vex::brakeType leftBrakeMode[3];  
     vex::brakeType rightBrakeMode[3]; 
-    float leftEncoderRollingAverage = 0;
-    float rightEncoderRollingAverage = 0;
+    ABSController ABSControllerLeft[3];
+    ABSController ABSControllerRight[3];
 
     //double motorRadiansPerSecond[3] = {0, 0, 0};
     //double lowestMotorVoltage = 12;
@@ -2618,24 +2618,24 @@ void spotTurnMP(double turnDegrees, double maxSpeed, double minSpeed, double bre
 
        // Declaration for slip threshold
 ABSController ABSControllerLeft[3] = {
-    ABSController(SLIP_THRESHOLD_ABS),
-    ABSController(SLIP_THRESHOLD_ABS), 
-    ABSController(SLIP_THRESHOLD_ABS)
+    ABSController(slipThresholdABS),
+    ABSController(slipThresholdABS), 
+    ABSController(slipThresholdABS)
 };
 ABSController ABSControllerRight[3] = {
-    ABSController(SLIP_THRESHOLD_ABS),
-    ABSController(SLIP_THRESHOLD_ABS),
-    ABSController(SLIP_THRESHOLD_ABS)
+    ABSController(slipThresholdABS),
+    ABSController(slipThresholdABS),
+    ABSController(slipThresholdABS)
 };
 
     // Declare arrays of Slip Control instances for each wheel
-    tractionControl tractionControlLeft[3] = {tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
-                                              tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
-                                              tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION)};
+    tractionControl tractionControlLeft[3] = {tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SPOT_TURN_SLIP_THRESHOLD),
+                                              tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SPOT_TURN_SLIP_THRESHOLD),
+                                              tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SPOT_TURN_SLIP_THRESHOLD)};
                                 
-    tractionControl tractionControlRight[3] = {tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
-                                               tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
-                                               tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION)};
+    tractionControl tractionControlRight[3] = {tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SPOT_TURN_SLIP_THRESHOLD),
+                                               tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SPOT_TURN_SLIP_THRESHOLD),
+                                               tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SPOT_TURN_SLIP_THRESHOLD)};
 
     //launchControl (60, 60, 20);
         
@@ -2807,13 +2807,10 @@ Brain.Screen.printAt(10, 20, "Decel Phase");
 
   //  decelCompleted = true;
     // If all drivetrain motors decel to min speed then change DecelCompleted State variable to true to start Approach Phase
-leftEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverage, 3);
-rightEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverage, 3);
-
 
 // Detect if robot slowed down to target minimum speed    
-if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) && 
-    fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM)) {
+if (fabs(leftEncoderRPM) <= fabs(minDriveMotorRPM) && 
+    fabs(rightEncoderRPM) <= fabs(minDriveMotorRPM)) {
     decelCompleted = true;
 }
 
@@ -2821,7 +2818,7 @@ if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
 
 //Final Approach Phase 
 } else if (decelCompleted == true) {
-//break;
+break;
         Brain.Screen.printAt(10, 20, "Approach Phase");    
         Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted); 
 
@@ -2886,11 +2883,11 @@ if (!decel == true || decelCompleted == true)
     for (int i = 0; i < 3; i++) {
         //leftMotor[i].stop(brake);
         //rightMotor[2-i].stop(brake);
-        leftMotor[i].stop(brake);
-        rightMotor[2-i].stop(brake);
+        leftMotor[i].stop(coast);
+        rightMotor[2-i].stop(coast);
     }
 
-}
+
 
 // Traction Control Constructor implementation
 tractionControl::tractionControl(double minSpeedVoltage, double maxSpeedVoltage, double slipThreshold)

@@ -2807,8 +2807,8 @@ Brain.Screen.printAt(10, 20, "Decel Phase");
 
   //  decelCompleted = true;
     // If all drivetrain motors decel to min speed then change DecelCompleted State variable to true to start Approach Phase
-leftEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverage, 3);
-rightEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverage, 3);
+leftEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverage, 5);
+rightEncoderRollingAverage = rollingAverage(leftEncoderRPM,leftEncoderRollingAverage, 5);
 
 
 // Detect if robot slowed down to target minimum speed    
