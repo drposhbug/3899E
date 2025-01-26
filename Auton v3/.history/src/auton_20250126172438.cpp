@@ -533,8 +533,7 @@ void autonRoutine9() { // Do not use, test only
 //Turn(180, 80, 20, 100); // good for 180
 // Turn(90, 59, 15, 100);  //good for 90
 //turn(45, 30, 15, 100); //decent for 45
-//straightToPoint (0, 100, 50);
-turnToPoint (100, 0, 30);
+straightToPoint
 //task::sleep (1500);
 
 

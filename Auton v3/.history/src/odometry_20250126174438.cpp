@@ -159,30 +159,38 @@ void straightToPoint(double targetX, double targetY,
                 double decelHeadingScaling, double approachHeadingScaling,
                  double maxSpeed)
 {
-    // Start timer for timeout safety
+    // Initialize timeout timer
     double startTime = Brain.Timer.time(msec);
-    const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
+    const double TIMEOUT = 5000;  // 5 seconds maximum for movement
+    const double DISTANCE_THRESHOLD = 2.0;  // Stop when within 2cm of target, adjust as needed
 
-    // Get current position from odometry
-    double currentX = globalX;
-    double currentY = globalY;
-    double currentHeading = globalHeading;
+    // Main control loop - runs until target reached or timeout
+    while(true) {
+        // Update robot's position and heading tracking
+        updateOdometry();  
+        
+        // Calculate new path parameters based on current position
+        double distanceToTarget, targetHeading;
+        calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
+        targetHeading = normalizeHeading(targetHeading);  // Normalize to ±180 degrees
 
-    // Calculate path to target
-    double distanceToTarget, targetHeading;
-    calculatePathToTarget(currentX, currentY, targetX, targetY, distanceToTarget, targetHeading);
-    targetHeading = normalizeHeading(targetHeading);
+        // Check exit conditions:
+        // 1. Robot is close enough to target
+        // 2. Movement has taken too long (timeout)
+        if(distanceToTarget < DISTANCE_THRESHOLD || 
+           (Brain.Timer.time(msec) - startTime) > TIMEOUT) {
+            break;
+        }
 
-    // Move straight with PID heading correction
-    straight(distanceToTarget, breakDistance, minSpeed, targetHeading, 
-                kp_heading, ki_heading, kd_heading, accelHeadingScaling, 
-                decelHeadingScaling, approachHeadingScaling, maxSpeed);            
-    
-    // Check if we've exceeded timeout
-    if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
-        Brain.Screen.printAt(10, 60, "Straight move timeout");
+        // Execute straight movement with current parameters:
+        // - distanceToTarget: Remaining distance to target point
+        // - targetHeading: Desired heading to reach target
+        // - PID and scaling parameters for motion control
+        straight(distanceToTarget, breakDistance, minSpeed, targetHeading,
+                kp_heading, ki_heading, kd_heading, accelHeadingScaling,
+                decelHeadingScaling, approachHeadingScaling, maxSpeed);
+
+        wait(10, msec);  // Small delay to prevent CPU overload
     }
 
-    // Update odometry after completing movement
-    updateOdometry();
 }

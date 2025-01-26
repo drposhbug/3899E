@@ -115,11 +115,8 @@ void turnToPoint(double targetX, double targetY,
     double currentHeading = globalHeading;
 
     // Calculate target heading using arctangent
-    double targetHeading = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
-    targetHeading = normalizeHeading(targetHeading);
-    double currentHeading = globalHeading;
-    double turnDegrees = normalizeHeading(targetHeading - currentHeading);
-    turn(turnDegrees, breakDistanceInDegrees, minSpeed, maxSpeed);
+    double turnDegrees = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
+    turnDegrees = normalizeHeading(turnDegrees);
 
     // Disable X-encoder tracking during the turn
     bool previousXEncoderState = xEncoderEnabled;

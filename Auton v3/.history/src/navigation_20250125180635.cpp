@@ -2541,7 +2541,7 @@ spotTurnSlipControl::spotTurnSlipControl(vex::motor& motor, vex::inertial& inert
 */
 
 
-void turn(double turnDegrees, double breakDistanceInDegrees, double minSpeed, double maxSpeed) {  
+void Turn(double turnDegrees, double maxSpeed, double minSpeed, double breakDistanceInDegrees) { 
     // Reset completion flags
     bool crossed180 = false;
     bool decelCompleted = false;
@@ -2960,16 +2960,16 @@ vex::brakeType ABSController::ABSSpeedReduction(double wheelSpeed, double robotS
 
 
 void straight(double targetDistance, 
-            double breakDistance, 
-            double minSpeed, 
-            double targetHeading, 
-            double kp_heading,
-            double ki_heading, 
-            double kd_heading, 
-            double accelHeadingScaling, 
-            double decelHeadingScaling, 
-            double approachHeadingScaling, 
-            double maxSpeed) {                
+             double maxSpeed, 
+             double targetHeading, 
+             double breakDistance, 
+             double kp_heading, 
+             double ki_heading, 
+             double kd_heading, 
+             double accelHeadingScaling, 
+             double decelHeadingScaling, 
+             double approachHeadingScaling, 
+             double minSpeed) { 
     
     // Add timer for acceleration phase
     vex::timer accelTimer;

@@ -102,8 +102,8 @@ void calculatePathToTarget(double currentX, double currentY,
 //   minSpeed: Minimum speed to maintain during turn
 //   breakDistance: Break distance in degrees for motion profiling
 void turnToPoint(double targetX, double targetY,
-                 double breakDistanceInDegrees, 
-                 double minSpeed, double maxSpeed)
+                 double maxSpeed, double minSpeed,
+                 double breakDistanceInDegrees)
 {
     // Start timer for timeout safety
     double startTime = Brain.Timer.time(msec);
@@ -115,11 +115,8 @@ void turnToPoint(double targetX, double targetY,
     double currentHeading = globalHeading;
 
     // Calculate target heading using arctangent
-    double targetHeading = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
-    targetHeading = normalizeHeading(targetHeading);
-    double currentHeading = globalHeading;
-    double turnDegrees = normalizeHeading(targetHeading - currentHeading);
-    turn(turnDegrees, breakDistanceInDegrees, minSpeed, maxSpeed);
+    double turnDegrees = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
+    turnDegrees = normalizeHeading(turnDegrees);
 
     // Disable X-encoder tracking during the turn
     bool previousXEncoderState = xEncoderEnabled;
@@ -153,11 +150,11 @@ void turnToPoint(double targetX, double targetY,
 //   approachHeadingScaling: Heading correction scaling during final approach
 //   minSpeed: Minimum speed to maintain during movement
 void straightToPoint(double targetX, double targetY,
-                double breakDistance, double minSpeed,
+                double maxSpeed, double breakDistance,
                 double kp_heading, double ki_heading, 
                 double kd_heading, double accelHeadingScaling,
                 double decelHeadingScaling, double approachHeadingScaling,
-                 double maxSpeed)
+                double minSpeed)
 {
     // Start timer for timeout safety
     double startTime = Brain.Timer.time(msec);
@@ -174,9 +171,11 @@ void straightToPoint(double targetX, double targetY,
     targetHeading = normalizeHeading(targetHeading);
 
     // Move straight with PID heading correction
-    straight(distanceToTarget, breakDistance, minSpeed, targetHeading, 
-                kp_heading, ki_heading, kd_heading, accelHeadingScaling, 
-                decelHeadingScaling, approachHeadingScaling, maxSpeed);            
+    straight(distanceToTarget, maxSpeed, targetHeading, breakDistance,
+                kp_heading, ki_heading, kd_heading, accelHeadingScaling,
+                decelHeadingScaling, approachHeadingScaling, minSpeed);
+
+    straight(targetDistance, double breakDistance = 90, double minSpeed = 15, double targetHeading = 0, double kp_heading = 0.2, double ki_heading = 0.0, double kd_heading = 0.0, double accelHeadingScaling = 0.4, double decelHeadingScaling = 0.25, double approachHeadingScaling = 0.25, double maxSpeed = 100);            
     
     // Check if we've exceeded timeout
     if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {

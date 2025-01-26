@@ -101,10 +101,9 @@ void calculatePathToTarget(double currentX, double currentY,
 //   turnSpeed: Maximum speed for the turn (0-100)
 //   minSpeed: Minimum speed to maintain during turn
 //   breakDistance: Break distance in degrees for motion profiling
-void turnToPoint(double targetX, double targetY,
-                 double breakDistanceInDegrees, 
-                 double minSpeed, double maxSpeed)
-{
+void turnToPoint(double targetX, double targetY, 
+                double turnSpeed, double minSpeed, 
+                double breakDistance) {
     // Start timer for timeout safety
     double startTime = Brain.Timer.time(msec);
     const double TIMEOUT = 3000; // 3 seconds maximum for turn
@@ -117,16 +116,13 @@ void turnToPoint(double targetX, double targetY,
     // Calculate target heading using arctangent
     double targetHeading = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
     targetHeading = normalizeHeading(targetHeading);
-    double currentHeading = globalHeading;
-    double turnDegrees = normalizeHeading(targetHeading - currentHeading);
-    turn(turnDegrees, breakDistanceInDegrees, minSpeed, maxSpeed);
 
     // Disable X-encoder tracking during the turn
     bool previousXEncoderState = xEncoderEnabled;
     xEncoderEnabled = false;
 
     // Perform the spot turn with motion profiling
-    turn(turnDegrees, breakDistanceInDegrees, minSpeed, maxSpeed);
+    turn(targetHeading, turnSpeed, minSpeed, breakDistance);
 
     // Check if we've exceeded timeout
     if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
@@ -152,13 +148,12 @@ void turnToPoint(double targetX, double targetY,
 //   decelHeadingScaling: Heading correction scaling during deceleration
 //   approachHeadingScaling: Heading correction scaling during final approach
 //   minSpeed: Minimum speed to maintain during movement
-void straightToPoint(double targetX, double targetY,
-                double breakDistance, double minSpeed,
-                double kp_heading, double ki_heading, 
-                double kd_heading, double accelHeadingScaling,
-                double decelHeadingScaling, double approachHeadingScaling,
-                 double maxSpeed)
-{
+void straightTo(double targetX, double targetY, 
+               double straightSpeed, double breakDistance,
+               double kp_heading, double ki_heading, 
+               double kd_heading, double accelHeadingScaling,
+               double decelHeadingScaling, double approachHeadingScaling, 
+               double minSpeed) {
     // Start timer for timeout safety
     double startTime = Brain.Timer.time(msec);
     const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
@@ -174,10 +169,10 @@ void straightToPoint(double targetX, double targetY,
     targetHeading = normalizeHeading(targetHeading);
 
     // Move straight with PID heading correction
-    straight(distanceToTarget, breakDistance, minSpeed, targetHeading, 
-                kp_heading, ki_heading, kd_heading, accelHeadingScaling, 
-                decelHeadingScaling, approachHeadingScaling, maxSpeed);            
-    
+    straight(distanceToTarget, straightSpeed, targetHeading, breakDistance,
+            kp_heading, ki_heading, kd_heading, accelHeadingScaling,
+            decelHeadingScaling, approachHeadingScaling, minSpeed);
+
     // Check if we've exceeded timeout
     if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
         Brain.Screen.printAt(10, 60, "Straight move timeout");

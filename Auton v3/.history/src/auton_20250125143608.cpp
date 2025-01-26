@@ -3,7 +3,6 @@
 #include "utils.h"         // Include the utility header for normalizeHeading
 #include "robot-config.h"  // Include the robot configuration
 #include "navigation.h" 
-#include "odometry.h"
 #include "vision_tracking.h"
 #include <cmath>           // Include math library for M_PI
 
@@ -529,14 +528,10 @@ pidStraightDistanceABS(80, 75, 30, .15, 0, 0, 1, 0, 0, 15, 15);
     // Reset
 
 
-void autonRoutine9() { // Do not use, test only
-//Turn(180, 80, 20, 100); // good for 180
-// Turn(90, 59, 15, 100);  //good for 90
-//turn(45, 30, 15, 100); //decent for 45
-//straightToPoint (0, 100, 50);
-turnToPoint (100, 0, 30);
-//task::sleep (1500);
-
+    void autonRoutine9() { // Do not use, test only
+spotTurnMP(90, 100, 20, 80);
+task::sleep (1500);
+spotTurnMP(-90, 100, 20, 80);
 
     }
 

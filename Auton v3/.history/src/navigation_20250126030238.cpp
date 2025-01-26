@@ -2969,7 +2969,7 @@ void straight(double targetDistance,
             double accelHeadingScaling, 
             double decelHeadingScaling, 
             double approachHeadingScaling, 
-            double maxSpeed) {                
+            double maxSpeed = 100) {                
     
     // Add timer for acceleration phase
     vex::timer accelTimer;
