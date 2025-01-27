@@ -21,7 +21,7 @@ vex::inertial InertialSensor = vex::inertial(vex::PORT15);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT4, true); // Initialize the encoder on PORT10
 vex::rotation passiveEncoderRight = vex::rotation(vex::PORT6, true); // Initialize the encoder on PORT10
 vex::rotation passiveEncoderX = vex::rotation(vex::PORT3, true); // Initialize the encoder on PORT10
-vex::optical opticalSensor = vex::optical(vex::PORT11);
+vex::optical opticalSensor = vex::optical(vex::PORT1);
 
 // Global Variables
 double targetDriverSpeedLeft = 0.0;   // Target speed for left motors (-100 to +100)

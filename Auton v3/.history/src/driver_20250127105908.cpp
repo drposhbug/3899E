@@ -15,17 +15,9 @@ static int applyDeadzone(int value) {
     return value; // Return the original value if outside the deadzone
 }
 
-// Add these constants at the top of your file
-const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
-const double RED_HUE_MAX_1 = 360.0;
-const double RED_HUE_MIN_2 = 0.0;    // Second red range (0°-15°)
-const double RED_HUE_MAX_2 = 15.0;
-const double BLUE_HUE_MIN = 215.0;   // Blue range
-const double BLUE_HUE_MAX = 225.0;
 
 // Driver Control Function: Handles joystick input and motor speed adjustments
 void driverControl() {
-    initializeOpticalSensor();
     // Arrays to hold the current speeds of the motors
     double motorPowerLeft[3] = {0};
     double motorPowerRight[3] = {0};
@@ -53,7 +45,6 @@ void driverControl() {
     bool wasBumperPressed = false; 
     bool bumperEngaged = false;
     bool isMovingDown = false;
-    bool spinForInProgress = false;
     // bool isHookPneumaticsActive = false;          // Variable to track clawPneumatics state
     //bool isIntakePneumaticsActive = false;        // Variable to track goalPneumatics state
     bool isGoalPneumaticsActive = true;           // Initial state reversed
@@ -65,8 +56,10 @@ void driverControl() {
     int intakeDirection = 0;                       // 1 for forward, -1 for reverse, 0 for off
 
     // Initialize arm position before starting driver control
-    armMotor.spin(reverse, 100, velocityUnits::pct);  // Slower descent
-    isMovingDown = true;
+    if (armBumper.value() == 1) {
+    armMotor.resetPosition();
+    armstat = ArmPosition::Starting;
+    }
 
      // Create LaunchControl instances for each wheel
     LaunchControl leftLaunchControl1(LeftMotor1, passiveEncoderLeft,1.05);
@@ -96,24 +89,12 @@ void driverControl() {
         // Apply scaling to motor speeds and spin the motors
        // for (int i = 0; i < 3; i++) {
       
-        motorPowerLeft[0] = targetSpeedLeft;
-        motorPowerLeft[1] = targetSpeedLeft;
-        motorPowerLeft[2] = targetSpeedLeft;
-        motorPowerRight[0] = targetSpeedRight;
-        motorPowerRight[1] = targetSpeedRight;
-        motorPowerRight[2] = targetSpeedRight;
-
-// Color detection
-    double hue = opticalSensor.hue();
-    Brain.Screen.clearLine(1);  // Clear line 1 before printing
-    Brain.Screen.setCursor(1,1);  // Set cursor to beginning of line 1
-    if ((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) || 
-        (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) {
-      Brain.Screen.print("RED");
-    }
-    else if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
-      Brain.Screen.print("BLUE");
-    }
+motorPowerLeft[0] = targetSpeedLeft;
+motorPowerLeft[1] = targetSpeedLeft;
+motorPowerLeft[2] = targetSpeedLeft;
+motorPowerRight[0] = targetSpeedRight;
+motorPowerRight[1] = targetSpeedRight;
+motorPowerRight[2] = targetSpeedRight;
 
 /*
 //Launch Control
@@ -242,18 +223,18 @@ if (abs(RightMotor3.velocity(vex::velocityUnits::rpm)) > minLaunchRPM) {
 
         //R1 intake Button
  // Button R1 Intake
-if (Controller.ButtonR1.pressing()) {
-  spinForInProgress = false;
+   if (Controller.ButtonR1.pressing()) {
+  // Spin forward at full speed
   intakeMotor.spin(reverse, 12, vex::voltageUnits::volt);
-} else if (Controller.ButtonR2.pressing()) {
-  spinForInProgress = false;
-  intakeMotor.spin(forward, 12, vex::voltageUnits::volt);
-} else if (!spinForInProgress) {
-  intakeMotor.stop();
-}
 
-if (spinForInProgress && !intakeMotor.isSpinning()) {
-    spinForInProgress = false;
+//Button R2 Outtake
+} else if (Controller.ButtonR2.pressing()) {
+  // Spin in reverse at full speed
+  intakeMotor.spin(forward, 12, vex::voltageUnits::volt);
+
+} else {
+  // Neither R1 nor R2 pressed, so stop the motor
+  intakeMotor.stop();
 }
         /*
         if (Controller.ButtonR1.pressing()) {
@@ -333,31 +314,30 @@ if (Controller.ButtonRight.pressing()) {
         if (armstat == ArmPosition::Load1 || armstat == ArmPosition::Load2) {
             // Move arm to Alliance position
             intakeMotor.stop(); // Stop the motor
-            //intakeMotor.spinFor(100, rotationUnits::deg, 58, velocityUnits::pct, false);
-            spinForInProgress = true;
-            intakeMotor.spinFor(60, rotationUnits::deg, 58, velocityUnits::pct, false);
+            intakeDirection = 0;
+            intakeRunning = false;
+            intakeMotor.spinFor(50, rotationUnits::deg, 58, velocityUnits::pct, false);
             armMotor.setBrake(brakeType::hold);
-            armMotor.spinToPosition(Side, rotationUnits::deg, 100, velocityUnits::pct, false);
-            armstat = ArmPosition::Side;
+            armMotor.spinToPosition(Ready, rotationUnits::deg, 100, velocityUnits::pct, false);
+            armstat = ArmPosition::Ready;
                       // Fire piston immediately
             //armPneumatics.set(true); 
             // Start the timer for piston
-            pistonStartTime = Brain.Timer.time(msec);
-            pistonTimerActive = true; 
-/*
+            //pistonStartTime = Brain.Timer.time(msec);
+            //pistonTimerActive = true; remove
+
         } else if (armstat == ArmPosition::Ready) { // Added condition
             // Move arm back to Ready position
                   armPneumatics.set(true); 
            armMotor.setBrake(brakeType::hold);        
             armMotor.spinToPosition(Side, rotationUnits::deg, 100, velocityUnits::pct, false);
             armstat = ArmPosition::Side;
-*/            
         
         } else if (armstat == ArmPosition::Side) { // Added condition
             // Move arm back to Ready position
             armPneumatics.set(false); 
             armMotor.setBrake(brakeType::hold);        
-            armMotor.spinToPosition(Load1, rotationUnits::deg, 70, velocityUnits::pct, false);
+            armMotor.spinToPosition(Load1, rotationUnits::deg, 100, velocityUnits::pct, false);
             armstat = ArmPosition::Load1;
 
           } else {
@@ -432,9 +412,10 @@ if (Controller.ButtonY.pressing()) {
 
             //Move from Load1 to Load2
             } else if (armstat == ArmPosition::Load1) {
-                intakeMotor.stop(); // Stop the motor
-                spinForInProgress = true;
-                intakeMotor.spinFor(60, rotationUnits::deg, 58, velocityUnits::pct, false);
+                    intakeMotor.stop(); // Stop the motor
+                    intakeDirection = 0;
+                    intakeRunning = false;
+                    intakeMotor.spinFor(50, rotationUnits::deg, 62, velocityUnits::pct, false);
                 // Move arm to Alliance position
                 armMotor.setBrake(brakeType::hold);
                 armMotor.spinToPosition(Load2, rotationUnits::deg, 30, velocityUnits::pct, false);
@@ -442,21 +423,21 @@ if (Controller.ButtonY.pressing()) {
 
 } else if (armstat == ArmPosition::Load2) {
     armMotor.setBrake(brakeType::brake);        
-    armMotor.spin(reverse, 80, velocityUnits::pct);  // Slower descent
+    armMotor.spin(reverse, 40, velocityUnits::pct);  // Slower descent
     isMovingDown = true;
 
-} else if (armstat == ArmPosition::Side || armstat == ArmPosition::Ready ) {
+} else if (armstat == ArmPosition::Side) {
                 // Move arm to Alliance position
                 armPneumatics.set(false); 
                 armMotor.setBrake(brakeType::hold);
-                armMotor.spinToPosition(Load1, rotationUnits::deg, 70, velocityUnits::pct, false);
+                armMotor.spinToPosition(Load1, rotationUnits::deg, 40, velocityUnits::pct, false);
                 armstat = ArmPosition::Load1;
             }
 
             else if (armstat == ArmPosition::Alliance) {
                 // Move arm to Alliance position
                 armMotor.setBrake(brakeType::hold);
-                armMotor.spinToPosition(Load1, rotationUnits::deg, 70, velocityUnits::pct, false);
+                armMotor.spinToPosition(Load1, rotationUnits::deg, 40, velocityUnits::pct, false);
                 armstat = ArmPosition::Load1;
             }
         }
@@ -559,10 +540,10 @@ if (Controller.ButtonY.pressing()) {
         }
         }
 
-if (armBumper.value() == 1 && armMotor.current() > 2.5) {  // Bumper is pressed
+if (armBumper.value() == 1) {  // Bumper is pressed
     if (!wasBumperPressed && isMovingDown) {
         wasBumperPressed = true;
-        armMotor.stop(brakeType::coast);
+        armMotor.stop(brakeType::brake);
         armMotor.resetPosition();
         armstat = ArmPosition::Starting;
         isMovingDown = false;
@@ -583,11 +564,6 @@ if (armBumper.value() == 1 && armMotor.current() > 2.5) {  // Bumper is pressed
 
         //Brain.Screen.printAt(10, 180, "Lt Motor Speed: %.2f", leftMotor[2].velocity(vex::velocityUnits::pct));
         //Brain.Screen.printAt(10, 200, "Rt Motor Speed: %.2f", rightMotor[2].velocity(vex::velocityUnits::rpm));
-
-        if (pistonTimerActive && Brain.Timer.time(msec) - pistonStartTime >= 500) {
-    armPneumatics.set(true);
-    pistonTimerActive = false;
-}
 
         // Small delay to prevent wasted resource
         task::sleep(20);

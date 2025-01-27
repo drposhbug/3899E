@@ -91,14 +91,19 @@ bool isLocking(double motorSpeed, double encoderSpeed) {
 //}
 
 
-// Color Detection Constants for utils.cpp
-const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
+//Colour Detection Function
+
+// Calibration Constants for Color Detection
+const double RED_HUE_MIN_1 = 344.0;  // First part of the red range (344°-360°)
 const double RED_HUE_MAX_1 = 360.0;
-const double RED_HUE_MIN_2 = 0.0;    // Second red range (0°-15°)
-const double RED_HUE_MAX_2 = 15.0;
-const double BLUE_HUE_MIN = 215.0;   // Blue range
-const double BLUE_HUE_MAX = 225.0;
-const double MIN_BRIGHTNESS = 15.0;   // Minimum brightness threshold
+const double RED_HUE_MIN_2 = 0.0;    // Second part of the red range (0°-10°)
+const double RED_HUE_MAX_2 = 10.0;
+const double BLUE_HUE_MIN = 217.0;
+const double BLUE_HUE_MAX = 222.0;
+
+// Brightness Thresholds for Red and Blue Detection (Adjust if needed)
+const double RED_BRIGHTNESS_THRESHOLD = 10.0;   // Minimum brightness to detect red
+const double BLUE_BRIGHTNESS_THRESHOLD = 10.0;  // Minimum brightness to detect blue
 
 // Function to initialize the Optical Sensor
 void initializeOpticalSensor() {
@@ -106,47 +111,8 @@ void initializeOpticalSensor() {
   opticalSensor.setLight(ledState::on);       // Ensure the light is on
 }
 
-// Track consecutive detections to prevent false positives
-static int consecutiveDetections = 0;
-static bool lastDetectedColor = false;  // false = no color, true = color detected
 
-bool detectColor() {
-    double hue = opticalSensor.hue();
-    double brightness = opticalSensor.brightness();
-    bool colorDetected = false;
 
-    // Check brightness threshold
-    if (brightness < MIN_BRIGHTNESS) {
-        consecutiveDetections = 0;
-        lastDetectedColor = false;
-        return false;
-    }
-
-    // Check for red or blue
-    if (((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) || 
-         (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) ||
-        (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX)) {
-        colorDetected = true;
-    }
-
-    // Handle consecutive detections
-    if (colorDetected == lastDetectedColor && colorDetected) {
-        consecutiveDetections++;
-    } else {
-        consecutiveDetections = 1;
-    }
-
-    lastDetectedColor = colorDetected;
-
-    // Return true if we have enough consecutive detections
-    return (consecutiveDetections >= 3);  // Require 3 consecutive detections
-}
-
-// Reset detection state if needed
-void resetColorDetection() {
-    consecutiveDetections = 0;
-    lastDetectedColor = false;
-}
 
 // Handle the ejection process
 void ringEjection() {

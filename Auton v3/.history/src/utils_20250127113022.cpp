@@ -100,12 +100,6 @@ const double BLUE_HUE_MIN = 215.0;   // Blue range
 const double BLUE_HUE_MAX = 225.0;
 const double MIN_BRIGHTNESS = 15.0;   // Minimum brightness threshold
 
-// Function to initialize the Optical Sensor
-void initializeOpticalSensor() {
-  opticalSensor.setLightPower(100, percent);  // Turn on the sensor light at 100% power
-  opticalSensor.setLight(ledState::on);       // Ensure the light is on
-}
-
 // Track consecutive detections to prevent false positives
 static int consecutiveDetections = 0;
 static bool lastDetectedColor = false;  // false = no color, true = color detected
@@ -147,6 +141,7 @@ void resetColorDetection() {
     consecutiveDetections = 0;
     lastDetectedColor = false;
 }
+
 
 // Handle the ejection process
 void ringEjection() {

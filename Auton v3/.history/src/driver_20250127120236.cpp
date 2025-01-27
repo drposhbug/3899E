@@ -103,17 +103,15 @@ void driverControl() {
         motorPowerRight[1] = targetSpeedRight;
         motorPowerRight[2] = targetSpeedRight;
 
-// Color detection
-    double hue = opticalSensor.hue();
-    Brain.Screen.clearLine(1);  // Clear line 1 before printing
-    Brain.Screen.setCursor(1,1);  // Set cursor to beginning of line 1
-    if ((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) || 
-        (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) {
-      Brain.Screen.print("RED");
-    }
-    else if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
-      Brain.Screen.print("BLUE");
-    }
+        // Color detection
+        double hue = opticalSensor.hue();
+        if ((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) || 
+            (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) {
+        Brain.Screen.print("RED");
+        }
+        else if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
+        Brain.Screen.print("BLUE");
+        }
 
 /*
 //Launch Control

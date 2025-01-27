@@ -106,7 +106,7 @@ void driverControl() {
 // Color detection
     double hue = opticalSensor.hue();
     Brain.Screen.clearLine(1);  // Clear line 1 before printing
-    Brain.Screen.setCursor(1,1);  // Set cursor to beginning of line 1
+    Brain.Screen.setCursor(1,80);  // Set cursor to beginning of line 1
     if ((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) || 
         (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) {
       Brain.Screen.print("RED");

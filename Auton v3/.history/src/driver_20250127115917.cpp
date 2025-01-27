@@ -15,14 +15,6 @@ static int applyDeadzone(int value) {
     return value; // Return the original value if outside the deadzone
 }
 
-// Add these constants at the top of your file
-const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
-const double RED_HUE_MAX_1 = 360.0;
-const double RED_HUE_MIN_2 = 0.0;    // Second red range (0°-15°)
-const double RED_HUE_MAX_2 = 15.0;
-const double BLUE_HUE_MIN = 215.0;   // Blue range
-const double BLUE_HUE_MAX = 225.0;
-
 // Driver Control Function: Handles joystick input and motor speed adjustments
 void driverControl() {
     initializeOpticalSensor();
@@ -103,17 +95,15 @@ void driverControl() {
         motorPowerRight[1] = targetSpeedRight;
         motorPowerRight[2] = targetSpeedRight;
 
-// Color detection
-    double hue = opticalSensor.hue();
-    Brain.Screen.clearLine(1);  // Clear line 1 before printing
-    Brain.Screen.setCursor(1,1);  // Set cursor to beginning of line 1
-    if ((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) || 
-        (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) {
-      Brain.Screen.print("RED");
-    }
-    else if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
-      Brain.Screen.print("BLUE");
-    }
+        // Color detection
+        double hue = opticalSensor.hue();
+        if ((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) || 
+            (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) {
+        Brain.Screen.print("RED");
+        }
+        else if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
+        Brain.Screen.print("BLUE");
+        }
 
 /*
 //Launch Control
