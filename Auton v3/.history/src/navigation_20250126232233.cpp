@@ -2608,8 +2608,8 @@ void turn(double turnDegrees, double breakDistanceInDegrees, double minSpeed, do
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     vex::brakeType leftBrakeMode[3];  
     vex::brakeType rightBrakeMode[3]; 
-    double leftEncoderRollingAverage = 0;
-    double rightEncoderRollingAverage = 0;
+    float leftEncoderRollingAverage = 0;
+    float rightEncoderRollingAverage = 0;
 
     //double motorRadiansPerSecond[3] = {0, 0, 0};
     //double lowestMotorVoltage = 12;
@@ -3008,16 +3008,13 @@ void straight(double targetDistance,
     // Traction Control Parameters
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
     double slipThresholdTraction = 0.30;
-    double slipThresholdABS = 0.25;
+    double slipThresholdABS = 0.30;
     //double accelFactorLaunch = 1.4; //good starting launch acceleration factor
-    double accelFactorLaunch = 1.15; //test, temporary
+    double accelFactorLaunch = 1.25; //test, temporary
 
     // PID and Heading Control
     double normTargetHeading = normHeading(targetHeading);
     double avgMotorVoltage = 0;  // Used for phase transition checking
-    double leftEncoderRollingAverage = 0;
-    double rightEncoderRollingAverage = 0;
-
 
     bool decel = false;
     bool decelCompleted = false;

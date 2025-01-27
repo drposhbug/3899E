@@ -59,8 +59,8 @@ extern const double encoderWheelCircumferenceCM;
 //original
 enum ArmPosition {
     Starting = 0,     // Position 0
-    Load1 = 224,  //85 original
-    Load2 = 258,
+    Load1 = 219,  //85 original
+    Load2 = 260,
     Ready = 420,
     Side = 720,   // Position -770 (Y button)
     Alliance = 920, // Position -550 (Right button)

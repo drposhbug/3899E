@@ -20,14 +20,6 @@ double prevHeading = 0.0;       // Stores the last heading from the inertial sen
 // Encoder State Management
 bool xEncoderEnabled = true;   // Determines whether the X encoder is active (disabled during spot turns)
 
-enum RobotState {
-    STATIONARY,
-    TURNING,
-    STRAIGHT
-};
-
-RobotState currentState = STATIONARY; // Initialize robot state as stationary
-
 // Reset function for zeroing odometry
 void resetOdometry() {
     globalX = 0.0;
@@ -67,30 +59,13 @@ void updateOdometry() {
 
     // Step 5: Calculate Movement Components (ΔX and ΔY)
     // Cache trigonometric calculations for better performance
-    double deltaXPos = 0.0, deltaYPos = 0.0;
-double headingRad = globalHeading * (M_PI / 180.0); // Convert heading to radians
+    double headingRad = globalHeading * (M_PI / 180.0);
+    double cosHeading = cos(headingRad);
+    double sinHeading = sin(headingRad);
 
-if (currentState == TURNING) {
-    // Use arc-based calculations for turning
-    double deltaHeadingRad = deltaHeading * (M_PI / 180.0); // Convert heading change to radians
-    if (fabs(deltaHeadingRad) > 0.001) { 
-        // Arc motion: Calculate the radius of the turn
-        double radius = avgDeltaDistance / deltaHeadingRad;
-
-        // Update position using arc calculations
-        deltaXPos = radius * (sin(headingRad + deltaHeadingRad) - sin(headingRad));
-        deltaYPos = radius * (cos(headingRad) - cos(headingRad + deltaHeadingRad));
-    }
-} else if (currentState == STRAIGHT) {
-    // Straight-line odometry updates
-    double deltaX = xEncoder - prevXEncoder; // Use X encoder for lateral movement
-    deltaXPos = avgDeltaDistance * cos(headingRad); // Straight X-axis movement
-    deltaYPos = avgDeltaDistance * sin(headingRad); // Straight Y-axis movement
-}
-
-  Brain.Screen.printAt(10, 80, "xEnabled: %d", xEncoderEnabled);
-    Brain.Screen.printAt(10, 100, "deltaX: %.2f deltaY: %.2f", deltaXPos, deltaYPos);
-
+    // Convert average distance into X and Y changes using cached trig values
+    double deltaXPos = avgDeltaDistance * cosHeading; // X-axis movement component
+    double deltaYPos = avgDeltaDistance * sinHeading; // Y-axis movement component
 
     // Step 6: Update Global Position
     globalX += deltaXPos; // Update global X position
@@ -130,32 +105,28 @@ void turnToPoint(double targetX, double targetY,
                  double breakDistanceInDegrees, 
                  double minSpeed, double maxSpeed)
 {
-    // Set state to TURNING
-    currentState = TURNING;
-
     // Start timer for timeout safety
     double startTime = Brain.Timer.time(msec);
     const double TIMEOUT = 3000; // 3 seconds maximum for turn
 
-    // Update odometry to get fresh position
-    updateOdometry();
+    // Get current position from odometry
+    double currentX = globalX;
+    double currentY = globalY;
+    double currentHeading = globalHeading;
 
-// Calculate relative angle to turn (positive = clockwise, negative = counterclockwise)
-    double deltaX = targetX - globalX;
-    double deltaY = targetY - globalY;
-    double turnAmount = atan2(deltaX, deltaY) * 180.0 / M_PI;  // Remove the negative sign
-
-    //Brain.Screen.clearScreen();  // Clear previous prints
-    //Brain.Screen.printAt(10,100, "deltaX: %.2f deltaY: %.2f", deltaX, deltaY);
-    //Brain.Screen.printAt(10, 120, "turnAmount calculated: %.2f", turnAmount);
-
+    // Calculate target heading using arctangent
+    double targetHeading = atan2(targetY - currentY, targetX - currentX) * 180.0 / M_PI;
+    targetHeading = normalizeHeading(targetHeading);
+    double currentHeading = globalHeading;
+    double turnDegrees = normalizeHeading(targetHeading - currentHeading);
+    turn(turnDegrees, breakDistanceInDegrees, minSpeed, maxSpeed);
 
     // Disable X-encoder tracking during the turn
     bool previousXEncoderState = xEncoderEnabled;
     xEncoderEnabled = false;
 
-    // Perform the spot turn with motion profiling using the relative turn amount
-    turn(turnAmount, breakDistanceInDegrees, minSpeed, maxSpeed);
+    // Perform the spot turn with motion profiling
+    turn(turnDegrees, breakDistanceInDegrees, minSpeed, maxSpeed);
 
     // Check if we've exceeded timeout
     if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
@@ -167,14 +138,8 @@ void turnToPoint(double targetX, double targetY,
 
     // Update odometry after completing turn
     updateOdometry();
-    // Set state back to STATIONARY
-    currentState = STATIONARY;
-// Add right before final }
-    //Brain.Screen.clearScreen();
-    //Brain.Screen.printAt(10, 20, "TURN COMPLETE");
-    //Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
-    //wait(2000, msec);  // Small delay to ensure we can read the values
 }
+
 // Function to move robot in a straight line to a specific (x,y) coordinate
 // Parameters:
 //   targetX, targetY: The point to move to (in cm)
@@ -192,41 +157,40 @@ void straightToPoint(double targetX, double targetY,
                 double kp_heading, double ki_heading, 
                 double kd_heading, double accelHeadingScaling,
                 double decelHeadingScaling, double approachHeadingScaling,
-                double maxSpeed)
+                 double maxSpeed)
 {
-    // Set state to STRAIGHT
-    currentState = STRAIGHT;
-
-    // Start timer for timeout safety
+    // Initialize timeout timer
     double startTime = Brain.Timer.time(msec);
-    const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
+    const double TIMEOUT = 5000;  // 5 seconds maximum for movement
+    const double DISTANCE_THRESHOLD = 2.0;  // Stop when within 2cm of target, adjust as needed
 
-    // Update odometry to get fresh position
-    updateOdometry();
+    // Main control loop - runs until target reached or timeout
+    while(true) {
+        // Update robot's position and heading tracking
+        updateOdometry();  
+        
+        // Calculate new path parameters based on current position
+        double distanceToTarget, targetHeading;
+        calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
+        targetHeading = normalizeHeading(targetHeading);  // Normalize to ±180 degrees
 
-    // Calculate initial path to target
-    double distanceToTarget, targetHeading;
-    calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
-    targetHeading = 0;
+        // Check exit conditions:
+        // 1. Robot is close enough to target
+        // 2. Movement has taken too long (timeout)
+        if(distanceToTarget < DISTANCE_THRESHOLD || 
+           (Brain.Timer.time(msec) - startTime) > TIMEOUT) {
+            break;
+        }
 
-    // Move straight with PID heading correction
-    straight(distanceToTarget, breakDistance, minSpeed, targetHeading, 
-            kp_heading, ki_heading, kd_heading, accelHeadingScaling, 
-            decelHeadingScaling, approachHeadingScaling, maxSpeed);            
-    
-    // Check if we've exceeded timeout
-    if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
-        Brain.Screen.printAt(10, 60, "Straight move timeout");
+        // Execute straight movement with current parameters:
+        // - distanceToTarget: Remaining distance to target point
+        // - targetHeading: Desired heading to reach target
+        // - PID and scaling parameters for motion control
+        straight(distanceToTarget, breakDistance, minSpeed, targetHeading,
+                kp_heading, ki_heading, kd_heading, accelHeadingScaling,
+                decelHeadingScaling, approachHeadingScaling, maxSpeed);
+
+        wait(10, msec);  // Small delay to prevent CPU overload
     }
 
-    // Update odometry after completing movement
-    updateOdometry();
-    // Set state back to STATIONARY
-    currentState = STATIONARY;
-  //  Brain.Screen.clearScreen();
-// Add right before final }
-   // Brain.Screen.clearScreen();
-   // Brain.Screen.printAt(10, 20, "STRAIGHT COMPLETE");
-   // Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
-    //wait(2000, msec);  // Small delay to ensure we can read the values
 }

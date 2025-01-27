@@ -67,26 +67,13 @@ void updateOdometry() {
 
     // Step 5: Calculate Movement Components (ΔX and ΔY)
     // Cache trigonometric calculations for better performance
-    double deltaXPos = 0.0, deltaYPos = 0.0;
-double headingRad = globalHeading * (M_PI / 180.0); // Convert heading to radians
+    double headingRad = globalHeading * (M_PI / 180.0);
+    double cosHeading = cos(headingRad);
+    double sinHeading = sin(headingRad);
 
-if (currentState == TURNING) {
-    // Use arc-based calculations for turning
-    double deltaHeadingRad = deltaHeading * (M_PI / 180.0); // Convert heading change to radians
-    if (fabs(deltaHeadingRad) > 0.001) { 
-        // Arc motion: Calculate the radius of the turn
-        double radius = avgDeltaDistance / deltaHeadingRad;
-
-        // Update position using arc calculations
-        deltaXPos = radius * (sin(headingRad + deltaHeadingRad) - sin(headingRad));
-        deltaYPos = radius * (cos(headingRad) - cos(headingRad + deltaHeadingRad));
-    }
-} else if (currentState == STRAIGHT) {
-    // Straight-line odometry updates
-    double deltaX = xEncoder - prevXEncoder; // Use X encoder for lateral movement
-    deltaXPos = avgDeltaDistance * cos(headingRad); // Straight X-axis movement
-    deltaYPos = avgDeltaDistance * sin(headingRad); // Straight Y-axis movement
-}
+    // Convert average distance into X and Y changes using cached trig values
+    double deltaXPos = avgDeltaDistance * cosHeading; // X-axis movement component
+    double deltaYPos = avgDeltaDistance * sinHeading; // Y-axis movement component
 
   Brain.Screen.printAt(10, 80, "xEnabled: %d", xEncoderEnabled);
     Brain.Screen.printAt(10, 100, "deltaX: %.2f deltaY: %.2f", deltaXPos, deltaYPos);

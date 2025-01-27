@@ -530,12 +530,11 @@ pidStraightDistanceABS(80, 75, 30, .15, 0, 0, 1, 0, 0, 15, 15);
 
 
 void autonRoutine9() { // Do not use, test only
-//turn(180, 80, 20, 100); // good for 180
-//turn(90, 59, 15, 100);  //good for 90
+//Turn(180, 80, 20, 100); // good for 180
+// Turn(90, 59, 15, 100);  //good for 90
 //turn(45, 30, 15, 100); //decent for 45
-straightToPoint (0, 50, 35);
-task::sleep (2000);
-turnToPoint (-100, 0, 80, 15, 100);
+//straightToPoint (0, 100, 50);
+//turnToPoint (100, 0, 30);
 //task::sleep (1500);
 
 
@@ -543,7 +542,7 @@ turnToPoint (-100, 0, 80, 15, 100);
 
 
 //spotTurn(265, 70, 2, 0.4, 0, 0.05); 
-//straight(50, 35, 15);
+straight(110, 50, 15);
 //spotTurn(265, 70, 2, 0.4, 0, 0.05); 
 
 }

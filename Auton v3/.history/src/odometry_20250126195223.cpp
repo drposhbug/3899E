@@ -20,14 +20,6 @@ double prevHeading = 0.0;       // Stores the last heading from the inertial sen
 // Encoder State Management
 bool xEncoderEnabled = true;   // Determines whether the X encoder is active (disabled during spot turns)
 
-enum RobotState {
-    STATIONARY,
-    TURNING,
-    STRAIGHT
-};
-
-RobotState currentState = STATIONARY; // Initialize robot state as stationary
-
 // Reset function for zeroing odometry
 void resetOdometry() {
     globalX = 0.0;
@@ -67,26 +59,13 @@ void updateOdometry() {
 
     // Step 5: Calculate Movement Components (ΔX and ΔY)
     // Cache trigonometric calculations for better performance
-    double deltaXPos = 0.0, deltaYPos = 0.0;
-double headingRad = globalHeading * (M_PI / 180.0); // Convert heading to radians
+    double headingRad = globalHeading * (M_PI / 180.0);
+    double cosHeading = cos(headingRad);
+    double sinHeading = sin(headingRad);
 
-if (currentState == TURNING) {
-    // Use arc-based calculations for turning
-    double deltaHeadingRad = deltaHeading * (M_PI / 180.0); // Convert heading change to radians
-    if (fabs(deltaHeadingRad) > 0.001) { 
-        // Arc motion: Calculate the radius of the turn
-        double radius = avgDeltaDistance / deltaHeadingRad;
-
-        // Update position using arc calculations
-        deltaXPos = radius * (sin(headingRad + deltaHeadingRad) - sin(headingRad));
-        deltaYPos = radius * (cos(headingRad) - cos(headingRad + deltaHeadingRad));
-    }
-} else if (currentState == STRAIGHT) {
-    // Straight-line odometry updates
-    double deltaX = xEncoder - prevXEncoder; // Use X encoder for lateral movement
-    deltaXPos = avgDeltaDistance * cos(headingRad); // Straight X-axis movement
-    deltaYPos = avgDeltaDistance * sin(headingRad); // Straight Y-axis movement
-}
+    // Convert average distance into X and Y changes using cached trig values
+    double deltaXPos = avgDeltaDistance * cosHeading; // X-axis movement component
+    double deltaYPos = avgDeltaDistance * sinHeading; // Y-axis movement component
 
   Brain.Screen.printAt(10, 80, "xEnabled: %d", xEncoderEnabled);
     Brain.Screen.printAt(10, 100, "deltaX: %.2f deltaY: %.2f", deltaXPos, deltaYPos);
@@ -130,9 +109,6 @@ void turnToPoint(double targetX, double targetY,
                  double breakDistanceInDegrees, 
                  double minSpeed, double maxSpeed)
 {
-    // Set state to TURNING
-    currentState = TURNING;
-
     // Start timer for timeout safety
     double startTime = Brain.Timer.time(msec);
     const double TIMEOUT = 3000; // 3 seconds maximum for turn
@@ -167,13 +143,11 @@ void turnToPoint(double targetX, double targetY,
 
     // Update odometry after completing turn
     updateOdometry();
-    // Set state back to STATIONARY
-    currentState = STATIONARY;
 // Add right before final }
     //Brain.Screen.clearScreen();
     //Brain.Screen.printAt(10, 20, "TURN COMPLETE");
     //Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
-    //wait(2000, msec);  // Small delay to ensure we can read the values
+    wait(2000, msec);  // Small delay to ensure we can read the values
 }
 // Function to move robot in a straight line to a specific (x,y) coordinate
 // Parameters:
@@ -194,9 +168,6 @@ void straightToPoint(double targetX, double targetY,
                 double decelHeadingScaling, double approachHeadingScaling,
                 double maxSpeed)
 {
-    // Set state to STRAIGHT
-    currentState = STRAIGHT;
-
     // Start timer for timeout safety
     double startTime = Brain.Timer.time(msec);
     const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
@@ -221,12 +192,10 @@ void straightToPoint(double targetX, double targetY,
 
     // Update odometry after completing movement
     updateOdometry();
-    // Set state back to STATIONARY
-    currentState = STATIONARY;
-  //  Brain.Screen.clearScreen();
+    Brain.Screen.clearScreen();
 // Add right before final }
-   // Brain.Screen.clearScreen();
-   // Brain.Screen.printAt(10, 20, "STRAIGHT COMPLETE");
-   // Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
-    //wait(2000, msec);  // Small delay to ensure we can read the values
+    Brain.Screen.clearScreen();
+    Brain.Screen.printAt(10, 20, "STRAIGHT COMPLETE");
+    Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
+    wait(2000, msec);  // Small delay to ensure we can read the values
 }

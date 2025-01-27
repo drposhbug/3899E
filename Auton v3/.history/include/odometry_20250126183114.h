@@ -34,13 +34,13 @@ void turnToPoint(double targetX, double targetY,
 
 void straightToPoint(double targetX, double targetY,             
                double breakDistance,                 // breakDistance
-               double minSpeed = 15.0,  
-               double kp_heading = 0.2,                    // kp_heading
+               double minSpeed = 10.0,  
+               double kp_heading = 1.0,                    // kp_heading
                double ki_heading = 0.0,                    // ki_heading
                double kd_heading = 0.0,                    // kd_heading
-               double accelHeadingScaling = 0.4,          // accelHeadingScaling
-               double decelHeadingScaling = 0.25,          // decelHeadingScaling
-               double approachHeadingScaling = 0.25,       // approachHeadingScaling                 
+               double accelHeadingScaling = 0.5,          // accelHeadingScaling
+               double decelHeadingScaling = 1.0,          // decelHeadingScaling
+               double approachHeadingScaling = 1.0,       // approachHeadingScaling                 
                double maxSpeed = 100);                    
                
 

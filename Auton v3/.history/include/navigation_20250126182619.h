@@ -22,7 +22,7 @@ void turn(double targetHeading,
         double minSpeed = 15, 
         double maxSpeed = 100);
 void straight(double targetDistance, 
-            double breakDistance, 
+            double breakDistance = 90, 
             double minSpeed = 15, 
             double targetHeading = 0, 
             double kp_heading = 0.2, 

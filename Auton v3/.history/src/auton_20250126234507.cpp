@@ -535,7 +535,7 @@ void autonRoutine9() { // Do not use, test only
 //turn(45, 30, 15, 100); //decent for 45
 straightToPoint (0, 50, 35);
 task::sleep (2000);
-turnToPoint (-100, 0, 80, 15, 100);
+turnToPoint (-100, 0, 70, 15, 100);
 //task::sleep (1500);
 
 
