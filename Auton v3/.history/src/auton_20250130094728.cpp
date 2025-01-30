@@ -629,40 +629,15 @@ void autonRoutine10() {
 
   //Score Alliance
   straight(10, 5); // use this one
-  armMotor.spinToPosition(510, rotationUnits::deg, 100, velocityUnits::pct, true);
+  armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
   
   //Get Mobile Goal
-  straight(-86, 40, 20, 7, 0.6);
+  straight(-75, 40, 20, 5);
   goalPneumatics.set(true);
-
-  //Backing up to Border
   armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
-  turn(166, 75, 17);
-  straight360(30, 5, 18, 0);
-  intakeMotor.spin(reverse, 100, velocityUnits::pct);
-  //wait(10000,msec);
-  
-  //Turn to intake 4 stack by border
-  turn(-35, 10, 17);
-  straight360(30, 5, 18);
-
-  //turn to intake single red/blue stack after border
-  turn(-120, 50, 17);
-  straight(110, 40, 20);
-
-  //Turn to go to right side of alliance
-  turn(-70, 50, 17);
-  goalPneumatics.set(false);
-   intakeMotor.stop();
-
-  //Drive towards single red/blue red stack on right alliance side
- 
-  turn(120, 35, 17);
-  straight(-40, 20, 20);
-
-
-
-  
+  turn(176, 80, 17);
+  straight(30, 5, 18, 0);
+  intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
   //wait(4000,msec);
   //straight(25, 5, 18, -5); //slight angle turn using PID does not work well. Crosses 180 and spins like crazy 
  /* 
@@ -674,12 +649,10 @@ void autonRoutine10() {
              bool turnLeft);
 */
 //wait(4000,msec);
-/*
 arcTurn(50, 10, 18, 40, 100, true); //smaller the turnRadius the sharper the turn.  Right now at 50, not bad
-straight(100,5, 2);
 turn(-140, 70, 17);
 straight(100,40, 18);
-*/
+
 //intakeMotor.stop(); 
 
   

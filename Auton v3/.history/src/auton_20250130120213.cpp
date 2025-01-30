@@ -642,20 +642,18 @@ void autonRoutine10() {
   intakeMotor.spin(reverse, 100, velocityUnits::pct);
   //wait(10000,msec);
   
-  //Turn to intake 4 stack by border
   turn(-35, 10, 17);
   straight360(30, 5, 18);
 
   //turn to intake single red/blue stack after border
   turn(-120, 50, 17);
   straight(110, 40, 20);
-
-  //Turn to go to right side of alliance
   turn(-70, 50, 17);
   goalPneumatics.set(false);
    intakeMotor.stop();
 
-  //Drive towards single red/blue red stack on right alliance side
+   //Drive towards single red/blue red stack on right side of field
+  straight(90, 60, 20);
  
   turn(120, 35, 17);
   straight(-40, 20, 20);

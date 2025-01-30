@@ -22,12 +22,6 @@ void turn(double targetHeading,
         double breakDistanceInDegrees, 
         double minSpeed = 17, 
         double maxSpeed = 100);
-
-void turn360(double targetHeading, 
-        double breakDistanceInDegrees, 
-        double minSpeed = 17, 
-        double maxSpeed = 100);
-
 void straight(double targetDistance, 
             double breakDistance, 
             double minSpeed = 17, 

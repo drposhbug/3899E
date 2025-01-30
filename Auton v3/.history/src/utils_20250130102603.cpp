@@ -108,16 +108,12 @@ bool isLocking(double motorSpeed, double encoderSpeed) {
 
 
 // Color Detection Constants for utils.cpp
-//const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
-//const double RED_HUE_MAX_1 = 360.0;
-const double RED_HUE_MIN_1 = 335.0;  // First red range (340°-360°)
-const double RED_HUE_MAX_1 = 365.0;
+const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
+const double RED_HUE_MAX_1 = 360.0;
 const double RED_HUE_MIN_2 = 0.0;    // Second red range (0°-15°)
 const double RED_HUE_MAX_2 = 15.0;
-//const double BLUE_HUE_MIN = 215.0;   // Blue range
-//const double BLUE_HUE_MAX = 225.0;
-const double BLUE_HUE_MIN = 210.0;   // Blue range
-const double BLUE_HUE_MAX = 230.0;
+const double BLUE_HUE_MIN = 215.0;   // Blue range
+const double BLUE_HUE_MAX = 225.0;
 const double MIN_BRIGHTNESS = 15.0;   // Minimum brightness threshold
 
 // Function to initialize the Optical Sensor

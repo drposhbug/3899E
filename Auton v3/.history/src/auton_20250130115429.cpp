@@ -632,7 +632,7 @@ void autonRoutine10() {
   armMotor.spinToPosition(510, rotationUnits::deg, 100, velocityUnits::pct, true);
   
   //Get Mobile Goal
-  straight(-86, 40, 20, 7, 0.6);
+  straight(-86, 40, 20, 7, 0.4);
   goalPneumatics.set(true);
 
   //Backing up to Border
@@ -642,20 +642,16 @@ void autonRoutine10() {
   intakeMotor.spin(reverse, 100, velocityUnits::pct);
   //wait(10000,msec);
   
-  //Turn to intake 4 stack by border
   turn(-35, 10, 17);
   straight360(30, 5, 18);
 
   //turn to intake single red/blue stack after border
   turn(-120, 50, 17);
-  straight(110, 40, 20);
-
-  //Turn to go to right side of alliance
-  turn(-70, 50, 17);
+  straight(120, 40, 20);
+  turn(-70, 20, 17);
   goalPneumatics.set(false);
    intakeMotor.stop();
-
-  //Drive towards single red/blue red stack on right alliance side
+  straight(90, 60, 20);
  
   turn(120, 35, 17);
   straight(-40, 20, 20);

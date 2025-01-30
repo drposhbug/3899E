@@ -632,36 +632,16 @@ void autonRoutine10() {
   armMotor.spinToPosition(510, rotationUnits::deg, 100, velocityUnits::pct, true);
   
   //Get Mobile Goal
-  straight(-86, 40, 20, 7, 0.6);
+  straight(-86, 50, 20, 5, 0.4);
   goalPneumatics.set(true);
 
   //Backing up to Border
   armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
   turn(166, 75, 17);
   straight360(30, 5, 18, 0);
-  intakeMotor.spin(reverse, 100, velocityUnits::pct);
-  //wait(10000,msec);
-  
-  //Turn to intake 4 stack by border
-  turn(-35, 10, 17);
-  straight360(30, 5, 18);
-
-  //turn to intake single red/blue stack after border
-  turn(-120, 50, 17);
-  straight(110, 40, 20);
-
-  //Turn to go to right side of alliance
-  turn(-70, 50, 17);
-  goalPneumatics.set(false);
-   intakeMotor.stop();
-
-  //Drive towards single red/blue red stack on right alliance side
- 
-  turn(120, 35, 17);
-  straight(-40, 20, 20);
-
-
-
+  intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
+  turn(-20, 10, 17);
+  straight360(10, 5, 18, 0);
   
   //wait(4000,msec);
   //straight(25, 5, 18, -5); //slight angle turn using PID does not work well. Crosses 180 and spins like crazy 
