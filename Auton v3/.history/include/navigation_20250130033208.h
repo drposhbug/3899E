@@ -46,15 +46,6 @@ void straightTemp(double targetDistance,
             double approachHeadingScaling = 0.25, 
             double maxSpeed = 100);
 
-void arcTurn(double targetDistance, 
-             double breakDistance,
-             double minSpeed,
-             double maxSpeed,
-             double turnRadius,    // Radius of turn in cm
-             bool turnLeft);
-
-
-
 //double targetDistance, double maxSpeed = 100, double targetHeading = 0, double breakDistance = 90, double kp_heading = 0.2, double ki_heading = 0.0, double kd_heading = 0.0, double accelHeadingScaling = 0.4, double decelHeadingScaling = 0.25, double approachHeadingScaling = 0.25, double minSpeed = 15 Pretty good for backwards
 void turnOdometry(double targetHeading, 
             double breakDistanceInDegrees, 

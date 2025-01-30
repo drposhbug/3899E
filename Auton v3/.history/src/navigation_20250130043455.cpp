@@ -3979,8 +3979,8 @@ void arcTurn(double targetDistance,
     
     // Calculate speed ratios for inner and outer wheels based on turn radius
     // Inner wheel travels less distance than outer wheel
-    double innerRatio = (turnRadius - (TRACK_WIDTH / 2)) / turnRadius;
-    double outerRatio = (turnRadius + (TRACK_WIDTH / 2)) / turnRadius;
+    double innerRatio = (turnRadius - (trackWidth / 2)) / turnRadius;
+    double outerRatio = (turnRadius + (trackWidth / 2)) / turnRadius;
     
     // Reset encoders
     passiveEncoderLeft.resetPosition();

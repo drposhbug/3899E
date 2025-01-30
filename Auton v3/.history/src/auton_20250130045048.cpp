@@ -630,12 +630,10 @@ void autonRoutine10() {
   //Score Alliance
   straight(10, 5); // use this one
   armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
-  
-  //Get Mobile Goal
   straight(-75, 40, 20, 5);
   goalPneumatics.set(true);
   armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
-  turn(176, 80, 17);
+  turn(176, 70, 17);
   straight(30, 5, 18, 0);
   intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
   //wait(4000,msec);
@@ -648,8 +646,8 @@ void autonRoutine10() {
              double turnRadius,    // Radius of turn in cm
              bool turnLeft);
 */
-//wait(4000,msec);
-arcTurn(50, 10, 18, 50, 100, true); //smaller the turnRadius the sharper the turn.  Right now at 50, not bad
+wait(4000,msec);
+arcTurn(25, 10, 18, 50, 100, true); //smaller the turnRadius the sharper the turn.  Right now at 50, not bad
 turn(-120, 70, 17);
 straight(100,40, 18);
 

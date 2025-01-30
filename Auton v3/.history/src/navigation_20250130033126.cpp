@@ -3013,13 +3013,7 @@ void straight(double targetDistance,
     double accelFactorLaunch = 1.15; //test, temporary
 
     // PID and Heading Control
-    // Get initial heading when straight movement starts
-    double initialHeading = InertialSensor.heading();
-    // Calculate the absolute target heading by adding the relative targetHeading
-    double absoluteTargetHeading = initialHeading + targetHeading;
-    // Normalize it
-    double normTargetHeading = normHeading(absoluteTargetHeading);
-    //double normTargetHeading = normHeading(targetHeading);
+    double normTargetHeading = normHeading(targetHeading);
     double avgMotorVoltage = 0;  // Used for phase transition checking
     double leftEncoderRollingAverage = 0;
     double rightEncoderRollingAverage = 0;
@@ -3695,30 +3689,13 @@ void straightTemp(double targetDistance,
     double normTargetHeading = normHeading(targetHeading);
     double avgMotorVoltage = 0;  // Used for phase transition checking
 
-
-
+    // Correct Declaration Without Arguments
+    ABSController ABSControllerLeft[3];
+    ABSController ABSControllerRight[3];
 
     bool decel = false;
     bool decelCompleted = false;
     bool accelCompleted = false;
-
-// Traction Control Parameters
-    // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
-    double slipThresholdTraction = 0.30;
-    double slipThresholdABS = 0.25;
-    //double accelFactorLaunch = 1.4; //good starting launch acceleration factor
-
-    // Declaration for slip threshold
-ABSController ABSControllerLeft[3] = {
-    ABSController(slipThresholdABS),
-    ABSController(slipThresholdABS), 
-    ABSController(slipThresholdABS)
-};
-ABSController ABSControllerRight[3] = {
-    ABSController(slipThresholdABS),
-    ABSController(slipThresholdABS),
-    ABSController(slipThresholdABS)
-};
 
     // Declare arrays of Slip Control instances for each wheel
     tractionControl tractionControlLeft[3] = {tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, slipThreshold),
@@ -3968,78 +3945,4 @@ Brain.Screen.print("Dist Check: %d",
     Brain.Screen.print("Distance Complete");
     Brain.Screen.print("Current Distance: %.2f", currentDistance);
 */
-}
-
-void arcTurn(double targetDistance, 
-             double breakDistance,
-             double minSpeed,
-             double maxSpeed,
-             double turnRadius,    // Radius of turn in cm
-             bool turnLeft) {      // true for left turn, false for right
-    
-    // Calculate speed ratios for inner and outer wheels based on turn radius
-    // Inner wheel travels less distance than outer wheel
-    double innerRatio = (turnRadius - (TRACK_WIDTH / 2)) / turnRadius;
-    double outerRatio = (turnRadius + (TRACK_WIDTH / 2)) / turnRadius;
-    
-    // Reset encoders
-    passiveEncoderLeft.resetPosition();
-    passiveEncoderRight.resetPosition();
-
-    double currentDistance = 0;
-    
-    // Calculate max/min voltages for each wheel
-    double maxVoltage = maxSpeed * 0.01 * absoluteMaxVoltage;
-    double minVoltage = minSpeed * 0.01 * absoluteMaxVoltage;
-    
-    // Initial voltages start at minimum
-    double innerVoltage = minVoltage * innerRatio;
-    double outerVoltage = minVoltage * outerRatio;
-    
-    // Target max voltages
-    double innerMaxVoltage = maxVoltage * innerRatio;
-    double outerMaxVoltage = maxVoltage * outerRatio;
-
-    while (std::fabs(currentDistance) <= fabs(targetDistance)) {
-        // Update current distance (average of wheels)
-        currentDistance = ((passiveEncoderLeft.position(degrees) + 
-                          passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * 
-                          encoderWheelCircumferenceCM;
-        
-        // Acceleration phase
-        if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance)) {
-            // Gradually increase voltage while maintaining ratio
-            innerVoltage = std::min(innerMaxVoltage, innerVoltage + 0.1);
-            outerVoltage = std::min(outerMaxVoltage, outerVoltage + 0.1);
-        }
-        // Deceleration phase
-        else {
-            // Gradually decrease voltage while maintaining ratio
-            innerVoltage = std::max(minVoltage * innerRatio, innerVoltage - 0.1);
-            outerVoltage = std::max(minVoltage * outerRatio, outerVoltage - 0.1);
-        }
-
-        // Apply voltages based on turn direction
-        if (turnLeft) {
-            // Left turn - left wheel is inner wheel
-            for (int i = 0; i < 3; i++) {
-                leftMotor[i].spin(forward, innerVoltage, voltageUnits::volt);
-                rightMotor[i].spin(forward, outerVoltage, voltageUnits::volt);
-            }
-        } else {
-            // Right turn - right wheel is inner wheel
-            for (int i = 0; i < 3; i++) {
-                leftMotor[i].spin(forward, outerVoltage, voltageUnits::volt);
-                rightMotor[i].spin(forward, innerVoltage, voltageUnits::volt);
-            }
-        }
-
-        vex::task::sleep(10);
-    }
-
-    // Stop motors at end
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brake);
-        rightMotor[i].stop(brake);
-    }
 }

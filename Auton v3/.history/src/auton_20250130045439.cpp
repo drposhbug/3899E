@@ -649,7 +649,7 @@ void autonRoutine10() {
              bool turnLeft);
 */
 //wait(4000,msec);
-arcTurn(50, 10, 18, 50, 100, true); //smaller the turnRadius the sharper the turn.  Right now at 50, not bad
+arcTurn(25, 10, 18, 50, 100, true); //smaller the turnRadius the sharper the turn.  Right now at 50, not bad
 turn(-120, 70, 17);
 straight(100,40, 18);
 

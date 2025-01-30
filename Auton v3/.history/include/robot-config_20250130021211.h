@@ -69,7 +69,7 @@ enum ArmPosition {
     Alliance = 776, // Position -550 (Right button)
     ScoringSide = 650,
     ScoringAlliance =470, 
-    Descore = 573
+    Descore = 600
 };
 
 

@@ -360,14 +360,11 @@ int colorDetectionTask(void* params) {
             wait(p->delayMs, msec); 
             intakeMotor.stop(); // Stop the motor
             wait(50, msec); 
-            intakeMotor.spin(reverse, 100, velocityUnits::pct);  // Spins continuously until stopped
         } 
         else if ((hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) && p->targetColor == Color::BLUE) {
             Brain.Screen.print("BLUE");
             wait(p->delayMs, msec); 
             intakeMotor.stop(); // Stop the motor
-            wait(50, msec); 
-            intakeMotor.spin(reverse, 100, velocityUnits::pct);  // Spins continuously until stopped
         }
         
         wait(10, msec);  // Small delay to prevent CPU overload
