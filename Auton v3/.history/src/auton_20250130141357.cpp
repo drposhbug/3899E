@@ -653,7 +653,7 @@ void autonRoutine10() {
   //Turn to go to right side of alliance
   turn(-73, 50, 17);
   straight(80, 50, 20);
-  straight(100, 30, 20);
+  straight(80, 30, 20);
   goalPneumatics.set(false);
    intakeMotor.stop();
 

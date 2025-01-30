@@ -3,6 +3,7 @@
 #include "utils.h"         // Include the utility header for normalizeHeading
 #include "robot-config.h"  // Include the robot configuration
 #include "navigation.h" 
+#include "odometry.h"
 #include "vision_tracking.h"
 #include <cmath>           // Include math library for M_PI
 
@@ -352,7 +353,7 @@ pidStraightDistanceLaunch(90, -55, 32, 0.5, 0, 0, 0.15, 0, 0,20, brakeType::coas
                          armstat = ArmPosition::Alliance;
 
     pidStraightDistanceLaunch(210, 95, 60, 0.5, 0, 0, 0.09, 0, 0, 15, brakeType::brake);
-   armMotor.spinToPosition(Load, rotationUnits::deg, 100, velocityUnits::pct, false);
+   armMotor.spinToPosition(Load1, rotationUnits::deg, 100, velocityUnits::pct, false);
     vexDelay(500);
    pidStraightDistanceLaunch(210, -30, 90, 0.4, 0, 0, 0.15, 0, 0,10, brakeType::brake);
 
@@ -420,47 +421,62 @@ pidStraightDistanceLaunch(275, -35, 70, 0.4, .02, .5, 0.09, 0, 0, 12, brakeType:
 void autonRoutine6() {
 //double startingHeading = 0;  
 //InertialSensor.setHeading(startingHeading, rotationUnits::deg);
-//intakeMotor.spin(reverse, 12, voltageUnits::volt);
-/*
-// Define parameters for intake motor control
-    MotorControlParams intakeParams;
-    intakeParams.targetMotor = &intakeMotor;
-    intakeParams.DelayStart = 500; // 0.5 seconds
-    intakeParams.OnTime = 1000;     // 2 seconds
-    intakeParams.dir = directionType::rev;
-
-    // Launch motor control threads using the wrapper function
-    thread intakeTask(MotorControlThread, &intakeParams);
-*/
-
-    // Initialize the motors and sensors
-    vexcodeInit();
-    
-    // Move the robot forward for 150 cm at 70% speed
-    move(500.0, 100.0, vex::directionType::fwd);
-
-    vex::task::sleep(500);
-
-    // After moving forward, simulate a sudden deceleration using ABS
-   absControl(0.0, 0.0);  // Set voltages to 0 to stop the robot
-
-    // Keep the program running to observe behavior
-    
-        vex::task::sleep(3000);  // Prevent CPU hogging
-  
-
-  
+armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
+straight(-50, 100, 0, 20); // use this one
+armMotor.spinToPosition(-50, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(55, 70, 2, 0.4, 0, 0.05);
+straight(-55, 100, 55, 40); // use this one
+goalPneumatics.set(true);
+spotTurn(150, 70, 2, 0.4, 0, 0.05);
+intakeMotor.spinFor(-8000, rotationUnits::deg, 100, velocityUnits::pct, false);
+vex::task::sleep(500);
+straight(70, 100, 150, 30); // use this one
+goalPneumatics.set(false);
+spotTurn(76, 70, 2, 0.4, 0, 0.05); 
+straight(-39, 30, 76, 10);
+goalPneumatics.set(true);
 }
 
 void autonRoutine7() {
-//pidStraightDistanceLaunch(0, 94, 100, 0.4, 0, 0, 1, 0, 0, 10, brakeType::brake);
-//pidStraightDistanceSlipABS(0, 120, 95, 0.4, 0, 0, 1, 0, 0, 16, 20);
-//pidStraightDistanceLaunchABS(0, 160, 95, 0.4, 0, 0, 0, 1.5, 10, 75);
-//spotTurnMP(90, 50, 15, 20);
-//spotTurnMP(-45, 100, 7, 40); // good setting for 45 degrees.
-spotTurnMP(-180, 100, 10, 132); //good decel distance and min speed without load
-//spotTurn(-80, 10, 2, 0.4, 0, 0.05);
+straight(3, 100, 0, 1); // use this one
+armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
+straight(-80, 100, 0, 20); // use this one
+armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(250, 70, 2, 0.4, 0, 0.05);
+straight(-57, 100, 250, 40); // use this one
+goalPneumatics.set(true);
+spotTurn(210, 70, 2, 0.4, 0, 0.05);
+intakeMotor.spinFor(-10000, rotationUnits::deg, 100, velocityUnits::pct, false);
+vex::task::sleep(500);
 
+straight(45, 100, 210, 20); // use this one
+
+/*
+spotTurn(265, 70, 2, 0.4, 0, 0.05); 
+straight(110, 30, 275, 0);
+spotTurn(265, 70, 2, 0.4, 0, 0.05); 
+*/
+
+
+
+}
+
+void autonRoutine8() {
+straight(10, 100, 0, 5); // use this one
+armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
+straight(-50, 100, 0, 20); // use this one
+armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(250, 70, 2, 0.4, 0, 0.05);
+straight(-57, 100, 250, 40); // use this one
+goalPneumatics.set(true);
+spotTurn(150, 70, 2, 0.4, 0, 0.05);
+intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
+vex::task::sleep(500);
+straight(55, 100, 150, 30); // use this one
+spotTurn(240, 70, 2, 0.4, 0, 0.05); 
+straight(30, 30, 240, 10);
+straight(-20, 30, 240, 10);
+straight(20, 30, 225, 10);  
 }
 
 
@@ -513,3 +529,165 @@ pidStraightDistanceABS(80, 75, 30, .15, 0, 0, 1, 0, 0, 15, 15);
     // Reset
 
 
+void autonRoutine9() {
+  setStartPosition(20, 20, 100);  // Start at (100cm, 50cm) facing right (90 degrees)
+Brain.Screen.printAt(10, 20, "START - X: %.2f, Y: %.2f", globalX, globalY);
+
+    // Calculate intended movement
+    double targetX = 0;
+    double targetY = 50;
+    double intendedDeltaX = targetX - globalX;  // Should be -20
+    double intendedDeltaY = targetY - globalY;  // Should be 30
+    double intendedDistance = sqrt(intendedDeltaX*intendedDeltaX + intendedDeltaY*intendedDeltaY);
+    
+    Brain.Screen.printAt(10, 40, "Intended move - dX: %.2f, dY: %.2f", intendedDeltaX, intendedDeltaY);
+    Brain.Screen.printAt(10, 60, "Intended total dist: %.2f cm", intendedDistance);
+    wait(6000, msec);
+
+
+  armMotor.setBrake(brakeType::coast);        
+  armMotor.spin(reverse, 100, velocityUnits::pct);  // Slower descent
+  if (armBumper.value() == 1 && fabs(armMotor.velocity(velocityUnits::rpm)) == 0) {  // Bumper is pressed
+        armMotor.stop(brakeType::coast);
+        armMotor.resetPosition();
+        armstat = ArmPosition::Starting;
+
+    }    
+ wait(2500, msec);  // Wait slightly longer than the delay + movement time
+
+    // First movement
+    ArmTaskParams armParams1;
+    armParams1.isRunning = true;
+    armParams1.targetPosition = ArmPosition::Load2;
+    armParams1.delayMs = 4000;
+    armParams1.moveRequested = true;
+    vex::task armControl1(armTask, &armParams1);
+    //straightToPoint(-50, 0, 40, 15, 0.3, 0, 0);
+    // Wait for first movement to complete
+    //wait(2500, msec);  // Wait slightly longer than the delay + movement time
+    armParams1.isRunning = false;  // Stop first task
+    armControl1.stop();  // Explicitly stop task
+
+  straightToPoint(0, 50, 15, 16, 0.0, 0, 0, 0.2, 0.2, 0.2);
+   // straight(50, 15, 16, 0, 0.5, 0.01, 0.0, 0.3);
+    task::sleep(2000); 
+    //turnToPoint(-50, 0, 50);
+
+    // Second movement - after first task is done
+    ArmTaskParams armParams2;
+    armParams2.isRunning = true;
+    armParams2.targetPosition = ArmPosition::Side;
+    armParams2.delayMs = 10;
+    armParams2.moveRequested = true;
+    vex::task armControl2(armTask, &armParams2);
+
+    //wait(3000, msec);
+    //straightToPoint(-50, 0, 40, 15, 0.3, 0, 0);
+    //turnToPoint(100, 200, 80);
+
+       // After movement
+    Brain.Screen.printAt(10, 80, "END - X: %.2f, Y: %.2f", globalX, globalY);
+    double actualDeltaX = globalX - 20;  // Change from start X
+    double actualDeltaY = globalY - 20;  // Change from start Y
+    double actualDistance = sqrt(actualDeltaX*actualDeltaX + actualDeltaY*actualDeltaY);
+    
+    Brain.Screen.printAt(10, 100, "Actual move - dX: %.2f, dY: %.2f", actualDeltaX, actualDeltaY);
+    Brain.Screen.printAt(10, 120, "Actual total dist: %.2f cm", actualDistance);
+
+    // Show encoder readings to verify conversion
+    Brain.Screen.printAt(10, 140, "Encoders - L: %.2f R: %.2f X: %.2f", 
+        passiveEncoderLeft.position(deg),
+        passiveEncoderRight.position(deg),
+        passiveEncoderX.position(deg));
+
+    // Stop second task
+    armParams2.isRunning = false;
+    armControl2.stop();
+}
+
+void autonRoutine10() {
+  
+  const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
+  const double RED_HUE_MAX_1 = 360.0;
+  const double RED_HUE_MIN_2 = 0.0;    // Second red range (0°-15°)
+  const double RED_HUE_MAX_2 = 15.0;
+  const double BLUE_HUE_MIN = 215.0;   // Blue range
+  const double BLUE_HUE_MAX = 225.0;
+
+  initializeOpticalSensor();
+
+   // Define task parameters
+    ColorTaskParams colorTaskParams;
+    colorTaskParams.isRunning = true;  
+    colorTaskParams.targetColor = Color::BLUE;  // Set ejection colour RED or BLUE
+    colorTaskParams.delayMs = 80;  // Set delay before stopping intake
+
+    // Start the color detection task
+    vex::task colorTask(colorDetectionTask, &colorTaskParams);
+
+  //intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
+
+  //Score Alliance
+  straight(10, 5); // use this one
+  armMotor.spinToPosition(510, rotationUnits::deg, 100, velocityUnits::pct, true);
+  
+  //Get Mobile Goal
+  straight(-86, 42, 30, 6, 0.45);
+  goalPneumatics.set(true);
+
+  //Backing up to Border
+  armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
+  turn(166, 75, 17);
+  straight360(30, 5, 18, 0);
+  intakeMotor.spin(reverse, 100, velocityUnits::pct);
+  //wait(10000,msec);
+  
+  //Turn to intake 4 stack by border
+  turn(-35, 15, 17);
+  straight360(30, 5, 18);
+
+  //turn to intake single red/blue stack after border
+  turn(-120, 50, 17);
+  straight(120, 80, 20);
+
+  //Turn to go to right side of alliance
+  turn(-73, 50, 17);
+  straight(80, 60, 20);
+  straight(70, 30, 20);
+  goalPneumatics.set(false);
+   intakeMotor.stop();
+
+  //Drive towards single red/blue red stack on right alliance side
+   intakeMotor.spin(reverse, 100, velocityUnits::pct);
+  turn(90, 35, 17);
+  straight(-60, 20, 20, -5);
+goalPneumatics.set(true);
+
+
+  
+  //wait(4000,msec);
+  //straight(25, 5, 18, -5); //slight angle turn using PID does not work well. Crosses 180 and spins like crazy 
+ /* 
+  arcTurn(double targetDistance, 
+             double breakDistance,
+             double minSpeed,
+             double maxSpeed,
+             double turnRadius,    // Radius of turn in cm
+             bool turnLeft);
+*/
+//wait(4000,msec);
+/*
+arcTurn(50, 10, 18, 40, 100, true); //smaller the turnRadius the sharper the turn.  Right now at 50, not bad
+straight(100,5, 2);
+turn(-140, 70, 17);
+straight(100,40, 18);
+*/
+//intakeMotor.stop(); 
+
+  
+
+
+
+
+
+}
