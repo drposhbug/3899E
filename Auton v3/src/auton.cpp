@@ -638,13 +638,13 @@ void autonRoutine10() {
   //Backing up to Border
   armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
   turn(166, 75, 17);
-  straight360(30, 5, 18, 0);
+  straight360(30, 5, 18);
   intakeMotor.spin(reverse, 100, velocityUnits::pct);
   //wait(10000,msec);
   
   //Turn to intake 4 stack by border
-  turn(-35, 15, 17);
-  straight360(30, 5, 18);
+  //turn(-35, 15, 17);
+  //straight360(30, 5, 18);
 
   //turn to intake single red/blue stack after border
   turn(-120, 60, 20);
