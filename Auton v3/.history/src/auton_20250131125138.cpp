@@ -438,162 +438,92 @@ goalPneumatics.set(true);
 }
 
 void autonRoutine7() {
-  const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
-  const double RED_HUE_MAX_1 = 360.0;
-  const double RED_HUE_MIN_2 = 0.0;    // Second red range (0°-15°)
-  const double RED_HUE_MAX_2 = 15.0;
-  const double BLUE_HUE_MIN = 215.0;   // Blue range
-  const double BLUE_HUE_MAX = 225.0;
+straight(3, 100, 0, 1); // use this one
+armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
+straight(-80, 100, 0, 20); // use this one
+armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(250, 70, 2, 0.4, 0, 0.05);
+straight(-57, 100, 250, 40); // use this one
+goalPneumatics.set(true);
+spotTurn(210, 70, 2, 0.4, 0, 0.05);
+intakeMotor.spinFor(-10000, rotationUnits::deg, 100, velocityUnits::pct, false);
+vex::task::sleep(500);
 
-  initializeOpticalSensor();
+straight(45, 100, 210, 20); // use this one
 
-   // Define task parameters
-    ColorTaskParams colorTaskParams;
-    colorTaskParams.isRunning = true;  
-    colorTaskParams.targetColor = Color::BLUE;  // Set ejection colour RED or BLUE
-    colorTaskParams.delayMs = 80;  // Set delay before stopping intake
+/*
+spotTurn(265, 70, 2, 0.4, 0, 0.05); 
+straight(110, 30, 275, 0);
+spotTurn(265, 70, 2, 0.4, 0, 0.05); 
+*/
 
-    // Start the color detection task
-    vex::task colorTask(colorDetectionTask, &colorTaskParams);
-
-  //intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
-//armMotor.spinToPosition(400, rotationUnits::deg, 80, velocityUnits::pct,false);
-  //Score Alliance
-
-  straight(-70, 40); // use this one
- // armMotor.spinToPosition(590, rotationUnits::deg, 100, velocityUnits::pct,false);
-   // straight(-30, 10); // use this one
-     // armMotor.spinToPosition(-590, rotationUnits::deg, 100, velocityUnits::pct,false);
-
- // turn(-90, 50, 20);
-   //   straight(-60, 30); // use this one
-       goalPneumatics.set(true);
-                   task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-               intakeMotor.spin(reverse, 100, velocityUnits::pct);
-           task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-  //      turn(-70, 40, 20);
-    //             task::sleep(1000);  // Small delay to prevent overwhelming the CP
-      // straight(60, 20); // use this one
-
-                   task::sleep(3000);  // Small delay to prevent overwhelming the CPU
 
 
 }
 
 void autonRoutine8() {
- 
-  const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
-  const double RED_HUE_MAX_1 = 360.0;
-  const double RED_HUE_MIN_2 = 0.0;    // Second red range (0°-15°)
-  const double RED_HUE_MAX_2 = 15.0;
-  const double BLUE_HUE_MIN = 215.0;   // Blue range
-  const double BLUE_HUE_MAX = 225.0;
-
-  initializeOpticalSensor();
-
-   // Define task parameters
-    ColorTaskParams colorTaskParams;
-    colorTaskParams.isRunning = true;  
-    colorTaskParams.targetColor = Color::RED;  // Set ejection colour RED or BLUE
-    colorTaskParams.delayMs = 80;  // Set delay before stopping intake
-
-    // Start the color detection task
-    vex::task colorTask(colorDetectionTask, &colorTaskParams);
-
-  //intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
-armMotor.spinToPosition(400, rotationUnits::deg, 80, velocityUnits::pct,false);
-  //Score Alliance
-  straight(113, 70); // use this one
-  armMotor.spinToPosition(590, rotationUnits::deg, 100, velocityUnits::pct,false);
-    straight(-30, 10); // use this one
-      armMotor.spinToPosition(-590, rotationUnits::deg, 100, velocityUnits::pct,false);
-
-  turn(-90, 50, 20);
-      straight(-60, 30); // use this one
-       goalPneumatics.set(true);
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
-         turn(25, 10, 20);
-        straight(85, 30); // use this one
-
-
-
-
-
- 
-
-
-
-/*
-  //Get Mobile Goal
-  straight(-85, 40, 35, -5, 0.6);
-  goalPneumatics.set(true);
-
-  //Backing up to Border
-  armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
-
-  turn(-105, 60, 17);
-  straight(30, 10, 40);
-  turn(-90, 60, 17);
-    straight(30, 20, 30);
-    straight(-10, 5, 30);
-  turn(20, 10, 17);
-  straight(10, 10, 30);
-   // straight(-25, 10, 30);
-    //turn(-90, 40, 17);
-     //straight(47, 10, 30);
-
-
-
-
-
-  //wait(10000,msec);
-  
-  //Turn to intake 4 stack by border
-  //turn(-35, 15, 17);
-  //straight360(30, 5, 18);
-
-  //turn to intake single red/blue stack after border
- // turn(-120, 60, 20);
-  //straight(120, 80, 20);
-/**\
-  //Turn to go to right side of alliance
-  turn(-73, 50, 17);
-  straight(80, 50, 20);
-  straight(100, 30, 20);
-  goalPneumatics.set(false);
-   intakeMotor.stop();
-
-  //Drive towards single red/blue red stack on right alliance side
-  turn(90, 35, 17);
-  straight(-70, 35, 20, -15,0.6);
+straight(10, 100, 0, 5); // use this one
+armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
+straight(-50, 100, 0, 20); // use this one
+armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(250, 70, 2, 0.4, 0, 0.05);
+straight(-57, 100, 250, 40); // use this one
 goalPneumatics.set(true);
- intakeMotor.spin(reverse, 100, velocityUnits::pct);
+spotTurn(150, 70, 2, 0.4, 0, 0.05);
+intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
+vex::task::sleep(500);
+straight(55, 100, 150, 30); // use this one
+spotTurn(240, 70, 2, 0.4, 0, 0.05); 
+straight(30, 30, 240, 10);
+straight(-20, 30, 240, 10);
+straight(20, 30, 225, 10);  
+}
 
 
+void autonRoutineRedLeft() {  //Blue Safe Route
 
-  
-  //wait(4000,msec);
-  //straight(25, 5, 18, -5); //slight angle turn using PID does not work well. Crosses 180 and spins like crazy 
- /* 
-  arcTurn(double targetDistance, 
-             double breakDistance,
-             double minSpeed,
-             double maxSpeed,
-             double turnRadius,    // Radius of turn in cm
-             bool turnLeft);
-*/
-//wait(4000,msec);
+   armMotor.spinToPosition(600, rotationUnits::deg, 100, velocityUnits::pct, true);
+pidStraightDistanceABS(0, -5, 100, .15, 0, 0, 1, 0, 0, 15, 0);  
+spotTurn(-63, 70, 2, 0.4, 0, 0.05);
+pidStraightDistanceABS(-70, 15, 80, .15, 0, 0, 1, 0, 0, 15, 10); 
+//intakeMotor.spin(directionType::rev, 12, voltageUnits::volt);
+armMotor.spinFor(-1200, rotationUnits::deg, 100, velocityUnits::pct, false);
+intakeMotor.spinFor(-2000, rotationUnits::deg, 100, velocityUnits::pct, false);
+armMotor.spinFor(-600, rotationUnits::deg, 100, velocityUnits::pct, false);
+vex::task::sleep(500); 
+spotTurn(29, 70, 2, 0.4, 0, 0.05);
+
+pidStraightDistanceABS(29, -40, 70, .15, 0, 0, 1, 0, 0, 20, 20);
+goalPneumatics.set(true);
+intakeMotor.spinFor(-8000, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(150, 70, 2, 0.4, 0, 0.05);
+pidStraightDistanceABS(150, 30, 70, .15, 0, 0, 1, 0, 0, 15, 15);
 /*
-arcTurn(50, 10, 18, 40, 100, true); //smaller the turnRadius the sharper the turn.  Right now at 50, not bad
-straight(100,5, 2);
-turn(-140, 70, 17);
-straight(100,40, 18);
+
+//score alliance stake 
+//armMotor.spinFor(ScoringAlliance, rotationUnits::deg, 100, velocityUnits::pct);
+
+//backup and grab mobile goal
+pidStraightDistanceABS(-1, -75, 50, .15, 0, 0, 1, 0, 0, 15, 20);  
+goalPneumatics.set(true);
+//armMotor.spinFor(Starting, rotationUnits::deg, 100, velocityUnits::pct);
+
+//drive towards and grab stack with blue ring on top and red ring on the bottom using the doinker
+pidStraightDistanceABS(0, 50, 50, .10, 0, 0, 1, 0, 0, 15, 15); 
+doinkerPneumatics.set(true);
+spotTurn(68, 7, 2, 0.4, 0, 0.05);
+doinkerPneumatics.set(false);
+intakeMotor.spin(directionType::rev, 12, voltageUnits::volt);
+pidStraightDistanceABS(68, 40, 50, .15, 0, 0, 1, 0, 0, 15, 15); 
+
+//grab stack with blue ring on the bottom and red ring on top 
+pidStraightDistanceABS(79, -70, 50, .15, 0, 0, 1, 0, 0, 15, 15); 
+spotTurn(-170, 50, 2, 0.4, 0, 0.05);
+pidStraightDistanceABS(-170, 70, 70, .15, 0, 0, 1, 0, 0, 15, 15);
+vex::task::sleep(1000); 
+spotTurn(80, 50, 2, 0.4, 0, 0.05);
+pidStraightDistanceABS(80, 75, 30, .15, 0, 0, 1, 0, 0, 15, 15); 
 */
-//intakeMotor.stop(); 
-
-  
-
 }
 
     // Reset
@@ -634,19 +564,13 @@ intakeMotor.spinFor(2000, rotationUnits::deg, 100, velocityUnits::pct, false);
   armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
 
-  turn(-105, 60, 17);
+  turn(-107, 75, 17);
   straight(30, 10, 40);
-  turn(-90, 60, 17);
+  turn(-110, 75, 17);
     straight(30, 20, 30);
-    straight(-10, 5, 30);
-  turn(20, 10, 17);
-  straight(10, 10, 30);
-   // straight(-25, 10, 30);
-    //turn(-90, 40, 17);
-     //straight(47, 10, 30);
-
-
-
+    straight(-10, 10, 30);
+      turn(50, 75, 17);
+  straight(15, 5, 30);
 
 
   //wait(10000,msec);

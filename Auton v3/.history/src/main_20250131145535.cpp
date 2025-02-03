@@ -18,7 +18,7 @@ void runAuton(void) {
   
    // Call the autonomous routine     
    //autonRoutineRedLeft(); 
-  autonRoutine7();
+  autonRoutine8();
     
   //Brain.Screen.print("Autonomous Program Complete");
 }

@@ -438,44 +438,25 @@ goalPneumatics.set(true);
 }
 
 void autonRoutine7() {
-  const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
-  const double RED_HUE_MAX_1 = 360.0;
-  const double RED_HUE_MIN_2 = 0.0;    // Second red range (0°-15°)
-  const double RED_HUE_MAX_2 = 15.0;
-  const double BLUE_HUE_MIN = 215.0;   // Blue range
-  const double BLUE_HUE_MAX = 225.0;
+straight(3, 100, 0, 1); // use this one
+armMotor.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
+straight(-80, 100, 0, 20); // use this one
+armMotor.spinToPosition(-70, rotationUnits::deg, 100, velocityUnits::pct, false);
+spotTurn(250, 70, 2, 0.4, 0, 0.05);
+straight(-57, 100, 250, 40); // use this one
+goalPneumatics.set(true);
+spotTurn(210, 70, 2, 0.4, 0, 0.05);
+intakeMotor.spinFor(-10000, rotationUnits::deg, 100, velocityUnits::pct, false);
+vex::task::sleep(500);
 
-  initializeOpticalSensor();
+straight(45, 100, 210, 20); // use this one
 
-   // Define task parameters
-    ColorTaskParams colorTaskParams;
-    colorTaskParams.isRunning = true;  
-    colorTaskParams.targetColor = Color::BLUE;  // Set ejection colour RED or BLUE
-    colorTaskParams.delayMs = 80;  // Set delay before stopping intake
+/*
+spotTurn(265, 70, 2, 0.4, 0, 0.05); 
+straight(110, 30, 275, 0);
+spotTurn(265, 70, 2, 0.4, 0, 0.05); 
+*/
 
-    // Start the color detection task
-    vex::task colorTask(colorDetectionTask, &colorTaskParams);
-
-  //intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
-//armMotor.spinToPosition(400, rotationUnits::deg, 80, velocityUnits::pct,false);
-  //Score Alliance
-
-  straight(-70, 40); // use this one
- // armMotor.spinToPosition(590, rotationUnits::deg, 100, velocityUnits::pct,false);
-   // straight(-30, 10); // use this one
-     // armMotor.spinToPosition(-590, rotationUnits::deg, 100, velocityUnits::pct,false);
-
- // turn(-90, 50, 20);
-   //   straight(-60, 30); // use this one
-       goalPneumatics.set(true);
-                   task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-               intakeMotor.spin(reverse, 100, velocityUnits::pct);
-           task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-  //      turn(-70, 40, 20);
-    //             task::sleep(1000);  // Small delay to prevent overwhelming the CP
-      // straight(60, 20); // use this one
-
-                   task::sleep(3000);  // Small delay to prevent overwhelming the CPU
 
 
 }

@@ -379,6 +379,8 @@ if (Controller.ButtonRight.pressing()) {
             // Start the timer for piston
             pistonStartTime = Brain.Timer.time(msec);
             pistonTimerActive = true; 
+                        armPneumatics.set(true); 
+
 /*
         } else if (armstat == ArmPosition::Ready) { // Added condition
             // Move arm back to Ready position
@@ -390,12 +392,13 @@ if (Controller.ButtonRight.pressing()) {
         
         } else if (armstat == ArmPosition::Side) { // Added condition
             // Move arm back to Ready position
-                     armPneumatics.set(false); 
-                armMotor.setBrake(brakeType::coast);        
-                armMotor.spin(reverse, 100, velocityUnits::pct);  // Slower descent
-                isMovingDown = true;
+            armPneumatics.set(false); 
+            armMotor.setBrake(brakeType::hold);
+            armMotor.spinToPosition(Load2, rotationUnits::deg, 70, velocityUnits::pct, false);
+            armstat = ArmPosition::Load2;
 
           } else {
+            armPneumatics.set(true); 
             // Move arm to Side position from any othe position
             armMotor.setBrake(brakeType::hold);
             armMotor.spinToPosition(Side, rotationUnits::deg, 70, velocityUnits::pct, false);
@@ -462,9 +465,9 @@ if (Controller.ButtonY.pressing()) {
             if (armstat == ArmPosition::Starting) {
                 // Move arm to Alliance position
                 armMotor.setBrake(brakeType::hold);
-                armMotor.spinToPosition(Load1, rotationUnits::deg, 40, velocityUnits::pct, false);
-                armstat = ArmPosition::Load1;
-
+                armMotor.spinToPosition(Load2, rotationUnits::deg, 40, velocityUnits::pct, false);
+                armstat = ArmPosition::Load2;
+/*
             //Move from Load1 to Load2
             } else if (armstat == ArmPosition::Load1) {
                 intakeMotor.stop(); // Stop the motor
@@ -474,6 +477,8 @@ if (Controller.ButtonY.pressing()) {
                 armMotor.setBrake(brakeType::hold);
                 armMotor.spinToPosition(Load2, rotationUnits::deg, 30, velocityUnits::pct, false);
                 armstat = ArmPosition::Load2;
+
+*/                
 
 } else if (armstat == ArmPosition::Load2) {
     armMotor.setBrake(brakeType::coast);        

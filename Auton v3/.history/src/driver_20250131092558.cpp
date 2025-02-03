@@ -390,10 +390,9 @@ if (Controller.ButtonRight.pressing()) {
         
         } else if (armstat == ArmPosition::Side) { // Added condition
             // Move arm back to Ready position
-                     armPneumatics.set(false); 
-                armMotor.setBrake(brakeType::coast);        
-                armMotor.spin(reverse, 100, velocityUnits::pct);  // Slower descent
-                isMovingDown = true;
+            armMotor.setBrake(brakeType::hold);
+            armMotor.spinToPosition(Load1, rotationUnits::deg, 70, velocityUnits::pct, false);
+            armstat = ArmPosition::Load1;
 
           } else {
             // Move arm to Side position from any othe position

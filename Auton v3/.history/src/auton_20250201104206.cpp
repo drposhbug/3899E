@@ -450,7 +450,7 @@ void autonRoutine7() {
    // Define task parameters
     ColorTaskParams colorTaskParams;
     colorTaskParams.isRunning = true;  
-    colorTaskParams.targetColor = Color::BLUE;  // Set ejection colour RED or BLUE
+    colorTaskParams.targetColor = Color::RED;  // Set ejection colour RED or BLUE
     colorTaskParams.delayMs = 80;  // Set delay before stopping intake
 
     // Start the color detection task
@@ -459,8 +459,9 @@ void autonRoutine7() {
   //intakeMotor.spinFor(-200000, rotationUnits::deg, 100, velocityUnits::pct, false);
 //armMotor.spinToPosition(400, rotationUnits::deg, 80, velocityUnits::pct,false);
   //Score Alliance
+    turn(-20, 10, 20);
 
-  straight(-70, 40); // use this one
+  straight(-80, 70); // use this one
  // armMotor.spinToPosition(590, rotationUnits::deg, 100, velocityUnits::pct,false);
    // straight(-30, 10); // use this one
      // armMotor.spinToPosition(-590, rotationUnits::deg, 100, velocityUnits::pct,false);
@@ -468,14 +469,10 @@ void autonRoutine7() {
  // turn(-90, 50, 20);
    //   straight(-60, 30); // use this one
        goalPneumatics.set(true);
-                   task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-               intakeMotor.spin(reverse, 100, velocityUnits::pct);
-           task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-  //      turn(-70, 40, 20);
-    //             task::sleep(1000);  // Small delay to prevent overwhelming the CP
-      // straight(60, 20); // use this one
+    intakeMotor.spin(reverse, 100, velocityUnits::pct);
+        turn(-70, 40, 20);
+       straight(40, 20); // use this one
 
-                   task::sleep(3000);  // Small delay to prevent overwhelming the CPU
 
 
 }

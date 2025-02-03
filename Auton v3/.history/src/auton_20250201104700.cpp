@@ -450,7 +450,7 @@ void autonRoutine7() {
    // Define task parameters
     ColorTaskParams colorTaskParams;
     colorTaskParams.isRunning = true;  
-    colorTaskParams.targetColor = Color::BLUE;  // Set ejection colour RED or BLUE
+    colorTaskParams.targetColor = Color::RED;  // Set ejection colour RED or BLUE
     colorTaskParams.delayMs = 80;  // Set delay before stopping intake
 
     // Start the color detection task
@@ -468,14 +468,11 @@ void autonRoutine7() {
  // turn(-90, 50, 20);
    //   straight(-60, 30); // use this one
        goalPneumatics.set(true);
-                   task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-               intakeMotor.spin(reverse, 100, velocityUnits::pct);
-           task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-  //      turn(-70, 40, 20);
-    //             task::sleep(1000);  // Small delay to prevent overwhelming the CP
-      // straight(60, 20); // use this one
+        turn(-70, 40, 20);
+            intakeMotor.spin(reverse, 100, velocityUnits::pct);
 
-                   task::sleep(3000);  // Small delay to prevent overwhelming the CPU
+       straight(40, 20); // use this one
+
 
 
 }

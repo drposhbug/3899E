@@ -471,9 +471,9 @@ void autonRoutine7() {
                    task::sleep(1000);  // Small delay to prevent overwhelming the CPU
                intakeMotor.spin(reverse, 100, velocityUnits::pct);
            task::sleep(1000);  // Small delay to prevent overwhelming the CPU
-  //      turn(-70, 40, 20);
-    //             task::sleep(1000);  // Small delay to prevent overwhelming the CP
-      // straight(60, 20); // use this one
+        turn(-70, 40, 20);
+                 task::sleep(1000);  // Small delay to prevent overwhelming the CP
+       straight(60, 20); // use this one
 
                    task::sleep(3000);  // Small delay to prevent overwhelming the CPU
 
