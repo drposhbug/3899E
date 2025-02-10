@@ -18,7 +18,7 @@ void runAuton(void) {
   
    // Call the autonomous routine     
    //autonRoutineRedLeft(); 
-  autonRoutine11();
+  autonRoutine7();
     
   //Brain.Screen.print("Autonomous Program Complete");
 }
@@ -46,6 +46,7 @@ int main() {
   //armMotor.setBrake(brakeType::brake);
   //elbowMotor.setBrake(brakeType::brake);
  Competition.autonomous(runAuton);
+ autonRoutine10();
  
  Competition.drivercontrol(runDriver);
 

@@ -4786,7 +4786,12 @@ void straightOdometry(double targetDistance,
     double accelFactorLaunch = 1.15; //test, temporary
 
     // PID and Heading Control
-
+    // Get initial heading when straight movement starts
+    double initialHeading = InertialSensor.heading();
+    // Calculate the absolute target heading by adding the relative targetHeading
+    double absoluteTargetHeading = initialHeading + targetHeading;
+    // Normalize it
+    double normTargetHeading = normHeading360(absoluteTargetHeading);
     //double normTargetHeading = normHeading(targetHeading);
     double avgMotorVoltage = 0;  // Used for phase transition checking
     double leftEncoderRollingAverage = 0;
@@ -4842,8 +4847,7 @@ Brain.Screen.print("Launch/Cruise/Decel: %d/%d/%d",
 */
 
         // Calculate the heading correction using the PID controller 
-        //double headingError = getHeadingError360(targetHeading, InertialSensor.heading());
-        double headingError = getHeadingError(targetHeading, InertialSensor.heading());
+        double headingError = getHeadingError360(targetHeading, InertialSensor.heading());
         double headingCorrection = headingPID.calculate(0, headingError);  // target of 0 since error is pre-calculated
         double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
@@ -4944,7 +4948,7 @@ Brain.Screen.print("Dist Check: %d",
     // Decel Phase
     //If declerating then go to ABS routine
     } else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && decelCompleted == false) {  
-        //break;   
+    //break;   
     //Sets motorvoltage to zero so it defaults to brake when it first enters then ABS takes over
     Brain.Screen.setCursor(5,1);
     Brain.Screen.print("In Decel");

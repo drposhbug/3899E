@@ -93,20 +93,6 @@ double getHeadingError360(double targetHeading, double currentHeading) {
    return error;  // Returns error in range -180 to +180 degrees
 }
 
-double getHeadingError(double targetHeading, double currentHeading) {
-   double error = targetHeading - currentHeading;
-   
-   // Convert error to -180 to +180 range for shortest path
-   if(error > 180) {
-       error -= 360;  
-   } else if(error < -180) {
-       error += 360;  
-   }
-   
-   return error;
-}
-
-
 // Function to calculate wheel diameter in centimeters and wheel circumference
 void getWheelProperties(double &wheelCircumferenceCm, double &gearRatio) {
     double wheelDiameterInches = 3.25; // in inches

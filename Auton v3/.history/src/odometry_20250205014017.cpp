@@ -109,9 +109,7 @@ if (currentState == TURNING) {
         deltaXPos = (deltaX * (encoderWheelCircumferenceCM / 360.0));
         
         // Y change uses the average of parallel wheels
-        deltaYPos = avgRadius * (sin(headingRad + deltaHeadingRad) - sin(headingRad));
-
-
+        deltaYPos = avgRadius * (cos(headingRad) - cos(headingRad + deltaHeadingRad));
     }
 
 
@@ -153,7 +151,7 @@ void calculatePathToTarget(double currentX, double currentY,
     distance = sqrt(deltaX*deltaX + deltaY*deltaY);
     
     // Just return the absolute target heading without subtracting current heading
-    heading = atan2(deltaX, deltaY) * 180.0 / M_PI;
+    heading = fmod(atan2(deltaY, deltaX) * 180.0 / M_PI + 360.0, 360.0);
     
     // Debug output
    // Brain.Screen.clearScreen();

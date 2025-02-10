@@ -109,8 +109,7 @@ if (currentState == TURNING) {
         deltaXPos = (deltaX * (encoderWheelCircumferenceCM / 360.0));
         
         // Y change uses the average of parallel wheels
-        deltaYPos = avgRadius * (sin(headingRad + deltaHeadingRad) - sin(headingRad));
-
+        deltaYPos = avgRadius * (cos(headingRad) - cos(headingRad + deltaHeadingRad));
 
     }
 

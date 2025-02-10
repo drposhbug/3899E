@@ -13,8 +13,6 @@ double normHeading360(double heading);
 
 double getHeadingError360(double targetHeading, double currentHeading); 
 
-double getHeadingError(double targetHeading, double currentHeading); 
-
 // Function to get wheel properties
 void getWheelProperties(double &wheelCircumferenceCm, double &gearRatio);
 

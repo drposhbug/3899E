@@ -4944,7 +4944,7 @@ Brain.Screen.print("Dist Check: %d",
     // Decel Phase
     //If declerating then go to ABS routine
     } else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && decelCompleted == false) {  
-        //break;   
+    //break;   
     //Sets motorvoltage to zero so it defaults to brake when it first enters then ABS takes over
     Brain.Screen.setCursor(5,1);
     Brain.Screen.print("In Decel");

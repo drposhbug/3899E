@@ -794,7 +794,7 @@ straight(100,40, 18);
 
 
 void autonRoutine11() {
-straightOdometry(120, 50, 17, 0, 0.8);
-//turnOdometry(100, 80, 17, 17);
-//straightOdometry(100, 80, 17);
+straightOdometry(120, 50, 17, 0);
+turnOdometry(100, 80, 17, 17);
+straightOdometry(100, 80, 17, 180);
 }  
