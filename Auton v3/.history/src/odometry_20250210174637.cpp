@@ -287,10 +287,6 @@ void backwardToPoint(double targetX, double targetY,
     // Set state to STRAIGHT
     currentState = STRAIGHT;
 
-    if(maxSpeed > 0) {
-    maxSpeed = -fabs(maxSpeed);
-    }
-
     // Start timer for timeout safety
     double startTime = Brain.Timer.time(msec);
     const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
@@ -301,9 +297,6 @@ void backwardToPoint(double targetX, double targetY,
     // Calculate initial path to target
     double distanceToTarget, targetHeading;
     calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
-    targetHeading = normHeading(targetHeading + 180.0);
-    distanceToTarget = -fabs(distanceToTarget);
-
    // Brain.Screen.printAt(10, 140, "Calc heading: %.2f", targetHeading);
    // Brain.Screen.printAt(10, 160, "Current pos: %.2f, %.2f", globalX, globalY);
    // Brain.Screen.printAt(10, 180, "Target pos: %.2f, %.2f", targetX, targetY);

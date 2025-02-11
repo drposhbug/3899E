@@ -228,7 +228,7 @@ void turnToPoint(double targetX, double targetY,
 //   decelHeadingScaling: Heading correction scaling during deceleration
 //   approachHeadingScaling: Heading correction scaling during final approach
 //   minSpeed: Minimum speed to maintain during movement
-void forwardToPoint(double targetX, double targetY,
+void straightToPoint(double targetX, double targetY,
                 double breakDistance, double minSpeed,
                 double kp_heading, double ki_heading, 
                 double kd_heading, double accelHeadingScaling,
@@ -248,62 +248,6 @@ void forwardToPoint(double targetX, double targetY,
     // Calculate initial path to target
     double distanceToTarget, targetHeading;
     calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
-   // Brain.Screen.printAt(10, 140, "Calc heading: %.2f", targetHeading);
-   // Brain.Screen.printAt(10, 160, "Current pos: %.2f, %.2f", globalX, globalY);
-   // Brain.Screen.printAt(10, 180, "Target pos: %.2f, %.2f", targetX, targetY);
-    wait(1000, msec);  // Give us time to see the values
-    
-    //targetHeading = 0; 
-
-    // Move straight with PID heading correction
-    straight(distanceToTarget, breakDistance, minSpeed, targetHeading, 
-            kp_heading, ki_heading, kd_heading, accelHeadingScaling, 
-            decelHeadingScaling, approachHeadingScaling, maxSpeed);            
-    
-    // Check if we've exceeded timeout
-    if((Brain.Timer.time(msec) - startTime) > TIMEOUT) {
-     //   Brain.Screen.printAt(10, 60, "Straight move timeout");
-    }
-
-    // Update odometry after completing movement
-    updateOdometry();
-    // Set state back to STATIONARY
-    currentState = STATIONARY;
-  //  Brain.Screen.clearScreen();
-// Add right before final }
-   // Brain.Screen.clearScreen();
-   // Brain.Screen.printAt(10, 20, "STRAIGHT COMPLETE");
-   // Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
-    //wait(2000, msec);  // Small delay to ensure we can read the values
-}
-
-void backwardToPoint(double targetX, double targetY,
-                double breakDistance, double minSpeed,
-                double kp_heading, double ki_heading, 
-                double kd_heading, double accelHeadingScaling,
-                double decelHeadingScaling, double approachHeadingScaling,
-                double maxSpeed)
-{
-    // Set state to STRAIGHT
-    currentState = STRAIGHT;
-
-    if(maxSpeed > 0) {
-    maxSpeed = -fabs(maxSpeed);
-    }
-
-    // Start timer for timeout safety
-    double startTime = Brain.Timer.time(msec);
-    const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
-
-    // Update odometry to get fresh position
-    updateOdometry();
-
-    // Calculate initial path to target
-    double distanceToTarget, targetHeading;
-    calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
-    targetHeading = normHeading(targetHeading + 180.0);
-    distanceToTarget = -fabs(distanceToTarget);
-
    // Brain.Screen.printAt(10, 140, "Calc heading: %.2f", targetHeading);
    // Brain.Screen.printAt(10, 160, "Current pos: %.2f, %.2f", globalX, globalY);
    // Brain.Screen.printAt(10, 180, "Target pos: %.2f, %.2f", targetX, targetY);

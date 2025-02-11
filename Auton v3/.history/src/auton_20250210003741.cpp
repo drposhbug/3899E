@@ -794,15 +794,9 @@ straight(100,40, 18);
 
 
 void autonRoutine11() {
-forwardToPoint(100, 0, 50);
-backwardToPoint(20, 0, 50, 17, 0.4, 0, 0, 0.4, 0.25, 0.25, -100);
-/*
 straightOdometry(120, 50, 17, 0);
-turnOdometry(180, 80, 17, 17);
 wait(1000,msec);
-straightOdometry(80, 50, 17, 180);
-turnOdometry(270, 80, 17, 17);
-
+straightOdometry(-80, 50, 17, 0);
+//turnOdometry(100, 80, 17, 17);
 //straightOdometry(100, 80, 17);
-*/
 }  

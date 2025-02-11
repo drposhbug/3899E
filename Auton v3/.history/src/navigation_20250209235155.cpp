@@ -3304,10 +3304,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     bool decel = false;
     
     double currentHeading = InertialSensor.heading(degrees);
-    double fullRotationsLocal = floor(currentHeading / 360.0);
-    double continuousTarget = fullRotationsLocal * 360.0 + targetHeading;
-    double headingError = continuousTarget - currentHeading;
-    headingError = normHeading(headingError);
+    double headingError = getHeadingError360(targetHeading, currentHeading);
 
     Brain.Screen.printAt(10, 40, "Target Head: %.2f", targetHeading);
     Brain.Screen.printAt(10, 60, "Curr Head: %.2f", currentHeading);
@@ -3392,11 +3389,7 @@ ABSController ABSControllerRight[3] = {
     // Loop to continuously adjust motor power based on PID control 
 while (std::abs(headingError) > 5) {  // Remove crossed180 check
     currentHeading = InertialSensor.heading(degrees);
-    fullRotationsLocal = floor(currentHeading / 360.0);
-    continuousTarget = fullRotationsLocal * 360.0 + targetHeading;
-    headingError = continuousTarget - currentHeading;
-    headingError = normHeading(headingError);
-
+    headingError = getHeadingError360(targetHeading, currentHeading);
     
    // Brain.Screen.printAt(10, 100, "Curr Head: %.2f", currentHeading);
     //Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);

@@ -38,7 +38,7 @@ void turnToPoint(double targetX, double targetY,
                 double minSpeed = 15.0,  
                 double maxSpeed = 100);            
 
-void forwardToPoint(double targetX, double targetY,             
+void forwarToPoint(double targetX, double targetY,             
                double breakDistance,                 // breakDistance
                double minSpeed = 15.0,  
                double kp_heading = 0.2,                    // kp_heading

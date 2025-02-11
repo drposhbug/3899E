@@ -3304,10 +3304,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     bool decel = false;
     
     double currentHeading = InertialSensor.heading(degrees);
-    double fullRotationsLocal = floor(currentHeading / 360.0);
-    double continuousTarget = fullRotationsLocal * 360.0 + targetHeading;
-    double headingError = continuousTarget - currentHeading;
-    headingError = normHeading(headingError);
+    double headingError = getHeadingError360(targetHeading, currentHeading);
 
     Brain.Screen.printAt(10, 40, "Target Head: %.2f", targetHeading);
     Brain.Screen.printAt(10, 60, "Curr Head: %.2f", currentHeading);
@@ -3392,11 +3389,7 @@ ABSController ABSControllerRight[3] = {
     // Loop to continuously adjust motor power based on PID control 
 while (std::abs(headingError) > 5) {  // Remove crossed180 check
     currentHeading = InertialSensor.heading(degrees);
-    fullRotationsLocal = floor(currentHeading / 360.0);
-    continuousTarget = fullRotationsLocal * 360.0 + targetHeading;
-    headingError = continuousTarget - currentHeading;
-    headingError = normHeading(headingError);
-
+    headingError = getHeadingError360(targetHeading, currentHeading);
     
    // Brain.Screen.printAt(10, 100, "Curr Head: %.2f", currentHeading);
     //Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);
@@ -4855,15 +4848,7 @@ Brain.Screen.print("Launch/Cruise/Decel: %d/%d/%d",
 
         // Calculate the heading correction using the PID controller 
         //double headingError = getHeadingError360(targetHeading, InertialSensor.heading());
-        // Calculate the heading correction using the PID controller with normalization
-        double currentHeading = InertialSensor.rotation();                 // Get the continuous current heading
-        double fullRotationsLocal = floor(currentHeading / 360.0);           // Determine how many full rotations have occurred
-        double continuousTarget = fullRotationsLocal * 360.0 + targetHeading;  // Rebase the target heading onto the continuous scale
-        double error = continuousTarget - currentHeading;                  // Compute the raw error
-        error = normHeading(error);                                          // Normalize the error to [-180, 180)
-        double adjustedTarget = currentHeading + error;                      // Recalculate the adjusted target
-        double headingCorrection = headingPID.calculate(adjustedTarget, currentHeading);  // Use the adjusted target in PID
-
+        double headingCorrection = headingPID.calculate(targetRotation, InertialSensor.rotation());
         double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM)/2;
