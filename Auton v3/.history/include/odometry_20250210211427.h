@@ -1,0 +1,85 @@
+#include "vex.h"  
+#ifndef ODOMETRY_H
+#define ODOMETRY_H
+#include "navigation.h"
+#include <thread>
+#include <chrono>
+
+// Global Position Variables
+extern double globalX;           // X-coordinate on the field
+extern double globalY;           // Y-coordinate on the field
+extern double globalHeading;     // Orientation in degrees
+extern double headingOffset;
+
+// Previous Encoder Values
+extern double prevLeftEncoder;   // Previous left encoder reading
+extern double prevRightEncoder;  // Previous right encoder reading
+extern double prevXEncoder;      // Previous X encoder reading
+extern double prevHeading;       // Previous heading reading
+
+// Add these function prototypes
+void setStartPosition(double startX = 0, double startY = 0, double startHeading = 0);
+double getAdjustedHeading();
+
+// Encoder State
+extern bool xEncoderEnabled;    // X encoder enable/disable flag
+
+// Function Declarations
+void updateOdometry();          // Updates the robot's position and orientation
+
+// Add these new functions:
+// Navigation Helper Functions
+void calculatePathToTarget(double currentX, double currentY, 
+                         double targetX, double targetY, 
+                         double& distance, double& heading);  // Calculates path parameters to target
+
+void turnToPoint(double targetX, double targetY,            
+                double breakDistanceInDegrees,
+                double minSpeed = 15.0,  
+                double maxSpeed = 100);       
+
+void leftToPoint(double targetX, double targetY,            
+                double breakDistanceInDegrees,
+                double minSpeed = 15.0,  
+                double maxSpeed = 100);   
+
+void rightToPoint(double targetX, double targetY,            
+                double breakDistanceInDegrees,
+                double minSpeed = 15.0,  
+                double maxSpeed = 100);                   
+
+void forwardToPoint(double targetX, double targetY,             
+               double breakDistance,                 // breakDistance
+               double minSpeed = 15.0,  
+               double kp_heading = 0.2,                    // kp_heading
+               double ki_heading = 0.0,                    // ki_heading
+               double kd_heading = 0.0,                    // kd_heading
+               double accelHeadingScaling = 0.4,          // accelHeadingScaling
+               double decelHeadingScaling = 0.25,          // decelHeadingScaling
+               double approachHeadingScaling = 0.25,       // approachHeadingScaling                 
+               double maxSpeed = 100);    
+
+void backwardToPoint(double targetX, double targetY,             
+               double breakDistance,                 // breakDistance
+               double minSpeed = 15.0,  
+               double kp_heading = 0.2,                    // kp_heading
+               double ki_heading = 0.0,                    // ki_heading
+               double kd_heading = 0.0,                    // kd_heading
+               double accelHeadingScaling = 0.4,          // accelHeadingScaling
+               double decelHeadingScaling = 0.25,          // decelHeadingScaling
+               double approachHeadingScaling = 0.25,       // approachHeadingScaling                 
+               double maxSpeed = 100);                
+
+struct OdometryTaskParams {
+    bool isRunning;
+    int delayMs;
+    bool moveRequested;
+};
+
+int odometryTask(void* params);
+
+int odometryTask(void* params);
+
+              
+
+#endif // ODOMETRY_H
