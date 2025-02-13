@@ -796,8 +796,6 @@ straight(100,40, 18);
 void autonRoutine11() {
 //forwardToPoint(100, 0, 50);
 //backwardToPoint(20, 0, 50, 17, 0.4, 0, 0, 0.4, 0.25, 0.25, -100);
-/*
-//Non-Odom turn test
 turnOdometry(90, 75, 15, 100);
 turnOdometry(180, 75, 15, 100);
 turnOdometry(270, 75, 15, 100);
@@ -806,16 +804,7 @@ turnOdometry(270, 75, 15, 100);
 turnOdometry(180, 75, 15, 100);
 turnOdometry(90, 75, 15, 100);
 turnOdometry(0, 75, 15, 100);
-wait (3000,msec);
-*/
-straightOdometry(-50, 40, 17, 0);
-wait(1000,msec);
-straightOdometry(-50, 40, 17, 345);
-wait(1000,msec);
-straightOdometry(-50, 40, 17, 0);
-wait(1000,msec);
-straightOdometry(-50, 40, 17, 20);
-
+wait (3000,msec)
 //turnOdometry(180, 50, 15, 100);
 //turnOdometry(270, 75, 15, 100);
 //turnOdometry(359, 100, 15, 100);

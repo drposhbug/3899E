@@ -460,8 +460,14 @@ int colorDetectionTask(void* params) {
 // Gets heading in counterclockwise degrees
 // Converts raw clockwise sensor reading & applies calibration offset 
 double getAdjustedHeading() {
-   // Convert clockwise sensor to counterclockwise & apply offset
-   return normHeading(InertialSensor.heading() + headingOffset);
+    // Get the raw sensor heading.
+    double sensorHeading = InertialSensor.heading(degrees);
+    // Convert to counterclockwise convention if needed.
+    // Assuming sensorHeading increases clockwise, we convert:
+    double ccwHeading = fmod(360.0 - sensorHeading, 360.0);
+    // Now add the starting offset.
+    ccwHeading = fmod(ccwHeading + startingHeadingOffset, 360.0);
+    return ccwHeading;
 }
 
 

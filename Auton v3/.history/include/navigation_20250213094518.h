@@ -56,12 +56,12 @@ void straightOdometry(double targetDistance,
             double breakDistance, 
             double minSpeed = 17, 
             double targetHeading = 0, 
-            double kp_heading = 0.8, 
+            double kp_heading = 0.6, 
             double ki_heading = 0.0, 
             double kd_heading = 0.0, 
-            double accelHeadingScaling = 0.2, 
-            double decelHeadingScaling = 0.2, 
-            double approachHeadingScaling = 0.2, 
+            double accelHeadingScaling = 0.25, 
+            double decelHeadingScaling = 0.25, 
+            double approachHeadingScaling = 0.5, 
             double maxSpeed = 100);            
 
 
@@ -74,7 +74,7 @@ void straightTemp(double targetDistance,
             double kd_heading = 0.0, 
             double accelHeadingScaling = 0.25, 
             double decelHeadingScaling = 0.25, 
-            double approachHeadingScaling = 0.25, 
+            double approachHeadingScaling = 0.0, 
             double maxSpeed = 100);
 
 void arcTurn(double targetDistance, 

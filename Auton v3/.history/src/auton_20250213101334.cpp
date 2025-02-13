@@ -808,14 +808,8 @@ turnOdometry(90, 75, 15, 100);
 turnOdometry(0, 75, 15, 100);
 wait (3000,msec);
 */
-straightOdometry(-50, 40, 17, 0);
-wait(1000,msec);
-straightOdometry(-50, 40, 17, 345);
-wait(1000,msec);
-straightOdometry(-50, 40, 17, 0);
-wait(1000,msec);
-straightOdometry(-50, 40, 17, 20);
-
+straightOdometry(100, 100);
+straightOdometry(-100, 100);
 //turnOdometry(180, 50, 15, 100);
 //turnOdometry(270, 75, 15, 100);
 //turnOdometry(359, 100, 15, 100);

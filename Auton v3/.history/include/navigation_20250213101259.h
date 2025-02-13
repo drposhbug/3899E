@@ -60,8 +60,8 @@ void straightOdometry(double targetDistance,
             double ki_heading = 0.0, 
             double kd_heading = 0.0, 
             double accelHeadingScaling = 0.2, 
-            double decelHeadingScaling = 0.2, 
-            double approachHeadingScaling = 0.2, 
+            double decelHeadingScaling = 0.1, 
+            double approachHeadingScaling = 0.1, 
             double maxSpeed = 100);            
 
 
