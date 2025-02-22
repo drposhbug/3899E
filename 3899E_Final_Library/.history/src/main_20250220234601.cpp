@@ -1,0 +1,40 @@
+#ifndef UTILS_H 
+#define UTILS_H
+
+#include "vex.h"
+#include "robot_config.h"
+#include "driver.h" // Include the driver control functions
+#include "auton.h" // Include the autonomous functions
+#include "utils.h"
+#include "navigation.h"
+
+using namespace vex;
+
+competition Competition;
+void runAuton(void) {
+  Brain.Screen.clearScreen();;
+  Brain.Screen.print("Running Autonomous Mode...");
+  //Reset Arm
+  
+   // Call the autonomous routine     
+   //autonRoutineRedLeft(); 
+  autonRoutine11();
+    
+  //Brain.Screen.print("Autonomous Program Complete");
+}
+
+void runDriver(void) {
+  Brain.Screen.clearScreen();
+  Brain.Screen.print("Running Driver Control Mode...");
+  driverControl(); // Start driver control function
+}
+
+int main()
+{
+    // Initializing Robot Configuration. DO NOT REMOVE!
+    vexcodeInit();
+    initializeOpticalSensor();
+
+    Competition.autonomous(runAuton);
+    Competition.drivercontrol(runDriver);
+}
