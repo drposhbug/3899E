@@ -251,7 +251,7 @@ void autonRoutine11()
     //go to Alliance Stake
     straightOdometry(17, 9);
     armMotor.spinToPosition(570, rotationUnits::deg, 100, velocityUnits::pct, true);
-    //wait(200, msec);
+    wait(200, msec);
 
     //Backup to Pick up Mobile Goal
     backward(-95, 58, 25, -3, 1);
@@ -262,9 +262,9 @@ void autonRoutine11()
     //wait(2000, msec);
 
     //Turn to go into Tower
-    turnOdometry(100, 55);
-      //  wait(2000, msec);
-    straightOdometry(40, 20, 17, 100);
+    turnOdometry(95, 55);
+        wait(2000, msec);
+    straightOdometry(40, 20, 17, 95, 0.3);
     //wait(2000, msec);
     doinkerPneumatics.set(true);
 
@@ -295,7 +295,7 @@ void autonRoutine11()
     //straight360(100,50, 18);
     //goalPneumatics.set(false);
 
-    turnOdometry(250, 0, 60);
+    turnOdometry(275, 50);
 
     
 

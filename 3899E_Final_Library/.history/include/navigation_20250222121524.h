@@ -22,17 +22,17 @@ void straight(double targetDistance,
             double approachHeadingScaling = 0.25, 
             double maxSpeed = 50);
 
-void straightOdometry(double targetDistance, 
-    double breakDistance, 
-    double minSpeed = 17, 
-    double targetHeading = 0, 
-    double kp_heading = 0.8, 
-    double ki_heading = 0.0, 
-    double kd_heading = 0.0, 
-    double accelHeadingScaling = 0.2, 
-    double decelHeadingScaling = 0.2, 
-    double approachHeadingScaling = 0.2, 
-    double maxSpeed = 100);        
+            void straightOdometry(double targetDistance, 
+                double breakDistance, 
+                double minSpeed = 17, 
+                double targetHeading = 0, 
+                double kp_heading = 0.8, 
+                double ki_heading = 0.0, 
+                double kd_heading = 0.0, 
+                double accelHeadingScaling = 0.2, 
+                double decelHeadingScaling = 0.2, 
+                double approachHeadingScaling = 0.2, 
+                double maxSpeed = 100);        
             
 void backward(double targetDistance, 
             double breakDistance, 

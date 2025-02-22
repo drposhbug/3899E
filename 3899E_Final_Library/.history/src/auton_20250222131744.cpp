@@ -262,9 +262,9 @@ void autonRoutine11()
     //wait(2000, msec);
 
     //Turn to go into Tower
-    turnOdometry(100, 55);
+    turnOdometry(95, 55);
       //  wait(2000, msec);
-    straightOdometry(40, 20, 17, 100);
+    straightOdometry(40, 20, 17, 95, 0.3);
     //wait(2000, msec);
     doinkerPneumatics.set(true);
 
