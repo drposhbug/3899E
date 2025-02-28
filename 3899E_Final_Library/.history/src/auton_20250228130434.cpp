@@ -179,7 +179,7 @@ void skills()
     //Turn & Drive to Side Goal Right
   
    
-    rightMP(30,50,18); 
+    rightMP(32,50,18); 
     armMotor1.spinToPosition(Load1-75, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(Load1-75, rotationUnits::deg, 100, velocityUnits::pct, false);     
     //wait(5000, msec);
@@ -187,10 +187,8 @@ void skills()
 
 //Scoring on side Stake
 
-    forwardMP(95, 65, 30, 20, 0.6, 0.003, 0.01);
-    pivotRightMP(2, 20, 20, 100);
-    forwardMP(4, 2, 2, 20, 0.6, 0.003, 0.01);
-
+    forwardMP(95, 60, 32, 20, 0.6, 0.003, 0.01);
+    pivotRightMP(4, 10, 20, 100);
     task::sleep(500); // Small delay to prevent overwhelming the CPU
 
     //waitForButton();
@@ -203,22 +201,18 @@ void skills()
 
     armMotor1.spinToPosition(Starting-75, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(Starting-75, rotationUnits::deg, 100, velocityUnits::pct, true);
-    backwardMP(15, 6, 4, 20, 1.5, 0.0008, 0.5, 0.35);
+    backwardMP(13, 6, 4, 20, 1.5, 0.0008, 0.5, 0.35);
     rightMP(270,67,20); 
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
 
-    forwardMP(135, 60, 270, 20, 0.6, 0.003, 0.01);
-    leftMP(40,67,20); 
-    forwardMP(25, 10, 40, 20, 0.6, 0.003, 0.01);
-    leftMP(110,40,20); 
-    backwardMP(13, 6, 110, 20, 0.6, 0.0008, 0.5, 0.35);
-    goalPneumatics.set(false);
-    forwardMP(25, 10, 1100, 20, 0.6, 0.003, 0.01);
+    forwardMP(125, 60, 270, 20, 0.6, 0.003, 0.01);
+    leftMP(70,90,20); 
 
 
 
 /*
     wait(500, msec);
+
     //Backup after scoring first right side stake
     backwardMP(15, 8, 28, 20, 1.5, 0.0008, 0.5, 0.35);
 

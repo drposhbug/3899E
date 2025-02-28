@@ -144,8 +144,9 @@ void skills()
     
     headingOffset = 220;
 
+    //Drive & intake Ring #2
 
-
+    intakeMotor.spin(reverse, 100, velocityUnits::pct);
 
 
     //go to Alliance Stake
@@ -160,65 +161,40 @@ void skills()
     armResetParams.isResetComplete = false; 
     
     goalPneumatics.set(true);
-
+ 
 
     
     //Drive & intake Ring #2
     rightMP(90,85,21);     
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
 
-
-
-
-
-    
-    //intakeMotor.stop(brakeType::coast); 
-    forwardMP(48, 20, 90, 19);
-    startIntakeStallDetection();
-
-    //Turn & Drive to Side Goal Right
-  
-   
-    rightMP(30,50,18); 
     armMotor1.spinToPosition(Load1-75, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(Load1-75, rotationUnits::deg, 100, velocityUnits::pct, false);     
     //wait(5000, msec);
-   
 
-//Scoring on side Stake
 
-    forwardMP(95, 65, 30, 20, 0.6, 0.003, 0.01);
-    pivotRightMP(2, 20, 20, 100);
-    forwardMP(4, 2, 2, 20, 0.6, 0.003, 0.01);
 
-    task::sleep(500); // Small delay to prevent overwhelming the CPU
+    startIntakeStallDetection();
 
-    //waitForButton();
+    
+    
+    forwardMP(48, 20, 90, 19);
+
+    //Turn & Drive to Side Goal Right
+  
+
+    rightMP(23,45,18); 
     armPneumatics.set(true);
 
+
+    forwardMP(102, 50, 21, 23, , 0.03, 0.1);
+    
+    
+
     armMotor1.spinToPosition(Side-75, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(Side-75, rotationUnits::deg, 100, velocityUnits::pct, true);
+    armMotor2.spinToPosition(Side-75, rotationUnits::deg, 100, velocityUnits::pct, false);
 
-    armPneumatics.set(false);
-
-    armMotor1.spinToPosition(Starting-75, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(Starting-75, rotationUnits::deg, 100, velocityUnits::pct, true);
-    backwardMP(15, 6, 4, 20, 1.5, 0.0008, 0.5, 0.35);
-    rightMP(270,67,20); 
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
-
-    forwardMP(135, 60, 270, 20, 0.6, 0.003, 0.01);
-    leftMP(40,67,20); 
-    forwardMP(25, 10, 40, 20, 0.6, 0.003, 0.01);
-    leftMP(110,40,20); 
-    backwardMP(13, 6, 110, 20, 0.6, 0.0008, 0.5, 0.35);
-    goalPneumatics.set(false);
-    forwardMP(25, 10, 1100, 20, 0.6, 0.003, 0.01);
-
-
-
-/*
     wait(500, msec);
+
     //Backup after scoring first right side stake
     backwardMP(15, 8, 28, 20, 1.5, 0.0008, 0.5, 0.35);
 
@@ -228,7 +204,7 @@ void skills()
     armResetParams.isResetComplete = false; 
 
     rightMP(240,67,20); 
-*/
+
 }
 
 void autonRoutine1()

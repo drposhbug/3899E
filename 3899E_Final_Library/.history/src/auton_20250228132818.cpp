@@ -203,17 +203,15 @@ void skills()
 
     armMotor1.spinToPosition(Starting-75, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(Starting-75, rotationUnits::deg, 100, velocityUnits::pct, true);
-    backwardMP(15, 6, 4, 20, 1.5, 0.0008, 0.5, 0.35);
+    backwardMP(13, 6, 4, 20, 1.5, 0.0008, 0.5, 0.35);
     rightMP(270,67,20); 
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
 
     forwardMP(135, 60, 270, 20, 0.6, 0.003, 0.01);
     leftMP(40,67,20); 
-    forwardMP(25, 10, 40, 20, 0.6, 0.003, 0.01);
-    leftMP(110,40,20); 
-    backwardMP(13, 6, 110, 20, 0.6, 0.0008, 0.5, 0.35);
-    goalPneumatics.set(false);
-    forwardMP(25, 10, 1100, 20, 0.6, 0.003, 0.01);
+    forwardMP(20, 10, 40, 20, 0.6, 0.003, 0.01);
+    leftMP(80,40,20); 
+    backwardMP(13, 6, 80, 20, 0.6, 0.0008, 0.5, 0.35);
 
 
 
