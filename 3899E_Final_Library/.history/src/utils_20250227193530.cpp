@@ -407,21 +407,23 @@ double convertEuclideanToVEX(double euclideanHeading)
 
 
 void waitForButtonPress() {
-    // Wait for the R1 button to be released first (in case it's currently pressed)
-    while (Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
+    // Display prompt on the brain screen
+    Brain.Screen.clearLine(1);
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("Press R1 to continue to next movement");
     
-    // Now wait until the R1 button is pressed
+    // Reset button state
+    Controller.ButtonR1.pressing(); // Clear any previous press
+    
+    // Wait for R1 button press
     while (!Controller.ButtonR1.pressing()) {
-        task::sleep(10);
+        // Small delay to prevent CPU overload
+        vex::task::sleep(20);
     }
     
-    // Wait for the button to be released again
-    while (Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
+    // Small debounce delay
+    vex::task::sleep(300);
     
-    // Add a small delay after button release
-    task::sleep(50);
+    // Clear the prompt
+    Brain.Screen.clearLine(1);
 }

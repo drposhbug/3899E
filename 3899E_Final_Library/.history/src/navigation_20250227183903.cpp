@@ -2034,27 +2034,26 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
 
         // turnDirection = std::copysign(turnDirection, normTargetHeading);
         if (!decel == true || decelCompleted == true)
-{
-    // Determine which side to pivot based on the sign of the voltage
-    // which was already set based on the normalized heading error
-    if (motorVoltageLeft[0] > 0) { // Positive voltage - pivot around right side
-        // Right side stationary, left side moves
-        leftMotor[0].spin(forward, motorVoltageLeft[0], voltageUnits::volt);
-        rightMotor[0].stop(brake);
-        leftMotor[1].spin(forward, motorVoltageLeft[1], voltageUnits::volt);
-        rightMotor[1].stop(hold);
-        leftMotor[2].spin(forward, motorVoltageLeft[2], voltageUnits::volt);
-        rightMotor[2].stop(brake);
-    } else { // Negative voltage - pivot around left side
-        // Left side stationary, right side moves
-        leftMotor[0].stop(brake); 
-        rightMotor[0].spin(forward, fabs(motorVoltageRight[0]), voltageUnits::volt);
-        leftMotor[1].stop(hold);
-        rightMotor[1].spin(forward, fabs(motorVoltageRight[1]), voltageUnits::volt);
-        leftMotor[2].stop(brake);
-        rightMotor[2].spin(forward, fabs(motorVoltageRight[2]), voltageUnits::volt);
-    }
-}
+        {
+            if (turnDirection > 0) { // Use initial direction (CCW)
+                // Left side stationary, right side moves
+                leftMotor[0].stop(brake); 
+                rightMotor[0].spin(forward,motorVoltageRight[0], voltageUnits::volt);
+                leftMotor[1].stop(hold);
+                rightMotor[1].spin(forward, motorVoltageRight[1], voltageUnits::volt);
+                leftMotor[2].stop(brake);
+                rightMotor[2].spin(forward, motorVoltageRight[2], voltageUnits::volt);
+            } else { // Use initial direction (CW)
+                // Right side stationary, left side moves
+                leftMotor[0].spin(forward, motorVoltageLeft[0], voltageUnits::volt);
+                rightMotor[0].stop(brake);
+                leftMotor[1].spin(forward, motorVoltageLeft[1], voltageUnits::volt);
+                rightMotor[1].stop(hold);
+                leftMotor[2].spin(forward, motorVoltageLeft[2], voltageUnits::volt);
+                rightMotor[2].stop(brake);
+            }
+        }
+
         vex::task::sleep(10);
     }
 

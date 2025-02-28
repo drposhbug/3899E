@@ -2055,6 +2055,14 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
         rightMotor[2].spin(forward, fabs(motorVoltageRight[2]), voltageUnits::volt);
     }
 }
+This code:
+
+Removes the separate turnDirection variable
+Uses the sign of the voltage (which is derived from the normalized heading error) to determine which side of the robot to pivot around
+Makes sure to use the absolute values of voltages when needed
+
+This should ensure your robot always takes the shortest path when turning to a target heading.RetryClaude can make mistakes. Please double-check responses.
+
         vex::task::sleep(10);
     }
 

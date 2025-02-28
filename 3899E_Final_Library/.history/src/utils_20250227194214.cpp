@@ -407,21 +407,51 @@ double convertEuclideanToVEX(double euclideanHeading)
 
 
 void waitForButtonPress() {
-    // Wait for the R1 button to be released first (in case it's currently pressed)
-    while (Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
+    // Variables to track button state
+    bool wasButtonPressed = false;
     
-    // Now wait until the R1 button is pressed
-    while (!Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
+    // Display prompt on both brain screen and controller
+    Brain.Screen.clearLine(1);
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("Press R1 to continue");
     
-    // Wait for the button to be released again
-    while (Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
+    Controller.Screen.clearLine(1);
+    Controller.Screen.setCursor(1, 1);
+    Controller.Screen.print("R1: Continue");
     
-    // Add a small delay after button release
-    task::sleep(50);
+    // Wait for button press using the same pattern as in driver.cpp
+    while (true) {
+        if (Controller.ButtonR1.pressing()) {
+            if (!wasButtonPressed) {
+                // Button was just pressed
+                wasButtonPressed = true;
+                
+                // Display feedback
+                Brain.Screen.clearLine(1);
+                Brain.Screen.setCursor(1, 1);
+                Brain.Screen.print("Continuing...");
+                
+                Controller.Screen.clearLine(1);
+                Controller.Screen.setCursor(1, 1);
+                Controller.Screen.print("Continuing...");
+                
+                // Short delay to show the message
+                task::sleep(300);
+                
+                // Clear screens
+                Brain.Screen.clearLine(1);
+                Controller.Screen.clearLine(1);
+                
+                // Exit the function
+                return;
+            }
+        }
+        else {
+            // Reset when button is released
+            wasButtonPressed = false;
+        }
+        
+        // Small delay to prevent CPU overload
+        task::sleep(20);
+    }
 }

@@ -405,23 +405,3 @@ double convertEuclideanToVEX(double euclideanHeading)
     return vexHeading;
 }
 
-
-void waitForButtonPress() {
-    // Wait for the R1 button to be released first (in case it's currently pressed)
-    while (Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
-    
-    // Now wait until the R1 button is pressed
-    while (!Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
-    
-    // Wait for the button to be released again
-    while (Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
-    
-    // Add a small delay after button release
-    task::sleep(50);
-}

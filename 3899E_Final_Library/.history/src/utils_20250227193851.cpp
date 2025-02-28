@@ -407,21 +407,46 @@ double convertEuclideanToVEX(double euclideanHeading)
 
 
 void waitForButtonPress() {
-    // Wait for the R1 button to be released first (in case it's currently pressed)
-    while (Controller.ButtonR1.pressing()) {
-        task::sleep(10);
+    // Display prompt on both brain screen and controller
+    Brain.Screen.clearLine(1);
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("Press R1 to continue");
+    
+    Controller.Screen.clearLine(1);
+    Controller.Screen.setCursor(1, 1);
+    Controller.Screen.print("Press R1 to continue");
+    
+    // Clear any previous button press
+    bool buttonWasPressed = Controller.ButtonR1.pressing();
+    while (buttonWasPressed) {
+        buttonWasPressed = Controller.ButtonR1.pressing();
+        vex::task::sleep(20);
     }
     
-    // Now wait until the R1 button is pressed
-    while (!Controller.ButtonR1.pressing()) {
-        task::sleep(10);
+    // Wait for new button press
+    buttonWasPressed = false;
+    while (!buttonWasPressed) {
+        buttonWasPressed = Controller.ButtonR1.pressing();
+        vex::task::sleep(20);
     }
     
-    // Wait for the button to be released again
-    while (Controller.ButtonR1.pressing()) {
-        task::sleep(10);
-    }
+    // Debounce delay
+    vex::task::sleep(300);
     
-    // Add a small delay after button release
-    task::sleep(50);
+    // Clear the prompts
+    Brain.Screen.clearLine(1);
+    Controller.Screen.clearLine(1);
+    
+    // Give feedback that button was detected
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("Continuing...");
+    
+    Controller.Screen.setCursor(1, 1);
+    Controller.Screen.print("Continuing...");
+    
+    vex::task::sleep(500); // Show the message briefly
+    
+    // Clear feedback
+    Brain.Screen.clearLine(1);
+    Controller.Screen.clearLine(1);
 }

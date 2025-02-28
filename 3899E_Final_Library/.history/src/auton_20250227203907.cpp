@@ -61,7 +61,7 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     wait(400, msec);
 
     //Backup to Pick up Mobile Goal
-    backwardMP(90, 56, 245, 20);
+    backwardMP(90, 50, 245, 20);
     // backward(273,48,25,-3, 1.8);
     goalPneumatics.set(true);
     armMotor1.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, true);
@@ -70,10 +70,10 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //wait(2000, msec);
 
     //Turn to go into Tower
-    rightMP(128, 65, 21);
+    rightMP(130, 75);
       wait(2000, msec);
       
-     forwardMP(40, 26, 128);
+     forwardMP(42, 26, 130);
      //waitForButtonPress();
         doinkerPneumatics.set(true);
         

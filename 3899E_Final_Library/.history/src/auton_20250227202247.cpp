@@ -61,7 +61,7 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     wait(400, msec);
 
     //Backup to Pick up Mobile Goal
-    backwardMP(90, 56, 245, 20);
+    backwardMP(90, 50, 245, 20);
     // backward(273,48,25,-3, 1.8);
     goalPneumatics.set(true);
     armMotor1.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, true);
@@ -70,15 +70,23 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //wait(2000, msec);
 
     //Turn to go into Tower
-    rightMP(128, 65, 21);
+    rightMP(120, 50);
       wait(2000, msec);
-      
-     forwardMP(40, 26, 128);
+      Brain.Screen.printAt(10, 60, "Press R1 to continue");
+      while (!Controller.ButtonR1.pressing()) { task::sleep(10); }
+      while (Controller.ButtonR1.pressing()) { task::sleep(10); }
+      Brain.Screen.printAt(10, 60, "                      "); // Clear the message
+
+     forwardMP(38, 20, 120);
      //waitForButtonPress();
         doinkerPneumatics.set(true);
-        
- wait(2000, msec);
-    //pivotRightMP(100, 10, 20, 100);
+        // Pause and wait for R1 press
+Brain.Screen.printAt(10, 60, "Press R1 to continue");
+while (!Controller.ButtonR1.pressing()) { task::sleep(10); }
+while (Controller.ButtonR1.pressing()) { task::sleep(10); }
+Brain.Screen.printAt(10, 60, "                      "); // Clear the message
+
+    pivotRightMP(120, 10, 20, 100);
 /*
     //Coming out of Tower
     straightOdometry(-40, 20, 17, 90, 0.3);
