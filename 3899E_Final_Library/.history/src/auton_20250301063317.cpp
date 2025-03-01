@@ -113,8 +113,8 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
 
      goalPneumatics.set(false);
 
-    leftMP(48, 25, 20);
-    forwardMP(50,22, 48, 20,0.6);
+    leftMP(47, 29, 20);
+    forwardMP(50,22, 47, 20,0.6);
 
     armPneumatics.set(true);
 
@@ -133,7 +133,7 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
     RightMotor2.setBrake(brakeType::coast);
     RightMotor3.setBrake(brakeType::coast);
 
-    backwardMP(100, 0, 5, 20, 0.5, 0, 0);
+    backwardMP(100, 0, 358, 20, 0.5, 0, 0);
    
 
 

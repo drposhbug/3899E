@@ -508,7 +508,7 @@ int intakeStallTask(void *params) {
     
     // Counter for consecutive stall detections
     int stallCounter = 0;
-    const int REQUIRED_CONSECUTIVE_STALLS = 10;
+    const int REQUIRED_CONSECUTIVE_STALLS = 3;
     
     while (p->isRunning) {
         // Get current velocity

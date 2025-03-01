@@ -481,7 +481,7 @@ void runIntakeToStall() {
     
     // Wait for intake to stall
     waitUntil(intakeMotor.velocity(percentUnits::pct) < 1.0 || 
-              intakeMotor.current(currentUnits::amp) > 4.8);
+              intakeMotor.current(currentUnits::amp) > 11.0);
     
     // Small delay to ensure it's actually stalled
     wait(50, msec);
@@ -508,7 +508,7 @@ int intakeStallTask(void *params) {
     
     // Counter for consecutive stall detections
     int stallCounter = 0;
-    const int REQUIRED_CONSECUTIVE_STALLS = 10;
+    const int REQUIRED_CONSECUTIVE_STALLS = 3;
     
     while (p->isRunning) {
         // Get current velocity

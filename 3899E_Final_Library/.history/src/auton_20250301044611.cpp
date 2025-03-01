@@ -92,37 +92,35 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     
 
     doinkerPneumaticsLeft.set(true);
-    wait(300, msec);
+    wait(500, msec);
+    intakeMotor.spinFor(forward, 1, rotationUnits::rev, 100, velocityUnits::pct, false);
 backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
-intakeMotor.spinFor(forward, 0.5, rotationUnits::rev, 100, velocityUnits::pct, true);
-armMotor1.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false);
-armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false);
+
     doinkerPneumaticsLeft.set(false);
     doinkerPneumaticsRight.set(false);
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
 
-    leftMP(143,15, 20);
+    leftMP(143,10, 20);
 
-    forwardMP(43,20, 143,20,0.8);
+    forwardMP(42,20, 143,20,0.8);
 
+    moveArm(ArmPosition::Load2, -80, 2000);
 
     rightMP(25,65, 20);
     startIntakeStallDetection();
-    moveArm(ArmPosition::Load2, -82, 1000);
-    forwardMP(98,60, 25, 20);
-
+    forwardMP(100,60, 25, 20);
      goalPneumatics.set(false);
 
-    leftMP(48, 25, 20);
-    forwardMP(50,22, 48, 20,0.6);
+    leftMP(47, 26, 21);
+    forwardMP(46,22, 47, 20);
 
     armPneumatics.set(true);
 
-    armMotor1.spinToPosition(Side-150, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(Side-150, rotationUnits::deg, 100, velocityUnits::pct, true);
+    armMotor1.spinToPosition(Side-170, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor2.spinToPosition(Side-170, rotationUnits::deg, 100, velocityUnits::pct, true);
 
     armPneumatics.set(false);
-    wait(300, msec);
+    wait(600, msec);
     armMotor1.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);
     backwardMP(10, 0, 46, 20, 1);
@@ -133,7 +131,7 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
     RightMotor2.setBrake(brakeType::coast);
     RightMotor3.setBrake(brakeType::coast);
 
-    backwardMP(100, 0, 5, 20, 0.5, 0, 0);
+    backwardMP(120, 0, 16, 20, 0.05);
    
 
 
