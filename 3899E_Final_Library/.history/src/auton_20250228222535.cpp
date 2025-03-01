@@ -63,7 +63,7 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     wait(400, msec);
 
     //Backup to Pick up Mobile Goal
-    backwardMP(88, 50, 245, 20);
+    backwardMP(90, 50, 245, 20);
     armMotor1.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
     // backward(273,48,25,-3, 1.8);
@@ -78,22 +78,17 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //Turn to go into Tower
     rightMP(135,80, 20);
       
-     forwardMP(44, 26, 135);
+     forwardMP(43, 26, 135);
+     waitForButton();
     
      //waitForButtonPress();
         doinkerPneumaticsRight.set(true);
            wait(200, msec);
-    pivotRightMP(114, 10, 20, 100);
-    
-
+    pivotRightMP(110, 10, 20, 100);
+    wait(200, msec);
     doinkerPneumaticsLeft.set(true);
-    wait(500, msec);
+    backwardMP(90, 56, 110, 20);
 
-    backwardMP(120, 70, 114, 20);
-    doinkerPneumaticsLeft.set(false);
-    doinkerPneumaticsRight.set(false);
-    forwardMP(10,5, 135,1.5);
-intakeMotor.spinFor(forward, 10, rotationUnits::rev, 100, velocityUnits::pct, false);
 
         waitForButton();
     //pivotRightMP(100, 10, 20, 100);

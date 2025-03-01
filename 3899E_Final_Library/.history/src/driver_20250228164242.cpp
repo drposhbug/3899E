@@ -47,7 +47,7 @@ void driverControl()
     bool wasYPressed = false;
     bool wasUpPressed = false;
     bool wasDownPressed = false;
-   //bool wasLeftPressed = false;
+    bool wasLeftPressed = false;
     bool wasBumperPressed = false;
     bool bumperEngaged = false;
     bool isMovingDown = false;
@@ -61,9 +61,9 @@ void driverControl()
     // Initialize arm position before starting driver control
     // Ensure pneumatics are retracted when reaching Starting position
     armPneumatics.set(false);
-    //armMotor1.spin(reverse, 100, velocityUnits::pct); // Slower descent
-    //armMotor2.spin(reverse, 100, velocityUnits::pct); // Slower descent
-    //isMovingDown = true;
+    armMotor1.spin(reverse, 100, velocityUnits::pct); // Slower descent
+    armMotor2.spin(reverse, 100, velocityUnits::pct); // Slower descent
+    isMovingDown = true;
 
     while (true)
     {
@@ -208,51 +208,57 @@ if (Controller.ButtonDown.pressing())
 
 
         // Button L2
-     // Toggle Button L2 Alliance Stake Score
- if (Controller.ButtonL2.pressing())
- {
-     if (!wasL2Pressed)
-     {                        // Detect the press event and ensure arm is not moving
-         wasL2Pressed = true; // Update the state
+        if (Controller.ButtonL2.pressing())
+        {
+            if (!wasL2Pressed)
+            {                       // Detect the press event
+                wasL2Pressed = true; // Update the state
 
-         if (armstat == ArmPosition::Load1 || armstat == ArmPosition::Load2)
-         {
-             // Move arm to Alliance position
-             intakeMotor.stop(); // Stop the motor
-             intakeDirection = 0;
-             intakeRunning = false;
-             intakeMotor.spinFor(50, rotationUnits::deg, 58, velocityUnits::pct, false);
-             armMotor1.setBrake(brakeType::hold);
-             armMotor2.setBrake(brakeType::hold);
-             armMotor1.spinToPosition(Alliance, rotationUnits::deg, 90, velocityUnits::pct, false);
-             armMotor2.spinToPosition(Alliance, rotationUnits::deg, 90, velocityUnits::pct, false);
-             armstat = ArmPosition::Alliance;
-         }
-         else if (armstat == ArmPosition::Alliance)
-         { // Added condition
-             // Move arm back to Ready position
-             armPneumatics.set(false);
-             armMotor1.setBrake(brakeType::coast);
-             armMotor2.setBrake(brakeType::coast);
-             armMotor1.spin(reverse, 100, velocityUnits::pct); // Slower descent
-             armMotor2.spin(reverse, 100, velocityUnits::pct); // Slower descent
-             isMovingDown = true;
-         }
-         else
-         {
-             // Move arm to Side position from any othe position
-             armMotor1.setBrake(brakeType::hold);
-             armMotor2.setBrake(brakeType::hold);
-             armMotor1.spinToPosition(Alliance, rotationUnits::deg, 70, velocityUnits::pct, false);
-             armMotor2.spinToPosition(Alliance, rotationUnits::deg, 70, velocityUnits::pct, false);
-             armstat = ArmPosition::Alliance;
-         }
-     }
- }
- else
- {
-     wasL2Pressed = false; // Reset the state when the button is released
- }
+                // Move from Load to Hover
+                if (armstat == ArmPosition::Load1 || armstat == ArmPosition::Load2)
+                {
+                    //move hook so arm can move
+                    intakeMotor.stop(); // Stop the motor
+                    spinForInProgress = true;
+                    intakeMotor.spinFor(60, rotationUnits::deg, 58, velocityUnits::pct, false);
+
+                    // Activate pneumatics immediately
+                    armPneumatics.set(true);  // Activate first pneumatic
+        
+                    // Move arm to Hover position
+                    armMotor1.setBrake(brakeType::hold);
+                    armMotor2.setBrake(brakeType::hold);
+                    armMotor1.spinToPosition(Hover, rotationUnits::deg, 100, velocityUnits::pct, false);
+                    armMotor2.spinToPosition(Hover, rotationUnits::deg, 100, velocityUnits::pct, false);
+                    armstat = ArmPosition::Hover;
+
+                    // Move from Hover to Side
+                }
+                else if (armstat == ArmPosition::Hover)
+                {
+                    // Move arm to Side position
+                    armMotor1.setBrake(brakeType::hold);
+                    armMotor2.setBrake(brakeType::hold);
+                    armMotor1.spinToPosition(Side, rotationUnits::deg, 60, velocityUnits::pct, false);
+                    armMotor2.spinToPosition(Side, rotationUnits::deg, 60, velocityUnits::pct, false);
+                    armstat = ArmPosition::Side;
+                }
+                else if (armstat == ArmPosition::Side)
+                {
+                    armPneumatics.set(false); 
+
+                    armMotor1.setBrake(brakeType::coast);
+                    armMotor2.setBrake(brakeType::coast);
+                    armMotor1.spin(reverse, 100, velocityUnits::pct); // Slower descent
+                    armMotor2.spin(reverse, 100, velocityUnits::pct); // Slower descent
+                    isMovingDown = true;
+                }
+            }
+        }
+        else
+        {
+            wasL2Pressed = false; // Reset the state when the button is released
+        }
 
 
         // Button Y logic with toggle mechanism

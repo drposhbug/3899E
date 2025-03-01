@@ -44,58 +44,42 @@ const double BLUE_HUE_MIN = 207.0;  // Blue range - narrower
 const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
 
     initializeOpticalSensor();
-/*
+
     // Define task parameters
     ColorTaskParams colorTaskParams;
-    colorTaskParams.isRunning = false;
+    colorTaskParams.isRunning = true;
     colorTaskParams.targetColor = Color::BLUE; // Set ejection colour RED or BLUE
     colorTaskParams.delayMs = 80;              // Set delay before stopping intake
+
     // Start the color detection task
     vex::task colorTask(colorDetectionTask, &colorTaskParams);
-*/
-
     headingOffset = 240;
+
     
     //go to Alliance Stake
     forwardMP(17, 9, 240);
-    armMotor1.spinToPosition(480, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(480, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor1.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
+    armMotor2.spinToPosition(500, rotationUnits::deg, 100, velocityUnits::pct, true);
     wait(400, msec);
 
     //Backup to Pick up Mobile Goal
-    backwardMP(88, 50, 245, 20);
-    armMotor1.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
+    backwardMP(90, 56, 245, 20);
     // backward(273,48,25,-3, 1.8);
     goalPneumatics.set(true);
-    armResetParams.isRunning = true;
-    armResetParams.isResetComplete = false; 
-    //armMotor1.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, false);
-    //armMotor2.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, true);
+    armMotor1.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, true);
+    armMotor2.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, true);
     //intakeMotor.spin(reverse, 100, velocityUnits::pct);
     //wait(2000, msec);
 
     //Turn to go into Tower
-    rightMP(135,80, 20);
+    rightMP(128, 65, 21);
+      wait(2000, msec);
       
-     forwardMP(44, 26, 135);
-    
+     forwardMP(40, 26, 128);
      //waitForButtonPress();
         doinkerPneumaticsRight.set(true);
-           wait(200, msec);
-    pivotRightMP(114, 10, 20, 100);
-    
-
-    doinkerPneumaticsLeft.set(true);
-    wait(500, msec);
-
-    backwardMP(120, 70, 114, 20);
-    doinkerPneumaticsLeft.set(false);
-    doinkerPneumaticsRight.set(false);
-    forwardMP(10,5, 135,1.5);
-intakeMotor.spinFor(forward, 10, rotationUnits::rev, 100, velocityUnits::pct, false);
-
-        waitForButton();
+        
+ wait(2000, msec);
     //pivotRightMP(100, 10, 20, 100);
 /*
     //Coming out of Tower
@@ -204,8 +188,8 @@ void skills()
 //Scoring on side Stake
 
     forwardMP(95, 65, 30, 20, 0.6, 0.003, 0.01);
-    pivotRightMP(0, 20, 20, 100);
-    forwardMP(4, 2, 0, 20, 0.6, 0.003, 0.01);
+    pivotRightMP(2, 20, 20, 100);
+    forwardMP(4, 2, 2, 20, 0.6, 0.003, 0.01);
 
     task::sleep(500); // Small delay to prevent overwhelming the CPU
 
@@ -227,17 +211,11 @@ void skills()
     leftMP(40,67,20); 
     forwardMP(25, 10, 40, 20, 0.6, 0.003, 0.01);
     leftMP(110,40,20); 
-    backwardMP(20, 10, 110, 20, 0.6, 0.0008, 0.5, 0.35);
+    backwardMP(13, 6, 110, 20, 0.6, 0.0008, 0.5, 0.35);
     goalPneumatics.set(false);
-    forwardMP(12, 7, 110, 20, 0.6, 0.003, 0.01);
-    rightMP(180,80,20); 
-    forwardMP(160, 60, 180, 20, 0.6, 0.003, 0.01);
-    rightMP(0,100,20); 
-    backwardMP(20, 10, 0, 20, 0.6, 0.0008, 0.5, 0.35);
-    leftMP(150,80,20); 
-    forwardMP(95, 65, 15, 0, 20, 0.6, 0.003, 0.01);
-
-
+    forwardMP(25, 10, 110, 20, 0.6, 0.003, 0.01);
+    rightMP(0,80,20); 
+    backwardMP(100, 55, 0, 21, 1.5, 0.0008, 0.5, 0.35);
 
 
 

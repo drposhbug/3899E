@@ -78,22 +78,17 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //Turn to go into Tower
     rightMP(135,80, 20);
       
-     forwardMP(44, 26, 135);
+     forwardMP(43, 26, 135);
     
      //waitForButtonPress();
         doinkerPneumaticsRight.set(true);
            wait(200, msec);
-    pivotRightMP(114, 10, 20, 100);
-    
-
+    pivotRightMP(113, 10, 20, 100);
+    forwardMP(3, 0, 113);
+    wait(300, msec);
     doinkerPneumaticsLeft.set(true);
-    wait(500, msec);
+    backwardMP(90, 56, 114, 20);
 
-    backwardMP(120, 70, 114, 20);
-    doinkerPneumaticsLeft.set(false);
-    doinkerPneumaticsRight.set(false);
-    forwardMP(10,5, 135,1.5);
-intakeMotor.spinFor(forward, 10, rotationUnits::rev, 100, velocityUnits::pct, false);
 
         waitForButton();
     //pivotRightMP(100, 10, 20, 100);

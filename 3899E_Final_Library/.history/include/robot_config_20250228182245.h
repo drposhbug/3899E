@@ -68,7 +68,7 @@ enum ArmPosition {
     Load2 = 128,
     Hover = 580, // hover above side stake 
     Side = 700,   // Position -770 (Y button)
-    Alliance = 550, // Position -550 (Right button)
+    Alliance = 530, // Position -550 (Right button)
     ScoringSide = 514,
     ScoringAlliance =334, 
     Descore = 437

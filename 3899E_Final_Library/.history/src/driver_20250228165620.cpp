@@ -234,8 +234,8 @@ if (Controller.ButtonDown.pressing())
              armPneumatics.set(false);
              armMotor1.setBrake(brakeType::coast);
              armMotor2.setBrake(brakeType::coast);
-             armMotor1.spin(reverse, 100, velocityUnits::pct); // Slower descent
-             armMotor2.spin(reverse, 100, velocityUnits::pct); // Slower descent
+             armMotor1.spin(reverse, 50, velocityUnits::pct); // Slower descent
+             armMotor2.spin(reverse, 50, velocityUnits::pct); // Slower descent
              isMovingDown = true;
          }
          else
