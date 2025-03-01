@@ -92,16 +92,18 @@ void waitForButton();
 
 
 // Enhanced arm task parameters
-struct SimpleArmTaskParams {
-    bool isRunning;          // Flag to control task execution
-    ArmPosition position;    // Target position enum
-    int adjustment;          // Adjustment value to add/subtract from position
-    int delayMs;             // Delay before moving to position
-    bool isComplete;         // Flag to indicate if the task has completed
+struct EnhancedArmTaskParams {
+    bool isRunning;                 // Flag to control task execution
+    ArmPosition targetPosition;     // Target position enum
+    int adjustment;                 // Adjustment value to add/subtract from position
+    int delayMs;                    // Delay before moving to position
+    bool waitForCompletion;         // Wait for movement to complete before setting isComplete
+    bool isComplete;                // Flag to indicate if the task has completed
 };
 
 // Function declarations
-int simpleArmTask(void *params);
-void moveArm(ArmPosition position, int adjustment = 0, int delayMs = 0);
+int enhancedArmTask(void *params);
+void moveArmToPosition(ArmPosition position, int adjustment = 0, int delayMs = 0, bool waitForCompletion = false);
+bool isArmAtPosition(ArmPosition position, int adjustment = 0, int tolerance = 10);
 
 #endif // UTILS_H

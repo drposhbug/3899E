@@ -83,38 +83,32 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //Turn to go into Tower
     rightMP(138,79, 21);
       
-     forwardMP(43, 27, 138);
+     forwardMP(42, 27, 138);
     
      //waitForButtonPress();
         doinkerPneumaticsRight.set(true);
            wait(200, msec);
-    pivotRightMP(113, 13, 20, 100);
+    pivotRightMP(114, 13, 20, 100);
     
 
     doinkerPneumaticsLeft.set(true);
     wait(500, msec);
     intakeMotor.spinFor(forward, 1, rotationUnits::rev, 100, velocityUnits::pct, false);
-backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
+backwardMP(120, 60, 114, 20, 1.5, 0.0008, 0.5, 0.35);
 
     doinkerPneumaticsLeft.set(false);
     doinkerPneumaticsRight.set(false);
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
-
     leftMP(143,10, 20);
 
     forwardMP(42,15, 143,0.9);
-    waitForButton();
-
     moveArm(ArmPosition::Load2, -80, 2000);
-
-    rightMP(31,75, 20);
+    rightMP(36,70, 20);
     startIntakeStallDetection();
-    forwardMP(100,60, 31, 20);
-     waitForButton();
-     goalPneumatics.set(false);
+    forwardMP(100,60, 36, 20);
 
-    leftMP(43, 26, 21);
-    forwardMP(45,22, 43, 20);
+    leftMP(43, 25, 20);
+    forwardMP(46,15, 43, 20);
 
     armPneumatics.set(true);
 
@@ -122,11 +116,10 @@ backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
     armMotor2.spinToPosition(Side-180, rotationUnits::deg, 100, velocityUnits::pct, true);
 
     armPneumatics.set(false);
-    wait(500, msec);
+    wait(1000, msec);
     armMotor1.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);
-    backwardMP(10, 0, 46, 20, 1);
-    backwardMP(120, 0, 15, 20, 0.1);
+    backwardMP(80, 0, 20, 20, 0.4, 0.0008, 0.5, 0.35);
    
 
 

@@ -481,7 +481,7 @@ void runIntakeToStall() {
     
     // Wait for intake to stall
     waitUntil(intakeMotor.velocity(percentUnits::pct) < 5.0 || 
-              intakeMotor.current(currentUnits::amp) > 11.0);
+              intakeMotor.current(currentUnits::amp) > 2.0);
     
     // Small delay to ensure it's actually stalled
     wait(50, msec);

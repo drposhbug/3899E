@@ -10,7 +10,6 @@ using namespace vex; // Use the VEX namespace
 
 ArmResetTaskParams armResetParams;
 
-
 // 180 Degree Turns
 //rightMP(180,110,18); 
 //leftMP(180,110,18);
@@ -55,20 +54,16 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     vex::task colorTask(colorDetectionTask, &colorTaskParams);
 */
 
-
-
-
     headingOffset = 240;
     
     //go to Alliance Stake
-    moveArm(ArmPosition::Alliance, -75,00);
-
-    forwardMP(18, 9, 240);
-
-    //wait(400, msec);
+    forwardMP(17, 9, 240);
+    armMotor1.spinToPosition(480, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor2.spinToPosition(480, rotationUnits::deg, 100, velocityUnits::pct, false);
+    wait(400, msec);
 
     //Backup to Pick up Mobile Goal
-    backwardMP(88, 49, 245, 20);
+    backwardMP(88, 50, 245, 20);
     armMotor1.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
     // backward(273,48,25,-3, 1.8);
@@ -81,59 +76,36 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //wait(2000, msec);
 
     //Turn to go into Tower
-    rightMP(138,79, 21);
+    rightMP(135,80, 20);
       
-     forwardMP(43, 27, 138);
+     forwardMP(44, 26, 135);
     
      //waitForButtonPress();
         doinkerPneumaticsRight.set(true);
            wait(200, msec);
-    pivotRightMP(113, 13, 20, 100);
+    pivotRightMP(114, 13, 20, 100);
     
 
     doinkerPneumaticsLeft.set(true);
     wait(500, msec);
-    intakeMotor.spinFor(forward, 1, rotationUnits::rev, 100, velocityUnits::pct, false);
-backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
+    intakeMotor.spinFor(forward, 2, rotationUnits::rev, 100, velocityUnits::pct, false);
 
+    backwardMP(120, 60, 114, 18);
     doinkerPneumaticsLeft.set(false);
     doinkerPneumaticsRight.set(false);
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
+    leftMP(138,7, 20);
 
-    leftMP(143,10, 20);
-
-    forwardMP(42,15, 143,0.9);
-    waitForButton();
-
-    moveArm(ArmPosition::Load2, -80, 2000);
-
-    rightMP(31,75, 20);
-    startIntakeStallDetection();
-    forwardMP(100,60, 31, 20);
-     waitForButton();
-     goalPneumatics.set(false);
-
-    leftMP(43, 26, 21);
-    forwardMP(45,22, 43, 20);
-
-    armPneumatics.set(true);
-
-    armMotor1.spinToPosition(Side-180, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(Side-180, rotationUnits::deg, 100, velocityUnits::pct, true);
-
-    armPneumatics.set(false);
-    wait(500, msec);
-    armMotor1.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);
-    backwardMP(10, 0, 46, 20, 1);
-    backwardMP(120, 0, 15, 20, 0.1);
-   
-
-
+    forwardMP(40,15, 138,1.5);
+    rightMP(33,60, 20);
+    forwardMP(120,40, 33, 0.8);
+    leftMP(60,5, 20);
 
     //Getting arm to load postion before side goal
+    moveArm(ArmPosition::Load2, -75, 500);
 
 
+        waitForButton();
     //pivotRightMP(100, 10, 20, 100);
 /*
     //Coming out of Tower

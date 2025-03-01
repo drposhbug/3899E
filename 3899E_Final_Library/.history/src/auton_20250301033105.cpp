@@ -94,7 +94,8 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     doinkerPneumaticsLeft.set(true);
     wait(500, msec);
     intakeMotor.spinFor(forward, 1, rotationUnits::rev, 100, velocityUnits::pct, false);
-backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
+backwardMP(110, 55, 114, 22, 1.5, 0.0008, 0.5, 0.35);
+     waitForButton();
 
     doinkerPneumaticsLeft.set(false);
     doinkerPneumaticsRight.set(false);
@@ -103,10 +104,7 @@ backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
     leftMP(143,10, 20);
 
     forwardMP(42,15, 143,0.9);
-    waitForButton();
-
     moveArm(ArmPosition::Load2, -80, 2000);
-
     rightMP(31,75, 20);
     startIntakeStallDetection();
     forwardMP(100,60, 31, 20);
@@ -114,7 +112,7 @@ backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
      goalPneumatics.set(false);
 
     leftMP(43, 26, 21);
-    forwardMP(45,22, 43, 20);
+    forwardMP(46,22, 43, 20);
 
     armPneumatics.set(true);
 

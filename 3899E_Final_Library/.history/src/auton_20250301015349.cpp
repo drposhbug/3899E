@@ -68,7 +68,7 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //wait(400, msec);
 
     //Backup to Pick up Mobile Goal
-    backwardMP(88, 49, 245, 20);
+    backwardMP(88, 50, 245, 21);
     armMotor1.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
     armMotor2.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
     // backward(273,48,25,-3, 1.8);
@@ -81,55 +81,40 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //wait(2000, msec);
 
     //Turn to go into Tower
-    rightMP(138,79, 21);
+    rightMP(137,79, 21);
       
-     forwardMP(43, 27, 138);
+     forwardMP(42, 27, 137);
     
      //waitForButtonPress();
         doinkerPneumaticsRight.set(true);
            wait(200, msec);
-    pivotRightMP(113, 13, 20, 100);
+    pivotRightMP(114, 13, 20, 100);
     
 
     doinkerPneumaticsLeft.set(true);
     wait(500, msec);
     intakeMotor.spinFor(forward, 1, rotationUnits::rev, 100, velocityUnits::pct, false);
-backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
+    backwardMP(120, 50, 114, 20, 1.5);
 
     doinkerPneumaticsLeft.set(false);
     doinkerPneumaticsRight.set(false);
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
-
     leftMP(143,10, 20);
 
     forwardMP(42,15, 143,0.9);
+    moveArm(ArmPosition::Load2, -80, 2000);
+    rightMP(36,70, 20);
+    startIntakeStallDetection();
+    forwardMP(100,60, 36, 20);
     waitForButton();
 
-    moveArm(ArmPosition::Load2, -80, 2000);
-
-    rightMP(31,75, 20);
-    startIntakeStallDetection();
-    forwardMP(100,60, 31, 20);
-     waitForButton();
-     goalPneumatics.set(false);
-
-    leftMP(43, 26, 21);
-    forwardMP(45,22, 43, 20);
+    leftMP(45, 25, 20);
+    forwardMP(40,15, 47, 20);
 
     armPneumatics.set(true);
 
-    armMotor1.spinToPosition(Side-180, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(Side-180, rotationUnits::deg, 100, velocityUnits::pct, true);
-
-    armPneumatics.set(false);
-    wait(500, msec);
-    armMotor1.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);
-    backwardMP(10, 0, 46, 20, 1);
-    backwardMP(120, 0, 15, 20, 0.1);
-   
-
-
+    armMotor1.spinToPosition(Side-150, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor2.spinToPosition(Side-150, rotationUnits::deg, 100, velocityUnits::pct, true);
 
     //Getting arm to load postion before side goal
 
