@@ -106,22 +106,23 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
     forwardMP(45,20, 143,20,0.8);
 
 
-    rightMP(26,70, 20);
+    rightMP(26,65, 20);
     startIntakeStallDetection();
     moveArm(ArmPosition::Load2, -82, 1000);
    // forwardMP(98, 50, 26, 16, 1.5, 0.03, 0.1);
 
-    forwardMP(90,60, 23, 22,1);
+    forwardMP(98,60, 26, 20);
 
      goalPneumatics.set(false);
 
-    leftMP(48.5, 26, 18);
-    forwardMP(54,25, 48.5, 20,0.4);
+    leftMP(43, 26, 18);
+    forwardMP(50,28, 43, 18,0.4);
 
     armPneumatics.set(true);
 
-    armMotor1.spinToPosition(Side-130, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(Side-130, rotationUnits::deg, 100, velocityUnits::pct, true);
+    armMotor1.spinToPosition(Side-150, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor2.spinToPosition(Side-150, rotationUnits::deg, 100, velocityUnits::pct, true);
+
     armPneumatics.set(false);
     wait(300, msec);
     armMotor1.spinToPosition(Alliance-300, rotationUnits::deg, 100, velocityUnits::pct, false);

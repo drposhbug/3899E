@@ -480,11 +480,11 @@ void runIntakeToStall() {
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
     
     // Wait for intake to stall
-    waitUntil(intakeMotor.velocity(percentUnits::pct) < 1.0 && 
+    waitUntil(intakeMotor.velocity(percentUnits::pct) < 1.0 || 
               intakeMotor.current(currentUnits::amp) > 7);
     
     // Small delay to ensure it's actually stalled
-    //wait(50, msec);
+    wait(50, msec);
     
     // Stop the intake and set to coast mode
     intakeMotor.stop(brakeType::coast);
@@ -508,7 +508,7 @@ int intakeStallTask(void *params) {
     
     // Counter for consecutive stall detections
     int stallCounter = 0;
-    const int REQUIRED_CONSECUTIVE_STALLS = 10;
+    const int REQUIRED_CONSECUTIVE_STALLS = 100;
     
     while (p->isRunning) {
         // Get current velocity
@@ -551,9 +551,9 @@ int intakeStallTask(void *params) {
 void startIntakeStallDetection() {
     // Set up parameters
     intakeStallParams.isRunning = true;
-    intakeStallParams.stallThreshold = 1.0;     // 5% velocity threshold
-    intakeStallParams.reverseRotation = 210;     // 90 degrees of reversal
-    intakeStallParams.reverseSpeed = 60;        // 30% speed for reversal
+    intakeStallParams.stallThreshold = 5.0;     // 5% velocity threshold
+    intakeStallParams.reverseRotation = 110;     // 90 degrees of reversal
+    intakeStallParams.reverseSpeed = 30;        // 30% speed for reversal
     
     // Start the intake motor
     intakeMotor.spin(reverse, 100, velocityUnits::pct);

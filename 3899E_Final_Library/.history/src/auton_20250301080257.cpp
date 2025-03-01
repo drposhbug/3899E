@@ -115,8 +115,8 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
 
      goalPneumatics.set(false);
 
-    leftMP(48.5, 26, 18);
-    forwardMP(54,25, 48.5, 20,0.4);
+    leftMP(49, 26, 18);
+    forwardMP(54,25, 49, 20,0.4);
 
     armPneumatics.set(true);
 

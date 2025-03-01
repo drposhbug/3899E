@@ -551,8 +551,8 @@ int intakeStallTask(void *params) {
 void startIntakeStallDetection() {
     // Set up parameters
     intakeStallParams.isRunning = true;
-    intakeStallParams.stallThreshold = 1.0;     // 5% velocity threshold
-    intakeStallParams.reverseRotation = 210;     // 90 degrees of reversal
+    intakeStallParams.stallThreshold = 5.0;     // 5% velocity threshold
+    intakeStallParams.reverseRotation = 420;     // 90 degrees of reversal
     intakeStallParams.reverseSpeed = 60;        // 30% speed for reversal
     
     // Start the intake motor
