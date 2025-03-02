@@ -113,7 +113,7 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
    // forwardMP(98, 50, 26, 16, 1.5, 0.03, 0.1);
 
 
-    forwardMP(100,60, 26, 23,1);
+    forwardMP(100,60, 26, 22,1);
     intakeMotor.spin(reverse,  0, velocityUnits::pct);
 
     rightMP(298,35, 20);

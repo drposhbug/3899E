@@ -71,22 +71,15 @@ struct ArmResetTaskParams {
 // Function declaration
 int armResetTask(void *params);
 
-// Structure for intake stall detection
 struct IntakeStallTaskParams {
-    bool isRunning;         // Flag to control task execution
-    double stallThreshold;  // Velocity threshold for stall detection (in percent)
-    int reverseRotation;    // How much to reverse the intake in degrees
-    int reverseSpeed;       // Speed to use when reversing (in percent)
+    bool isRunning;
+    double stallThreshold;
+    double reverseRotation;
+    double reverseSpeed;
+    int delayMs;               // Added for delay support
 };
 
-// Task function for monitoring intake stalls
-int intakeStallTask(void *params);
-
-// Function to start monitoring intake for stalls
-void startIntakeStallDetection();
-
-// Global task parameters
-extern IntakeStallTaskParams intakeStallParams;
+IntakeStallTaskParams intakeStallParams;
 
 void waitForButton();
 
@@ -99,6 +92,9 @@ struct SimpleArmTaskParams {
     int delayMs;             // Delay before moving to position
     bool isComplete;         // Flag to indicate if the task has completed
 };
+
+
+void startIntakeStallDetection(int delayMs = 0);
 
 // Function declarations
 int simpleArmTask(void *params);

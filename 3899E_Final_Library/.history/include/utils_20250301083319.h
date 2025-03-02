@@ -90,18 +90,4 @@ extern IntakeStallTaskParams intakeStallParams;
 
 void waitForButton();
 
-
-// Enhanced arm task parameters
-struct SimpleArmTaskParams {
-    bool isRunning;          // Flag to control task execution
-    ArmPosition position;    // Target position enum
-    int adjustment;          // Adjustment value to add/subtract from position
-    int delayMs;             // Delay before moving to position
-    bool isComplete;         // Flag to indicate if the task has completed
-};
-
-// Function declarations
-int simpleArmTask(void *params);
-void moveArm(ArmPosition position, int adjustment = 0, int delayMs = 0);
-
 #endif // UTILS_H

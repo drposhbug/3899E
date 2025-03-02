@@ -69,9 +69,9 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //wait(400, msec);
 
     //Backup to Pick up Mobile Goal
-    backwardMP(70, 50, 244, 20);
-    armMotor1.spinToPosition(550, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(550, rotationUnits::deg, 100, velocityUnits::pct, false);
+    backwardMP(70, 49, 245, 20);
+    armMotor1.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor2.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
     // backward(273,48,25,-3, 1.8);
     goalPneumatics.set(true);
     armResetParams.isRunning = true;
@@ -113,23 +113,11 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
    // forwardMP(98, 50, 26, 16, 1.5, 0.03, 0.1);
 
 
-    forwardMP(100,60, 26, 23,1);
+    forwardMP(100,60, 26, 22,1);
     intakeMotor.spin(reverse,  0, velocityUnits::pct);
 
-    rightMP(298,35, 20);
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
-    
-    doinkerPneumaticsLeft.set(true);
-    forwardMP(85,35, 298, 25,1);
-    rightMP(230, 0, 40);
-    doinkerPneumaticsLeft.set(false);
-    forwardMP(50,12, 235, 25,1);
-
-    //forwardMP(85,60, 298, 25,1);
-
-    //backwardMP(5,2, 298, 20);
-
-
+    rightMP(310,40, 20);
+    forwardMP(100,60, 310, 22,0.8);
 
     //leftMP(170, 80, 18);
     //forwardMP(40,60, 170, 22,0.4);

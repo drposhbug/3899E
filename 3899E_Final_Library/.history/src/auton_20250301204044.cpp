@@ -62,16 +62,16 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     
     
     //go to Alliance Stake
-   // moveArm(ArmPosition::Alliance, -95,00);
+    moveArm(ArmPosition::Alliance, -95,00);
 
-    //forwardMP(18, 9, 240);
+    forwardMP(18, 9, 240);
 
     //wait(400, msec);
 
     //Backup to Pick up Mobile Goal
-    backwardMP(70, 50, 244, 20);
-    armMotor1.spinToPosition(550, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(550, rotationUnits::deg, 100, velocityUnits::pct, false);
+    backwardMP(88, 49, 245, 20);
+    armMotor1.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor2.spinToPosition(520, rotationUnits::deg, 100, velocityUnits::pct, false);
     // backward(273,48,25,-3, 1.8);
     goalPneumatics.set(true);
     armResetParams.isRunning = true;
@@ -108,35 +108,17 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
 
 
     rightMP(26,70, 20);
-  // startIntakeStallDetection();
- //   moveArm(ArmPosition::Load1, -82, 1000);
+   startIntakeStallDetection();
+    moveArm(ArmPosition::Load1, -82, 1000);
    // forwardMP(98, 50, 26, 16, 1.5, 0.03, 0.1);
 
-
-    forwardMP(100,60, 26, 23,1);
-    intakeMotor.spin(reverse,  0, velocityUnits::pct);
-
-    rightMP(298,35, 20);
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
-    
-    doinkerPneumaticsLeft.set(true);
-    forwardMP(85,35, 298, 25,1);
-    rightMP(230, 0, 40);
-    doinkerPneumaticsLeft.set(false);
-    forwardMP(50,12, 235, 25,1);
-
-    //forwardMP(85,60, 298, 25,1);
-
-    //backwardMP(5,2, 298, 20);
-
-
-
+    forwardMP(100,60, 26, 22,1);
     //leftMP(170, 80, 18);
     //forwardMP(40,60, 170, 22,0.4);
-    /// goalPneumatics.set(false);
+     goalPneumatics.set(false);
 
-    //leftMP(95, 45, 18);
-  // forwardMP(10,6, 100, 20,0.4);
+    leftMP(98, 45, 18);
+   forwardMP(10,6, 100, 20,0.4);
   //  pivotRightMP(58, 5, 20, 100);
 
  //   armPneumatics.set(true);
@@ -146,8 +128,8 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
 //wait(300, msec);
   //  armPneumatics.set(false);
 
-  //  armMotor1.spinToPosition(Alliance-50, rotationUnits::deg, 100, velocityUnits::pct, false);
-    //armMotor2.spinToPosition(Alliance-50, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor1.spinToPosition(Alliance-50, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor2.spinToPosition(Alliance-50, rotationUnits::deg, 100, velocityUnits::pct, false);
    // backwardMP(10, 0, 46, 20, 1);
     LeftMotor1.setBrake(brakeType::coast);
     LeftMotor2.setBrake(brakeType::coast);
