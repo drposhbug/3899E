@@ -113,7 +113,7 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
    // forwardMP(98, 50, 26, 16, 1.5, 0.03, 0.1);
 
 
-    forwardMP(91,40, 26, 23,0.4);
+    forwardMP(90,40, 26, 23,0.8);
     intakeMotor.spin(reverse,  0, velocityUnits::pct);
 
     rightMP(298,35, 20);
@@ -123,22 +123,12 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
     doinkerPneumaticsRight.set(true);
 
     forwardMP(85,35, 298, 25,0.8);
-    rightMP(235, 25, 40);
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
-
+    rightMP(225, 25, 40);
     doinkerPneumaticsLeft.set(false);
     doinkerPneumaticsRight.set(false);
-    leftMP(250, 5, 40);
- //   pivotRightMP(210, 2, 20, 100);
-    forwardMP(20,5, 250, 21,1);
-  //  rightMP(210, 10, 40);
-    //forwardMP(30,10, 210, 21,1);
-
-
-
-    
-
-  //  forwardMP(20,5, 215, 25,1);
+    pivotRightMP(210, 2, 20, 100);
+    forwardMP(10,5, 205, 25,1);
+    forwardMP(20,5, 25, 25,1);
 
 
     //forwardMP(85,60, 298, 25,1);

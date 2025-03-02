@@ -131,12 +131,9 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
     leftMP(250, 5, 40);
  //   pivotRightMP(210, 2, 20, 100);
     forwardMP(20,5, 250, 21,1);
-  //  rightMP(210, 10, 40);
-    //forwardMP(30,10, 210, 21,1);
+    rightMP(210, 10, 40);
+    forwardMP(30,10, 210, 21,1);
 
-
-
-    
 
   //  forwardMP(20,5, 215, 25,1);
 

@@ -70,8 +70,8 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
 
     //Backup to Pick up Mobile Goal
     backwardMP(70, 40, 244, 20);
-    armMotor1.spinToPosition(570, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(570, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor1.spinToPosition(550, rotationUnits::deg, 100, velocityUnits::pct, false);
+    armMotor2.spinToPosition(550, rotationUnits::deg, 100, velocityUnits::pct, false);
     // backward(273,48,25,-3, 1.8);
     goalPneumatics.set(true);
     armResetParams.isRunning = true;
@@ -82,19 +82,19 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //wait(2000, msec);
 
     //Turn to go into Tower
-    rightMP(138,60, 20);
+    rightMP(138,65, 20);
       
-     forwardMP(43.5, 27, 138);
+     forwardMP(43, 27, 138);
     
      //waitForButtonPress();
         doinkerPneumaticsRight.set(true);
            wait(200, msec);
-    pivotRightMP(112, 13, 20, 100);
+    pivotRightMP(113, 13, 20, 100);
     
 
     doinkerPneumaticsLeft.set(true);
     wait(300, msec);
-backwardMP(110, 56, 112, 21, 1.5, 0.0008, 0.5, 0.35);
+backwardMP(110, 56, 113, 21, 1.5, 0.0008, 0.5, 0.35);
 intakeMotor.spinFor(forward, 0.5, rotationUnits::rev, 100, velocityUnits::pct, true);
 armMotor1.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false);
 armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false);
@@ -113,33 +113,17 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
    // forwardMP(98, 50, 26, 16, 1.5, 0.03, 0.1);
 
 
-    forwardMP(91,40, 26, 23,0.4);
+    forwardMP(100,60, 26, 23,1);
     intakeMotor.spin(reverse,  0, velocityUnits::pct);
 
     rightMP(298,35, 20);
     intakeMotor.spin(reverse, 100, velocityUnits::pct);
     
     doinkerPneumaticsLeft.set(true);
-    doinkerPneumaticsRight.set(true);
-
-    forwardMP(85,35, 298, 25,0.8);
-    rightMP(235, 25, 40);
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
-
+    forwardMP(85,35, 298, 25,1);
+    rightMP(235, 0, 40);
     doinkerPneumaticsLeft.set(false);
-    doinkerPneumaticsRight.set(false);
-    leftMP(250, 5, 40);
- //   pivotRightMP(210, 2, 20, 100);
-    forwardMP(20,5, 250, 21,1);
-  //  rightMP(210, 10, 40);
-    //forwardMP(30,10, 210, 21,1);
-
-
-
-    
-
-  //  forwardMP(20,5, 215, 25,1);
-
+    forwardMP(50,12, 235, 25,1);
 
     //forwardMP(85,60, 298, 25,1);
 

@@ -45,7 +45,7 @@ const double BLUE_HUE_MIN = 207.0;  // Blue range - narrower
 const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
 
     initializeOpticalSensor();
-/*
+
     // Define task parameters
     ColorTaskParams colorTaskParams;
     colorTaskParams.isRunning = false;
@@ -53,9 +53,6 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     colorTaskParams.delayMs = 80;              // Set delay before stopping intake
     // Start the color detection task
     vex::task colorTask(colorDetectionTask, &colorTaskParams);
-*/
-
-
 
 
     headingOffset = 240;
@@ -130,6 +127,7 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
     doinkerPneumaticsRight.set(false);
     leftMP(250, 5, 40);
  //   pivotRightMP(210, 2, 20, 100);
+ colorTaskParams.isRunning = true;
     forwardMP(20,5, 250, 21,1);
   //  rightMP(210, 10, 40);
     //forwardMP(30,10, 210, 21,1);
