@@ -27,18 +27,7 @@ const double BLUE_HUE_MAX = 225.0;
 void driverControl()
 {
     initializeOpticalSensor();
-    // Define task parameters
-
-    /*  Activate this if Colour Sorter is on
-    ColorTaskParams colorTaskParams;
     colorTaskParams.isRunning = false;
-    colorTaskParams.targetColor = Color::BLUE; // Set ejection colour RED or BLUE
-    colorTaskParams.delayMs = 80;              // Set delay before stopping intake
-    // Start the color detection task
-    vex::task colorTask(colorDetectionTask, &colorTaskParams);
-    colorTaskParams.isRunning = false;
-    */
-
     // Arrays to hold the current speeds of the motors
     double motorPowerLeft[3] = {0};
     double motorPowerRight[3] = {0};

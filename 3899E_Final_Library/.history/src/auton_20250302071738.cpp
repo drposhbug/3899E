@@ -56,7 +56,7 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
 
 
 
-/*
+
 
     //********* For testing only, remove **************************************
     
@@ -66,7 +66,7 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     
     //***** For Temp testing only., Remove **********************
 
-*/
+
 
 
 
@@ -86,8 +86,6 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     armMotor2.spinToPosition(570, rotationUnits::deg, 100, velocityUnits::pct, false);
     // backward(273,48,25,-3, 1.8);
     goalPneumatics.set(true);
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
-
     armResetParams.isRunning = true;
     armResetParams.isResetComplete = false; 
     //armMotor1.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, false);
@@ -97,8 +95,7 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
 
     //Turn to go into Tower
     rightMP(138,60, 20);
-    intakeMotor.spin(reverse,  0, velocityUnits::pct);
-
+      
      forwardMP(43.5, 27, 138);
     
      //waitForButtonPress();
@@ -145,13 +142,8 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
     doinkerPneumaticsRight.set(false);
     leftMP(250, 5, 40);
  //   pivotRightMP(210, 2, 20, 100);
-
-
-
- //colorTaskParams.isRunning = true; // comment out if you don't want colour sensor
-   
- 
- forwardMP(20,5, 250, 21,1);
+ colorTaskParams.isRunning = true; // comment out if you don't want colour sensor
+    forwardMP(20,5, 250, 21,1);
   //  rightMP(210, 10, 40);
     //forwardMP(30,10, 210, 21,1);
 
@@ -236,120 +228,6 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
 }
 
 
-    void doubleDoinkerBlue()
-    {
-        const double RED_HUE_MIN_1 = 350.0; // First red range
-        const double RED_HUE_MAX_1 = 360.0;
-        const double RED_HUE_MIN_2 = 0.0;   // Second red range
-        const double RED_HUE_MAX_2 = 18.0;  // Reduced from 30
-        const double BLUE_HUE_MIN = 207.0;  // Blue range - narrower
-        const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
-        
-        initializeOpticalSensor();
-    
-        // Define task parameters
-        ColorTaskParams colorTaskParams;
-        colorTaskParams.isRunning = false;
-        colorTaskParams.targetColor = Color::RED; // Changed from BLUE to RED for opposite side
-        colorTaskParams.delayMs = 80;              // Set delay before stopping intake
-        // Start the color detection task
-        vex::task colorTask(colorDetectionTask, &colorTaskParams);
-    
-    /*
-        //********* For testing only, remove **************************************
-        
-        intakeMotor.spin(reverse, 100, velocityUnits::pct);
-        colorTaskParams.isRunning = true; // comment out if you don't want colour sensor
-        wait(20000, msec);
-        
-        //***** For Temp testing only., Remove **********************
-    */
-    
-        headingOffset = 120; // Mirrored from 240 (180 - 240 = -60, which is equivalent to 120 in a 0-360 system)
-        
-        //go to Alliance Stake
-        // moveArm(ArmPosition::Alliance, -95,00);
-    
-        //forwardMP(18, 9, 120); // Mirrored angle from 240
-    
-        //wait(400, msec);
-    
-        //Backup to Pick up Mobile Goal
-        backwardMP(70, 40, 115, 20); // Mirrored angle from 244 to 115 (180 - 245 = -65, which is equivalent to 115)
-        armMotor1.spinToPosition(570, rotationUnits::deg, 100, velocityUnits::pct, false);
-        armMotor2.spinToPosition(570, rotationUnits::deg, 100, velocityUnits::pct, false);
-        // backward(273,48,25,-3, 1.8);
-        goalPneumatics.set(true);
-        intakeMotor.spin(reverse, 100, velocityUnits::pct);
-    
-        armResetParams.isRunning = true;
-        armResetParams.isResetComplete = false; 
-        //armMotor1.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, false);
-        //armMotor2.spinToPosition(100, rotationUnits::deg, 100, velocityUnits::pct, true);
-        //intakeMotor.spin(reverse, 100, velocityUnits::pct);
-        //wait(2000, msec);
-    
-        //Turn to go into Tower
-        leftMP(42, 60, 20); // Mirrored from rightMP(138) to leftMP(42) (180 - 138 = 42)
-        intakeMotor.spin(reverse, 0, velocityUnits::pct);
-    
-        forwardMP(43.5, 27, 42); // Mirrored angle from 138 to 42 (180 - 138 = 42)
-        
-        //waitForButtonPress();
-        doinkerPneumaticsLeft.set(true); // Mirrored from doinkerPneumaticsRight
-        wait(200, msec);
-        pivotLeftMP(68, 13, 20, 100); // Mirrored from pivotRightMP(112) to pivotLeftMP(68) (180 - 112 = 68)
-        
-        doinkerPneumaticsRight.set(true); // Mirrored from doinkerPneumaticsLeft
-        wait(300, msec);
-        backwardMP(110, 56, 68, 21, 1.5, 0.0008, 0.5, 0.35); // Mirrored angle from 112 to 68 (180 - 112 = 68)
-        intakeMotor.spinFor(forward, 0.5, rotationUnits::rev, 100, velocityUnits::pct, true);
-        armMotor1.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false);
-        armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false);
-        doinkerPneumaticsRight.set(false); // Mirrored from doinkerPneumaticsLeft
-        doinkerPneumaticsLeft.set(false); // Mirrored from doinkerPneumaticsRight
-        intakeMotor.spin(reverse, 100, velocityUnits::pct);
-    
-        rightMP(37, 15, 20); // Mirrored from leftMP(143) to rightMP(37) (180 - 143 = 37)
-    
-        forwardMP(45, 20, 37, 20, 0.8); // Mirrored angle from 143 to 37 (180 - 143 = 37)
-    
-        leftMP(154, 70, 20); // Mirrored from rightMP(26) to leftMP(154) (180 - 26 = 154)
-        // startIntakeStallDetection();
-        // moveArm(ArmPosition::Load1, -82, 1000);
-        // forwardMP(98, 50, 26, 16, 1.5, 0.03, 0.1);
-    
-        forwardMP(91, 40, 154, 23, 0.4); // Mirrored angle from 26 to 154 (180 - 26 = 154)
-        intakeMotor.spin(reverse, 0, velocityUnits::pct);
-    
-        leftMP(62, 35, 20); // Mirrored from rightMP(298) to leftMP(62) (180 - 298 = -118, which is equivalent to 62)
-        intakeMotor.spin(reverse, 100, velocityUnits::pct);
-        
-        doinkerPneumaticsRight.set(true); // Mirrored from doinkerPneumaticsLeft
-        doinkerPneumaticsLeft.set(true); // Mirrored from doinkerPneumaticsRight
-    
-        forwardMP(85, 35, 62, 25, 0.8); // Mirrored angle from 298 to 62 (180 - 298 = -118, which is equivalent to 62)
-        leftMP(125, 25, 40); // Mirrored from rightMP(235) to leftMP(125) (180 - 235 = -55, which is equivalent to 125 [add 180°])
-        intakeMotor.spin(reverse, 100, velocityUnits::pct);
-    
-        doinkerPneumaticsRight.set(false); // Mirrored from doinkerPneumaticsLeft
-        doinkerPneumaticsLeft.set(false); // Mirrored from doinkerPneumaticsRight
-        rightMP(110, 5, 40); // Mirrored from leftMP(250) to rightMP(110) (180 - 250 = -70, which is equivalent to 110 [add 180°])
-        // pivotLeftMP(150, 2, 20, 100); // Mirrored from pivotRightMP(210) to pivotLeftMP(150)
-    
-        // colorTaskParams.isRunning = true; // comment out if you don't want colour sensor
-       
-        forwardMP(20, 5, 110, 21, 1); // Mirrored angle from 250 to 110 (180 - 250 = -70, which is equivalent to 110 [add 180°])
-        // leftMP(150, 10, 40); // Mirrored from rightMP(210) to leftMP(150)
-        // forwardMP(30, 10, 150, 21, 1); // Mirrored angle
-    
-        LeftMotor1.setBrake(brakeType::coast);
-        LeftMotor2.setBrake(brakeType::coast);
-        LeftMotor3.setBrake(brakeType::coast);
-        RightMotor1.setBrake(brakeType::coast);
-        RightMotor2.setBrake(brakeType::coast);
-        RightMotor3.setBrake(brakeType::coast);
-    }
 
 
 
@@ -999,7 +877,7 @@ void autonRoutine14()
     straightOdometry(35, 25, 17, -230, 0.2); // Changed 168 to 192 (matching above absolute heading)
 }
 
-/*
+
 void doubleDoinkerBlue()
 {
 const double RED_HUE_MIN_1 = 350.0; // First red range
@@ -1018,7 +896,7 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     colorTaskParams.delayMs = 80;              // Set delay before stopping intake
     // Start the color detection task
     vex::task colorTask(colorDetectionTask, &colorTaskParams);
-
+*/
 
     headingOffset = 120; // Mirrored from 240
     
@@ -1127,6 +1005,5 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //goalPneumatics.set(false);
 
     turnOdometry(110, 0, 60); // Mirrored from 250 to 110 (360-250)
-
-}
 */
+}

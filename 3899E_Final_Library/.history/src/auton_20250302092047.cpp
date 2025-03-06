@@ -235,7 +235,8 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
 */
 }
 
-
+void doubleDoinkerBlue()
+{
     void doubleDoinkerBlue()
     {
         const double RED_HUE_MIN_1 = 350.0; // First red range
@@ -350,7 +351,7 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
         RightMotor2.setBrake(brakeType::coast);
         RightMotor3.setBrake(brakeType::coast);
     }
-
+}
 
 
 void calibration()

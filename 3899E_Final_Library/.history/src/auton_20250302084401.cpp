@@ -235,16 +235,15 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
 */
 }
 
-
-    void doubleDoinkerBlue()
-    {
-        const double RED_HUE_MIN_1 = 350.0; // First red range
-        const double RED_HUE_MAX_1 = 360.0;
-        const double RED_HUE_MIN_2 = 0.0;   // Second red range
-        const double RED_HUE_MAX_2 = 18.0;  // Reduced from 30
-        const double BLUE_HUE_MIN = 207.0;  // Blue range - narrower
-        const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
-        
+void doubleDoinkerBlue()
+{
+    const double RED_HUE_MIN_1 = 350.0; // First red range
+    const double RED_HUE_MAX_1 = 360.0;
+    const double RED_HUE_MIN_2 = 0.0;   // Second red range
+    const double RED_HUE_MAX_2 = 18.0;  // Reduced from 30
+    const double BLUE_HUE_MIN = 207.0;  // Blue range - narrower
+    const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
+    
         initializeOpticalSensor();
     
         // Define task parameters
@@ -255,7 +254,10 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
         // Start the color detection task
         vex::task colorTask(colorDetectionTask, &colorTaskParams);
     
+    
+    
     /*
+    
         //********* For testing only, remove **************************************
         
         intakeMotor.spin(reverse, 100, velocityUnits::pct);
@@ -263,19 +265,23 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
         wait(20000, msec);
         
         //***** For Temp testing only., Remove **********************
+    
     */
     
-        headingOffset = 120; // Mirrored from 240 (180 - 240 = -60, which is equivalent to 120 in a 0-360 system)
+    
+    
+        headingOffset = 120; // Mirrored from 240
+        
         
         //go to Alliance Stake
-        // moveArm(ArmPosition::Alliance, -95,00);
+       // moveArm(ArmPosition::Alliance, -95,00);
     
-        //forwardMP(18, 9, 120); // Mirrored angle from 240
+        //forwardMP(18, 9, 120); // Mirrored from 240
     
         //wait(400, msec);
     
         //Backup to Pick up Mobile Goal
-        backwardMP(70, 40, 115, 20); // Mirrored angle from 244 to 115 (180 - 245 = -65, which is equivalent to 115)
+        backwardMP(70, 40, 116, 20); // Mirrored from 244 to 116
         armMotor1.spinToPosition(570, rotationUnits::deg, 100, velocityUnits::pct, false);
         armMotor2.spinToPosition(570, rotationUnits::deg, 100, velocityUnits::pct, false);
         // backward(273,48,25,-3, 1.8);
@@ -290,66 +296,88 @@ armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false
         //wait(2000, msec);
     
         //Turn to go into Tower
-        leftMP(42, 60, 20); // Mirrored from rightMP(138) to leftMP(42) (180 - 138 = 42)
+        leftMP(42, 60, 20); // Mirrored from rightMP(138) to leftMP(42)
         intakeMotor.spin(reverse, 0, velocityUnits::pct);
     
-        forwardMP(43.5, 27, 42); // Mirrored angle from 138 to 42 (180 - 138 = 42)
+        forwardMP(43.5, 27, 42); // Mirrored angle from 138 to 42
         
         //waitForButtonPress();
-        doinkerPneumaticsLeft.set(true); // Mirrored from doinkerPneumaticsRight
+        doinkerPneumaticsLeft.set(true); // Switched from right to left
         wait(200, msec);
-        pivotLeftMP(68, 13, 20, 100); // Mirrored from pivotRightMP(112) to pivotLeftMP(68) (180 - 112 = 68)
+        pivotLeftMP(68, 13, 20, 100); // Mirrored from pivotRightMP(112) to pivotLeftMP(68)
         
-        doinkerPneumaticsRight.set(true); // Mirrored from doinkerPneumaticsLeft
+    
+        doinkerPneumaticsRight.set(true); // Switched from left to right
         wait(300, msec);
-        backwardMP(110, 56, 68, 21, 1.5, 0.0008, 0.5, 0.35); // Mirrored angle from 112 to 68 (180 - 112 = 68)
+        backwardMP(110, 56, 68, 21, 1.5, 0.0008, 0.5, 0.35); // Updated angle
         intakeMotor.spinFor(forward, 0.5, rotationUnits::rev, 100, velocityUnits::pct, true);
         armMotor1.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false);
         armMotor2.spinToPosition(180, rotationUnits::deg, 100, velocityUnits::pct, false);
-        doinkerPneumaticsRight.set(false); // Mirrored from doinkerPneumaticsLeft
-        doinkerPneumaticsLeft.set(false); // Mirrored from doinkerPneumaticsRight
+        doinkerPneumaticsRight.set(false); // Switched
+        doinkerPneumaticsLeft.set(false); // Switched
         intakeMotor.spin(reverse, 100, velocityUnits::pct);
     
-        rightMP(37, 15, 20); // Mirrored from leftMP(143) to rightMP(37) (180 - 143 = 37)
+        rightMP(37, 15, 20); // Mirrored from leftMP(143) to rightMP(37)
     
-        forwardMP(45, 20, 37, 20, 0.8); // Mirrored angle from 143 to 37 (180 - 143 = 37)
+        forwardMP(45, 20, 37, 20, 0.8); // Updated angle
     
-        leftMP(154, 70, 20); // Mirrored from rightMP(26) to leftMP(154) (180 - 26 = 154)
+    
+        leftMP(154, 70, 20); // Mirrored from rightMP(26) to leftMP(154)
         // startIntakeStallDetection();
         // moveArm(ArmPosition::Load1, -82, 1000);
         // forwardMP(98, 50, 26, 16, 1.5, 0.03, 0.1);
     
-        forwardMP(91, 40, 154, 23, 0.4); // Mirrored angle from 26 to 154 (180 - 26 = 154)
+    
+        forwardMP(91, 40, 154, 23, 0.4); // Updated angle
         intakeMotor.spin(reverse, 0, velocityUnits::pct);
     
-        leftMP(62, 35, 20); // Mirrored from rightMP(298) to leftMP(62) (180 - 298 = -118, which is equivalent to 62)
+        leftMP(62, 35, 20); // Mirrored from rightMP(298) to leftMP(62)
         intakeMotor.spin(reverse, 100, velocityUnits::pct);
         
-        doinkerPneumaticsRight.set(true); // Mirrored from doinkerPneumaticsLeft
-        doinkerPneumaticsLeft.set(true); // Mirrored from doinkerPneumaticsRight
+        doinkerPneumaticsRight.set(true); // Switched
+        doinkerPneumaticsLeft.set(true); // Switched
     
-        forwardMP(85, 35, 62, 25, 0.8); // Mirrored angle from 298 to 62 (180 - 298 = -118, which is equivalent to 62)
-        leftMP(125, 25, 40); // Mirrored from rightMP(235) to leftMP(125) (180 - 235 = -55, which is equivalent to 125 [add 180°])
+        forwardMP(85, 35, 62, 25, 0.8); // Updated angle
+        leftMP(125, 25, 40); // Mirrored from rightMP(235) to leftMP(125)
         intakeMotor.spin(reverse, 100, velocityUnits::pct);
     
-        doinkerPneumaticsRight.set(false); // Mirrored from doinkerPneumaticsLeft
-        doinkerPneumaticsLeft.set(false); // Mirrored from doinkerPneumaticsRight
-        rightMP(110, 5, 40); // Mirrored from leftMP(250) to rightMP(110) (180 - 250 = -70, which is equivalent to 110 [add 180°])
+        doinkerPneumaticsRight.set(false); // Switched
+        doinkerPneumaticsLeft.set(false); // Switched
+        rightMP(110, 5, 40); // Mirrored from leftMP(250) to rightMP(110)
         // pivotLeftMP(150, 2, 20, 100); // Mirrored from pivotRightMP(210) to pivotLeftMP(150)
+    
     
         // colorTaskParams.isRunning = true; // comment out if you don't want colour sensor
        
-        forwardMP(20, 5, 110, 21, 1); // Mirrored angle from 250 to 110 (180 - 250 = -70, which is equivalent to 110 [add 180°])
+     
+        forwardMP(20, 5, 110, 21, 1); // Updated angle
         // leftMP(150, 10, 40); // Mirrored from rightMP(210) to leftMP(150)
-        // forwardMP(30, 10, 150, 21, 1); // Mirrored angle
+        // forwardMP(30, 10, 150, 21, 1); // Updated angle
     
-        LeftMotor1.setBrake(brakeType::coast);
-        LeftMotor2.setBrake(brakeType::coast);
-        LeftMotor3.setBrake(brakeType::coast);
-        RightMotor1.setBrake(brakeType::coast);
-        RightMotor2.setBrake(brakeType::coast);
-        RightMotor3.setBrake(brakeType::coast);
-    }
+    
+        // forwardMP(20, 5, 145, 25, 1); // Updated angle
+    
+    
+        // forwardMP(85, 60, 62, 25, 1); // Updated angle
+    
+        // backwardMP(5, 2, 62, 20); // Updated angle
+    
+    
+        // rightMP(190, 80, 18); // Mirrored from leftMP(170) to rightMP(190)
+        // forwardMP(40, 60, 190, 22, 0.4); // Updated angle
+        /// goalPneumatics.set(false);
+    
+        // rightMP(85, 45, 18); // Mirrored from leftMP(95) to rightMP(85)
+        // forwardMP(10, 6, 80, 20, 0.4); // Updated angle
+        // pivotLeftMP(122, 5, 20, 100); // Mirrored from pivotRightMP(58) to pivotLeftMP(122)
+    
+        // armPneumatics.set(true);
+        // wait(100, msec);
+        // armMotor1.spinToPosition(Side-250, rotationUnits::deg, 100, velocityUnits::pct, false);
+        // armMotor2.spinToPosition(Side-250, rotationUnits::deg, 100, velocityUnits::pct, true);
+        // wait(300, msec);
+        // armPneumatics.set(fa        pe::coast);
+}
 
 
 
@@ -1127,6 +1155,5 @@ const double BLUE_HUE_MAX = 230.0;  // Reduced from 240
     //goalPneumatics.set(false);
 
     turnOdometry(110, 0, 60); // Mirrored from 250 to 110 (360-250)
-
-}
 */
+}
