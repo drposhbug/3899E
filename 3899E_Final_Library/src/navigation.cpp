@@ -819,12 +819,6 @@ tractionControl::tractionControl(double minSpeedVoltage, double maxSpeedVoltage,
 double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSpeed, double robotSpeed, double accelFactor)
 {
 
-    // Prevent division by zero in slip calculation by ensuring minimum wheel speed
-    if (fabs(wheelSpeed) == 0)
-    {
-        wheelSpeed = 0.1;
-    }
-
     // Calculate slip ratio = (Wheel Speed - Robot Speed) / Wheel Speed or Robot Speed, which ever is higher to better measure differential
     // This gives us percentage of wheel spin relative to actual travel speed
     double slipRatio = calculateSlipRatio(wheelSpeed, robotSpeed); // Formula is in utls.cpp
@@ -851,11 +845,7 @@ ABSController::ABSController(double lockThreshold) : ABSLockThreshold(lockThresh
 
 vex::brakeType ABSController::ABSSpeedReduction(double wheelSpeed, double robotSpeed)
 {
-    if (fabs(wheelSpeed) == 0)
-    {
-        wheelSpeed = 0.1;
-    }
-
+  
     double slipRatio = calculateSlipRatio(wheelSpeed, robotSpeed); // Formula is in utls.cpp
 
     if (slipRatio > ABSLockThreshold)
@@ -1110,45 +1100,13 @@ void straight(double targetDistance,
             double avgRightRPM = (rightMotorRPM[0] + rightMotorRPM[1] + rightMotorRPM[2]) / 3.0;
 
             for (int i = 0; i < 3; i++)
-            {
-
-                // Left Side
-                vex::brakeType leftBrakeMode = ABSControllerLeft[i].ABSSpeedReduction(avgLeftRPM, avgEncoderRPM);    // Direct brake mode
-                vex::brakeType rightBrakeMode = ABSControllerRight[i].ABSSpeedReduction(avgRightRPM, avgEncoderRPM); // Direct brake mode //Adding heading PID correction during coast phase and reduce regen braking by adding min speed (smaller the voltage, the greater the resistance).
-
-                // Adding PID correction during coast modes to keep robot going straight
-                if (leftBrakeMode == brakeType::coast)
-                {
-                    motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * decelHeadingScaling * headingDirection); // Add heading correction and user adjustment factor. Min speed added to reduce regen brake.
-                    Brain.Screen.printAt(10, 40, "Decel Heading Correction");
-                }
-                else
-                { // If not coasting, then it must be braking
-                    leftMotor[i].stop(leftBrakeMode);
-                    motorVoltageLeft[i] = 0;
-                }
-
-                if (rightBrakeMode == brakeType::coast)
-                {
-                    motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * decelHeadingScaling * headingDirection);
-                    // Brain.Screen.printAt(10, 40, "Decel Heading Correction");
-                }
-                else
-                { // If not coasting, then it must be braking
-                    rightMotor[i].stop(rightBrakeMode);
-                    motorVoltageRight[i] = 0;
-                }
-                // Brain.Screen.printAt(10, 140, "motorVoltageLeft: %d", static_cast<int>(motorVoltageLeft[2]));
-                // Brain.Screen.printAt(10, 160, "motorVoltageRight: %d", static_cast<int>(motorVoltageRight[2]));
-
-                // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
-
-                // Right Side
-
-                // if (rightResult.brakeMode == brakeType::coast) {
-                //     motorVoltageRight[i] += minSpeedVoltage - (adjustedHeadingCorrection * decelHeadingScaling); // Add heading correction and user adjustment factor. Min speed added to reduce regen brake.
-                // }
-            }
+{
+    // TEST: Bypass ABS, just brake symmetrically
+    leftMotor[i].stop(brake);
+    rightMotor[i].stop(brake);
+    motorVoltageLeft[i] = 0;
+    motorVoltageRight[i] = 0;
+}
 
             leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);

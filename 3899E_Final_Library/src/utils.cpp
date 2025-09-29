@@ -304,14 +304,16 @@ void PIDVoltageCapCorrection(double &leftVoltage, double &rightVoltage, double a
  */
 double calculateSlipRatio(double wheelSpeed, double robotSpeed)
 {
-    double maxSpeed = std::max(std::fabs(wheelSpeed), std::fabs(robotSpeed));
-    if (maxSpeed < DIV_BY_ZERO_THRESHOLD)
+    // If robot isn't moving
+    if (std::fabs(robotSpeed) < DIV_BY_ZERO_THRESHOLD)
     {
-        return 0.0;
+        // Both stopped = no slip, wheels spinning = full slip
+        return (std::fabs(wheelSpeed) < DIV_BY_ZERO_THRESHOLD) ? 0.0 : 1.0;
     }
-    return std::fabs((wheelSpeed - robotSpeed) / maxSpeed);
+    
+    // Unified formula with absolute value
+    return std::fabs((wheelSpeed - robotSpeed) / robotSpeed);
 }
-
 /**
  * Calculates rolling average of a value over N samples
  * @param newValue Latest measurement to include in average
