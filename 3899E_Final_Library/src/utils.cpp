@@ -210,6 +210,7 @@ void resetColorDetection()
     lastDetectedColor = false;
 }
 
+/*
 // Handle the ejection process
 void ringEjection()
 {
@@ -222,7 +223,7 @@ void ringEjection()
     // Resume forward intake at 12 volts
     intakeMotor.spin(forward, 12, voltageUnits::volt);
 }
-
+*/
 // Generic function to control any motor
 // Function to control any motor
 void MotorControl(motor &targetMotor, int DelayStart, int OnTime, directionType dir)
@@ -323,6 +324,7 @@ float rollingAverage(float newValue, float currentAverage, int n)
     return currentAverage * (n - 1) / n + newValue / n;
 }
 
+/*
 int armTask(void *params)
 {
     ArmTaskParams *p = static_cast<ArmTaskParams *>(params);
@@ -340,6 +342,7 @@ int armTask(void *params)
     }
     return 0;
 }
+*/    
 
 int colorDetectionTask(void *params)
 {
@@ -357,17 +360,17 @@ int colorDetectionTask(void *params)
         {
             Brain.Screen.print("RED");
             wait(p->delayMs, msec);
-            intakeMotor.stop(); // Stop the motor
+            intakeMotor1.stop(); // Stop the motor
             wait(50, msec);
-            intakeMotor.spin(reverse, 100, velocityUnits::pct); // Spins continuously until stopped
+            intakeMotor1.spin(reverse, 100, velocityUnits::pct); // Spins continuously until stopped
         }
         else if ((hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) && p->targetColor == Color::BLUE)
         {
             Brain.Screen.print("BLUE");
             wait(p->delayMs, msec);
-            intakeMotor.stop(); // Stop the motor
+            intakeMotor1.stop(); // Stop the motor
             wait(50, msec); //adjust waite time before 
-            intakeMotor.spin(reverse, 100, velocityUnits::pct); // Spins continuously until stopped
+            intakeMotor1.spin(reverse, 100, velocityUnits::pct); // Spins continuously until stopped
         }
 
         wait(10, msec); // Small delay to prevent CPU overload
@@ -429,7 +432,7 @@ void waitForButtonPress() {
     // Clear the message
     Brain.Screen.clearScreen();
   }
-
+/*
   int armResetTask(void *params)
 {
     ArmResetTaskParams *p = static_cast<ArmResetTaskParams *>(params);
@@ -474,28 +477,30 @@ void waitForButtonPress() {
     }
     return 0;
 }
+*/
+
 
 void runIntakeToStall() {
     // Start the intake
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
+    intakeMotor1.spin(reverse, 100, velocityUnits::pct);
     
     // Wait for intake to stall
-    waitUntil(intakeMotor.velocity(percentUnits::pct) < 1.0 && 
-              intakeMotor.current(currentUnits::amp) > 7);
+    waitUntil(intakeMotor1.velocity(percentUnits::pct) < 1.0 && 
+              intakeMotor1.current(currentUnits::amp) > 7);
     
     // Small delay to ensure it's actually stalled
     //wait(50, msec);
     
     // Stop the intake and set to coast mode
-    intakeMotor.stop(brakeType::coast);
+    intakeMotor1.stop(brakeType::coast);
     
     // Back up slightly to release pressure
   // Briefly reverse the intake to relieve pressure
-  intakeMotor.spin(forward, 30, velocityUnits::pct);
+  intakeMotor1.spin(forward, 30, velocityUnits::pct);
   wait(150, msec);
   
   // Stop the intake and set to coast mode
-  intakeMotor.stop(brakeType::coast);
+  intakeMotor1.stop(brakeType::coast);
 }
 
 // Add this near your other global variables at the top of the file
@@ -512,7 +517,7 @@ int intakeStallTask(void *params) {
     
     while (p->isRunning) {
         // Get current velocity
-        double currentVelocity = fabs(intakeMotor.velocity(percentUnits::pct));
+        double currentVelocity = fabs(intakeMotor1.velocity(percentUnits::pct));
         
         // Check for stall condition
         if (currentVelocity < p->stallThreshold) {
@@ -521,14 +526,14 @@ int intakeStallTask(void *params) {
             // If we have enough consecutive stalls
             if (stallCounter >= REQUIRED_CONSECUTIVE_STALLS) {
                 // Briefly reverse the intake by specified rotation
-                intakeMotor.spinFor(forward, p->reverseRotation, rotationUnits::deg, 
+                intakeMotor1.spinFor(forward, p->reverseRotation, rotationUnits::deg, 
                                     p->reverseSpeed, velocityUnits::pct, false);
                 
                 // Wait for reversal to complete
-                waitUntil(!intakeMotor.isSpinning());
+                waitUntil(!intakeMotor1.isSpinning());
                 
                 // Stop the intake and set to coast mode
-                intakeMotor.stop(brakeType::coast);
+                intakeMotor1.stop(brakeType::coast);
                 
                 // Task accomplished, exit
                 p->isRunning = false;
@@ -556,7 +561,7 @@ void startIntakeStallDetection() {
     intakeStallParams.reverseSpeed = 60;        // 30% speed for reversal
     
     // Start the intake motor
-    intakeMotor.spin(reverse, 100, velocityUnits::pct);
+    intakeMotor1.spin(reverse, 100, velocityUnits::pct);
     
     // Start the stall detection task
     vex::task stall_task(intakeStallTask, &intakeStallParams);
