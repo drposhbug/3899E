@@ -239,9 +239,9 @@ void forwardToPoint(double targetX, double targetY,
     targetHeading = convertEuclideanToVEX(targetHeading);
 
     // Move straight with PID heading correction
-    straight(distanceToTarget, breakDistance, minSpeed, targetHeading,
-             kp_heading, ki_heading, kd_heading, accelHeadingScaling,
-             decelHeadingScaling, approachHeadingScaling, maxSpeed);
+    straightOdometry(distanceToTarget, breakDistance, targetHeading, minSpeed,
+                    kp_heading, ki_heading, kd_heading, accelHeadingScaling,
+                    decelHeadingScaling, approachHeadingScaling, maxSpeed);
 
     // Check if we've exceeded timeout
     if ((Brain.Timer.time(msec) - startTime) > TIMEOUT)

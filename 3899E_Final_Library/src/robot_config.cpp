@@ -11,13 +11,13 @@ vex::motor RightMotor1 = vex::motor(vex::PORT10, vex::gearSetting::ratio6_1);  /
 vex::motor RightMotor2 = vex::motor(vex::PORT20, vex::gearSetting::ratio6_1, true);  // reversed
 vex::motor RightMotor3 = vex::motor(vex::PORT19, vex::gearSetting::ratio6_1); // reversed
 // Define Intatke Motors
-vex::motor intakeMotor1 = vex::motor(vex::PORT2, vex::gearSetting::ratio6_1);
-vex::motor intakeMotor2 = vex::motor(vex::PORT9, vex::gearSetting::ratio6_1, true); // reversed
+vex::motor intakeMotor1 = vex::motor(vex::PORT2, vex::gearSetting::ratio6_1, true);
+vex::motor intakeMotor2 = vex::motor(vex::PORT9, vex::gearSetting::ratio6_1); // reversed
 // Define Pneumatics
-vex::pneumatics goalPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
-vex::pneumatics armPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
-vex::pneumatics doinkerPneumaticsLeft = vex::pneumatics(Brain.ThreeWirePort.G);
-vex::pneumatics doinkerPneumaticsRight = vex::pneumatics(Brain.ThreeWirePort.A);
+vex::pneumatics frontHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.G);
+vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
+vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
+vex::pneumatics hopperGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
 // Define Sensors
 vex::inertial InertialSensor = vex::inertial(vex::PORT6);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT13, true);  // Initialize the encoder on PORT10
@@ -40,7 +40,7 @@ const double absoluteMaxRPM = 600;
 const double absoluteMaxVoltage = 12;
 const double gearRatio = 6;
 const double minLaunchPower = 20;
-const double DRIVE_MOTOR_RPM_ADJ = 400/600;     // Drivetrain geared to 400 RPM over 600 RPM motor cartridge
+const double DRIVE_MOTOR_RPM_ADJ = 400.0 / 600.0;     // Drivetrain geared to 400 RPM over 600 RPM motor cartridge
 const double TRACK_WIDTH = 31.0;          // Distance between left/right encoders in cm
 const double ENCODER_OFFSET_X = 4.0;      // X offset of tracking wheels from center (if not centered)
 const double LEFT_ENCODER_OFFSET_Y = 5.3; // Y offset of tracking wheels from center

@@ -22,10 +22,10 @@ extern vex::motor rightMotor[3];
 extern vex::motor intakeMotor1;
 extern vex::motor intakeMotor2;
 // Declare Pneumatics;
-extern vex::pneumatics goalPneumatics;
-extern vex::pneumatics doinkerPneumaticsLeft;
-extern vex::pneumatics doinkerPneumaticsRight;
-extern vex::pneumatics armPneumatics;
+extern vex::pneumatics frontHoodPneumatics;
+extern vex::pneumatics backHoodPneumatics;
+extern vex::pneumatics matchLoadPneumatics;
+extern vex::pneumatics hopperGatePneumatics;
 // Declare Sensors
 extern vex::inertial InertialSensor;
 extern vex::aivision visionSensor;

@@ -274,10 +274,9 @@ double getEncoderSpeed(vex::rotation &encoder)
 {
     return encoder.velocity(vex::velocityUnits::rpm) * encoderWheelCircumferenceCM / 60.0;
 }
-
 double convertHeading(double currentHeading, double offset)
 {
-    return currentHeading - offset;
+    return currentHeading + offset;  // Apply heading
 }
 
 void PIDVoltageCapCorrection(double &leftVoltage, double &rightVoltage, double absoluteMaxVoltage)
@@ -400,15 +399,19 @@ double convertToVEXHeading(double euclideanHeading)
 }
 
 // Convert from Euclidean/CCW heading to VEX CW heading
-double convertEuclideanToVEX(double euclideanHeading)
-{
-    double vexHeading = fmod(360.0 - euclideanHeading, 360.0);
-    if (vexHeading < 0)
-    {
+double convertEuclideanToVEX(double euclideanHeading) {
+    // Correct formula: VEX = (90 - Cartesian) mod 360
+    double vexHeading = 90.0 - euclideanHeading;
+    
+    // Normalize to 0-360 range using fmod
+    vexHeading = fmod(vexHeading, 360.0);
+    if (vexHeading < 0) {
         vexHeading += 360.0;
     }
+    
     return vexHeading;
 }
+
 
 
 void waitForButtonPress() {

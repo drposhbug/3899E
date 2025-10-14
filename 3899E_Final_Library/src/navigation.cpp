@@ -1100,13 +1100,45 @@ void straight(double targetDistance,
             double avgRightRPM = (rightMotorRPM[0] + rightMotorRPM[1] + rightMotorRPM[2]) / 3.0;
 
             for (int i = 0; i < 3; i++)
-{
-    // TEST: Bypass ABS, just brake symmetrically
-    leftMotor[i].stop(brake);
-    rightMotor[i].stop(brake);
-    motorVoltageLeft[i] = 0;
-    motorVoltageRight[i] = 0;
-}
+            {
+
+                // Left Side
+                vex::brakeType leftBrakeMode = ABSControllerLeft[i].ABSSpeedReduction(avgLeftRPM, avgEncoderRPM);    // Direct brake mode
+                vex::brakeType rightBrakeMode = ABSControllerRight[i].ABSSpeedReduction(avgRightRPM, avgEncoderRPM); // Direct brake mode //Adding heading PID correction during coast phase and reduce regen braking by adding min speed (smaller the voltage, the greater the resistance).
+
+                // Adding PID correction during coast modes to keep robot going straight
+                if (leftBrakeMode == brakeType::coast)
+                {
+                    motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * decelHeadingScaling * headingDirection); // Add heading correction and user adjustment factor. Min speed added to reduce regen brake.
+                    Brain.Screen.printAt(10, 40, "Decel Heading Correction");
+                }
+                else
+                { // If not coasting, then it must be braking
+                    leftMotor[i].stop(leftBrakeMode);
+                    motorVoltageLeft[i] = 0;
+                }
+
+                if (rightBrakeMode == brakeType::coast)
+                {
+                    motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * decelHeadingScaling * headingDirection);
+                    // Brain.Screen.printAt(10, 40, "Decel Heading Correction");
+                }
+                else
+                { // If not coasting, then it must be braking
+                    rightMotor[i].stop(rightBrakeMode);
+                    motorVoltageRight[i] = 0;
+                }
+                // Brain.Screen.printAt(10, 140, "motorVoltageLeft: %d", static_cast<int>(motorVoltageLeft[2]));
+                // Brain.Screen.printAt(10, 160, "motorVoltageRight: %d", static_cast<int>(motorVoltageRight[2]));
+
+                // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
+
+                // Right Side
+
+                // if (rightResult.brakeMode == brakeType::coast) {
+                //     motorVoltageRight[i] += minSpeedVoltage - (adjustedHeadingCorrection * decelHeadingScaling); // Add heading correction and user adjustment factor. Min speed added to reduce regen brake.
+                // }
+            }
 
             leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -1280,12 +1312,12 @@ void straightOdometry(double targetDistance,
     // ========================================
     // CONFIGURATION CONSTANTS
     // ========================================
-    const double LAUNCH_VOLTAGE = 5;           // Starting voltage, must be higher than 0 
+    const double LAUNCH_VOLTAGE = 12;           // Starting voltage, must be higher than 0 
     const double VOLTAGE_TOLERANCE = 0.1;        // Tolerance for max voltage
-    const double ACCEL_FACTOR_LAUNCH = 2.5;     // Acceleration rate MUST be > 1.0
+    const double ACCEL_FACTOR_LAUNCH = 1.01;     // Acceleration rate MUST be > 1.0
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
-    const double SLIP_THRESHOLD_TRACTION = 0.30; // Slip threshold
-    const double SLIP_THRESHOLD_ABS = 0.20;      // ABS threshold
+    const double SLIP_THRESHOLD_TRACTION = 0.6; // Slip threshold 1 is always power, 0 is no power
+    const double SLIP_THRESHOLD_ABS = 0.01;      // ABS threshold 1 is hard brake, 0 is no brake
     // ========================================
 
     // Add timer for acceleration phase
@@ -1302,7 +1334,7 @@ void straightOdometry(double targetDistance,
 
     // Motion Parameters
     double currentDistance = 0;
-    //double headingDirection = (targetDistance > 0) ? 1.0 : -1.0;
+    double headingDirection = (targetDistance > 0) ? 1.0 : -1.0;
 
     // Target Speeds & Voltages
     double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
@@ -1310,17 +1342,19 @@ void straightOdometry(double targetDistance,
     double launchVoltage = std::copysign(LAUNCH_VOLTAGE, targetDistance);
     double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), targetDistance);
 
+
+
     // RPM Parameters
-    double percentRPMLoss = 0.25;
-    double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM;
-    double maxDriveMotorRPM = (maxSpeed * .01) * absoluteMaxRPM;
+    double percentRPMLoss = 0.1;
+    double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM * percentRPMLoss; // Adjusted for frictional losses
+    double maxDriveMotorRPM = (maxSpeed * .01) * absoluteMaxRPM * percentRPMLoss;
     double maxMotorRPM = 0;
     double maxEncoderRPM = 0;
     // Motor Arrays
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
-    double leftMotorRPM[3] = {0, 0, 0};
-    double rightMotorRPM[3] = {0, 0, 0};
+    double leftMotorRPM = 0;
+    double rightMotorRPM = 0;
 
     // PID and Heading Control
 
@@ -1333,23 +1367,21 @@ void straightOdometry(double targetDistance,
     bool decelCompleted = false;
     bool accelCompleted = false;
 
-    // Declaration for slip threshold
-    ABSController ABSControllerLeft[3] = {
-        ABSController(SLIP_THRESHOLD_ABS),
-        ABSController(SLIP_THRESHOLD_ABS),
-        ABSController(SLIP_THRESHOLD_ABS)};
-    ABSController ABSControllerRight[3] = {
-        ABSController(SLIP_THRESHOLD_ABS),
-        ABSController(SLIP_THRESHOLD_ABS),
-        ABSController(SLIP_THRESHOLD_ABS)};
-    // Declare arrays of Slip Control instances for each wheel
-    tractionControl tractionControlLeft[3] = {tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
-                                              tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
-                                              tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION)};
+  // TEMPORARY - Voltage tracking for debugging traction control
+    double maxLeftVoltageReached = 0;
+    double maxRightVoltageReached = 0;
+    double maxAvgLeftVoltage = 0;
+    double maxAvgRightVoltage = 0;
+    double maxLeftMotor[3] = {0, 0, 0};   // ← ADD THIS
+    double maxRightMotor[3] = {0, 0, 0};  // ← ADD THIS
 
-    tractionControl tractionControlRight[3] = {tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
-                                               tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
-                                               tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION)};
+    // Declaration for slip threshold
+    ABSController ABSControllerLeft(SLIP_THRESHOLD_ABS);
+    ABSController ABSControllerRight(SLIP_THRESHOLD_ABS);
+
+    // Declare arrays of Slip Control instances for each wheel
+    tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+    tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
 
     while (std::fabs(currentDistance) <= fabs(targetDistance) - 3)
     {
@@ -1388,19 +1420,13 @@ void straightOdometry(double targetDistance,
         double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2;
 
         // Get motor RPMs
-        for (int i = 0; i < 3; i++)
-        {
-            leftMotorRPM[i] = leftMotor[i].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-            rightMotorRPM[i] = rightMotor[i].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-        }
-
-        // Calculate averages BEFORE traction control
-        double avgLeftRPM = (leftMotorRPM[0] + leftMotorRPM[1] + leftMotorRPM[2]) / 3.0;
-        double avgRightRPM = (rightMotorRPM[0] + rightMotorRPM[1] + rightMotorRPM[2]) / 3.0;
+  // Get middle motor RPM only (index 1 - traction wheel)
+        double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
 
         // Calculate slip ratios for debugging
-        double leftSlipRatio = calculateSlipRatio(avgLeftRPM, avgEncoderRPM);
-        double rightSlipRatio = calculateSlipRatio(avgRightRPM, avgEncoderRPM);
+        double leftSlipRatio = calculateSlipRatio(leftMotorRPM, avgEncoderRPM);
+        double rightSlipRatio = calculateSlipRatio(rightMotorRPM, avgEncoderRPM);
 
                // double adjustedHeadingCorrection = headingCorrection * avgEncoderRPM / absoluteMaxRPM; //dynamically reduce heading correction at slower speed based on percentage of max speed
         /*
@@ -1438,20 +1464,27 @@ void straightOdometry(double targetDistance,
           //  Brain.Screen.printAt(10, 20, "Launch Phase");
 
            
-            for (int i = 0; i < 3; i++)
-            {
 
                 // Print initial values
                 // Brain.Screen.printAt(10, 80, "Init L: %.2f, R: %.2f", motorVoltageLeft[i], motorVoltageRight[i]);
 
                 // Call traction cotrol class and get adjusted motor voltage
-                motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], avgLeftRPM, avgEncoderRPM, ACCEL_FACTOR_LAUNCH) + (headingCorrection * accelHeadingScaling); // get slip voltage and Adjust for heading correction
-                motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], avgRightRPM, avgEncoderRPM, ACCEL_FACTOR_LAUNCH) - (headingCorrection * accelHeadingScaling);
+                double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
+                double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
                 // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
 
-                maxMotorRPM = std::max(maxMotorRPM, fabs(rightMotorRPM[i]));
+                // Synchronized control - use the lower voltage (more conservative) for BOTH sides
+                double syncedMotorVoltage = std::min(leftTractionVoltage, rightTractionVoltage);
+
+                // Apply to all 3 motors on both sides with PID correction
+                for (int i = 0; i < 3; i++)
+                {
+                    motorVoltageLeft[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling * headingDirection);
+                    motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling * headingDirection);
+                }
+
                 maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
-            }
+            
 
             if (fabs(avgMotorVoltage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE))
             {
@@ -1481,8 +1514,8 @@ void straightOdometry(double targetDistance,
             for (int i = 0; i < 3; i++)
             {
                 // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection);
-                motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection);
+                motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection * headingDirection);
+                motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection * headingDirection);
                 // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
             }
 
@@ -1522,46 +1555,48 @@ void straightOdometry(double targetDistance,
          //   Brain.Screen.printAt(10, 20, "Decel Phase");
             decel = true;
 
-            for (int i = 0; i < 3; i++)
-            {
+            vex::brakeType leftBrakeMode = ABSControllerLeft.ABSSpeedReduction(leftMotorRPM, leftEncoderRPM);    // Direct brake mode
+            vex::brakeType rightBrakeMode = ABSControllerRight.ABSSpeedReduction(rightMotorRPM, rightEncoderRPM); // Direct brake mode //Adding heading PID correction during coast phase and reduce regen braking by adding min speed (smaller the voltage, the greater the resistance).
 
-                // Left Side
-                vex::brakeType leftBrakeMode = ABSControllerLeft[i].ABSSpeedReduction(avgLeftRPM, avgEncoderRPM);    // Direct brake mode
-                vex::brakeType rightBrakeMode = ABSControllerRight[i].ABSSpeedReduction(avgRightRPM, avgEncoderRPM); // Direct brake mode //Adding heading PID correction during coast phase and reduce regen braking by adding min speed (smaller the voltage, the greater the resistance).
+            // Calculate baseline voltage adjustment to prevent negative values
+    double baseVoltageAdjustment = fabs(headingCorrection * decelHeadingScaling * headingDirection);
 
-                // Adding PID correction during coast modes to keep robot going straight
-                if (leftBrakeMode == brakeType::coast)
-                {
-                    motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * decelHeadingScaling); // Add heading correction and user adjustment factor. Min speed added to reduce regen brake.
-                //    Brain.Screen.printAt(10, 40, "Decel Heading Correction");
-                }
-                else
-                { // If not coasting, then it must be braking
-                    leftMotor[i].stop(leftBrakeMode);
-                    motorVoltageLeft[i] = 0;
-                }
-
-                if (rightBrakeMode == brakeType::coast)
-                {
-                    motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * decelHeadingScaling);
-                    // Brain.Screen.printAt(10, 40, "Decel Heading Correction");
-                }
-                else
-                { // If not coasting, then it must be braking
-                    rightMotor[i].stop(rightBrakeMode);
-                    motorVoltageRight[i] = 0;
-                }
-                // Brain.Screen.printAt(10, 140, "motorVoltageLeft: %d", static_cast<int>(motorVoltageLeft[2]));
-                // Brain.Screen.printAt(10, 160, "motorVoltageRight: %d", static_cast<int>(motorVoltageRight[2]));
-
-                // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
-
-                // Right Side
-
-                // if (rightResult.brakeMode == brakeType::coast) {
-                //     motorVoltageRight[i] += minSpeedVoltage - (adjustedHeadingCorrection * decelHeadingScaling); // Add heading correction and user adjustment factor. Min speed added to reduce regen brake.
-                // }
-            }
+    for (int i = 0; i < 3; i++)
+    {
+        // Apply PID correction with baseline adjustment
+        motorVoltageLeft[i] = baseVoltageAdjustment + (headingCorrection * decelHeadingScaling * headingDirection);
+        motorVoltageRight[i] = baseVoltageAdjustment - (headingCorrection * decelHeadingScaling * headingDirection);
+        
+        // Handle left side based on lockup
+        if (leftBrakeMode == brakeType::coast)
+        {
+            // Left locking - coast at 0V
+            leftMotor[i].setBrake(coast);
+            motorVoltageLeft[i] = 0;
+        }
+        else if (motorVoltageLeft[i] <= 0)
+        {
+            // Left has traction but voltage is 0 or negative - hard brake
+            leftMotor[i].setBrake(brake);
+            motorVoltageLeft[i] = 0;
+        }
+        // else: left has traction and positive voltage - let it apply via motor spin
+        
+        // Handle right side based on lockup
+        if (rightBrakeMode == brakeType::coast)
+        {
+            // Right locking - coast at 0V
+            rightMotor[i].setBrake(coast);
+            motorVoltageRight[i] = 0;
+        }
+        else if (motorVoltageRight[i] <= 0)
+        {
+            // Right has traction but voltage is 0 or negative - hard brake
+            rightMotor[i].setBrake(brake);
+            motorVoltageRight[i] = 0;
+        }
+        // else: right has traction and positive voltage - let it apply via motor spin
+    }
 
             leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -1588,11 +1623,36 @@ void straightOdometry(double targetDistance,
             for (int i = 0; i < 3; i++)
             {
                 // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * headingDirection * approachHeadingScaling);
+                motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * headingDirection * approachHeadingScaling);
                 // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
             }
         }
+
+// Track maximum voltages - both individual motors AND averages
+for (int i = 0; i < 3; i++)
+{
+    // Track highest voltage for ANY motor on each side
+    maxLeftVoltageReached = std::max(maxLeftVoltageReached, std::fabs(motorVoltageLeft[i]));
+    maxRightVoltageReached = std::max(maxRightVoltageReached, std::fabs(motorVoltageRight[i]));
+    
+    maxLeftMotor[i] = std::max(maxLeftMotor[i], std::fabs(motorVoltageLeft[i]));
+    maxRightMotor[i] = std::max(maxRightMotor[i], std::fabs(motorVoltageRight[i]));
+}
+
+// Calculate and track average voltage across all motors
+double currentAvgLeftVoltage = (std::fabs(motorVoltageLeft[0]) + 
+                                std::fabs(motorVoltageLeft[1]) + 
+                                std::fabs(motorVoltageLeft[2])) / 3.0;
+
+double currentAvgRightVoltage = (std::fabs(motorVoltageRight[0]) + 
+                                 std::fabs(motorVoltageRight[1]) + 
+                                 std::fabs(motorVoltageRight[2])) / 3.0;
+
+static double maxAvgLeftVoltage = 0;
+static double maxAvgRightVoltage = 0;
+maxAvgLeftVoltage = std::max(maxAvgLeftVoltage, currentAvgLeftVoltage);
+maxAvgRightVoltage = std::max(maxAvgRightVoltage, currentAvgRightVoltage);
 
         // Power Drive Motors
 
@@ -1605,40 +1665,33 @@ void straightOdometry(double targetDistance,
             rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
         }
         //}
-        double avgMotorRPM = (leftMotorRPM[0] + leftMotorRPM[1] + leftMotorRPM[2] + rightMotorRPM[0] + rightMotorRPM[1] + rightMotorRPM[2]) / 6;
- 
-        Brain.Screen.clearScreen();
-        Brain.Screen.setCursor(1, 1);
-        if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && !accelCompleted && !decel) {
-            Brain.Screen.print("Phase: LAUNCH");
-        } else if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && accelCompleted) {
-            Brain.Screen.print("Phase: CRUISE");
-        } else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && !decelCompleted) {
-            Brain.Screen.print("Phase: DECEL");
-        } else {
-            Brain.Screen.print("Phase: APPROACH");
-        }
+        
+Brain.Screen.clearScreen();
+Brain.Screen.setCursor(1, 1);
+Brain.Screen.print("=== Movement Complete ===");
 
-        Brain.Screen.setCursor(2, 1);
-        Brain.Screen.print("Dist: %.1f / %.1f", currentDistance, targetDistance);
+Brain.Screen.setCursor(2, 1);
+Brain.Screen.print("LEFT: %.1f %.1f %.1f", 
+                   maxLeftMotor[0], maxLeftMotor[1], maxLeftMotor[2]);
 
-        Brain.Screen.setCursor(3, 1);
-        Brain.Screen.print("LMotor: %.0f RMotor: %.0f", avgLeftRPM, avgRightRPM);
+Brain.Screen.setCursor(3, 1);
+Brain.Screen.print("RIGHT: %.1f %.1f %.1f", 
+                   maxRightMotor[0], maxRightMotor[1], maxRightMotor[2]);
 
-        Brain.Screen.setCursor(4, 1);
-        Brain.Screen.print("Encoder: %.0f", avgEncoderRPM);
+Brain.Screen.setCursor(4, 1);
+Brain.Screen.print("MaxL: %.2f MaxR: %.2f", 
+                   maxLeftVoltageReached, maxRightVoltageReached);
 
-        Brain.Screen.setCursor(5, 1);
-        Brain.Screen.print("LSlip: %.2f RSlip: %.2f", leftSlipRatio, rightSlipRatio);
+Brain.Screen.setCursor(5, 1);
+Brain.Screen.print("AvgL: %.2f AvgR: %.2f", 
+                   maxAvgLeftVoltage, maxAvgRightVoltage);
 
-        Brain.Screen.setCursor(6, 1);
-        Brain.Screen.print("LVolt: %.1f RVolt: %.1f", motorVoltageLeft[0], motorVoltageRight[0]);
+Brain.Screen.setCursor(6, 1);
+Brain.Screen.print("Target: %.2fV", fabs(maxSpeedVoltage));
 
-        Brain.Screen.setCursor(7, 1);
-        Brain.Screen.print("AvgV: %.1f MaxV: %.1f", avgMotorVoltage, maxSpeedVoltage);
-
-        Brain.Screen.setCursor(8, 1);
-        Brain.Screen.print("Accel: %d Decel: %d", accelCompleted, decelCompleted);
+Brain.Screen.setCursor(7, 1);
+Brain.Screen.print("Distance: %.1f / %.1f", 
+                   fabs(currentDistance), fabs(targetDistance));
 
         vex::task::sleep(10);
     }
@@ -1646,10 +1699,45 @@ void straightOdometry(double targetDistance,
     // Stop all motors at end of routine after approach
     for (int i = 0; i < 3; i++)
     {
-        leftMotor[i].stop(brake);
-        rightMotor[i].stop(brake);
+       leftMotor[i].stop(coast);
+       rightMotor[i].stop(coast);
     }
 
+    // Stop all motors at end of routine after approach
+for (int i = 0; i < 3; i++)
+{
+    // leftMotor[i].stop(brake);
+    // rightMotor[i].stop(brake);
+}
+
+// Display detailed movement summary with all 6 motors
+Brain.Screen.clearScreen();
+Brain.Screen.setCursor(1, 1);
+Brain.Screen.print("=== Movement Complete ===");
+
+Brain.Screen.setCursor(2, 1);
+Brain.Screen.print("LEFT: %.1f %.1f %.1f", 
+                   maxLeftMotor[0], maxLeftMotor[1], maxLeftMotor[2]);
+
+Brain.Screen.setCursor(3, 1);
+Brain.Screen.print("RIGHT: %.1f %.1f %.1f", 
+                   maxRightMotor[0], maxRightMotor[1], maxRightMotor[2]);
+
+Brain.Screen.setCursor(4, 1);
+Brain.Screen.print("MaxL: %.2f MaxR: %.2f", 
+                   maxLeftVoltageReached, maxRightVoltageReached);
+
+Brain.Screen.setCursor(5, 1);
+Brain.Screen.print("AvgL: %.2f AvgR: %.2f", 
+                   maxAvgLeftVoltage, maxAvgRightVoltage);
+
+Brain.Screen.setCursor(6, 1);
+Brain.Screen.print("Target: %.2fV", fabs(maxSpeedVoltage));
+
+Brain.Screen.setCursor(7, 1);
+Brain.Screen.print("Distance: %.1f / %.1f", 
+                   fabs(currentDistance), fabs(targetDistance));
+wait(10000, msec);  // Hold for 10 seconds so you can read it
     /*
         currentDistance = (passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees) ) / 2 * (encoderWheelCircumferenceCM / 360.0);
         // Debug print: Stopping motors

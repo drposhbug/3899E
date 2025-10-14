@@ -9,9 +9,8 @@
 
 using namespace vex;
 
-
-
 competition Competition;
+
 void runAuton(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Autonomous Mode...");
@@ -28,7 +27,7 @@ void runAuton(void) {
 void runDriver(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Driver Control Mode...");
-//  driverControl(); // Start driver control function
+  driverControl(); // Start driver control function
 }
 
 int main()
@@ -38,5 +37,5 @@ int main()
     //initializeOpticalSensor();
 
     Competition.autonomous(runAuton);
-   // Competition.drivercontrol(runDriver);
+    Competition.drivercontrol(runDriver);
 }

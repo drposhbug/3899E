@@ -17,16 +17,17 @@ using namespace vex; // Use the VEX namespace
         
         
        // forwardMP(100); // Mirrored angle from 138 to 42 (180 - 138 = 42)
-      forwardMP(150, 5, 0, 16, 0.0, 0.00, 0.00, 0.1, 0.1, 0.1, 100);
+      forwardMP(200, 120, 0, 0.1, 0.0, 0.00, 0.00, 0.1, 0.1, 0.1, 100);
            
         wait(200, msec);
-        
+       /* 
         LeftMotor1.setBrake(brakeType::coast);
         LeftMotor2.setBrake(brakeType::coast);
         LeftMotor3.setBrake(brakeType::coast);
         RightMotor1.setBrake(brakeType::coast);
         RightMotor2.setBrake(brakeType::coast);
         RightMotor3.setBrake(brakeType::coast);
+        */
     }
 
 
