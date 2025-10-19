@@ -9,80 +9,6 @@ using namespace vex;
 // Minimum threshold for division operations to prevent divide by zero errors
 const double DIV_BY_ZERO_THRESHOLD = 0.001;
 
-double normalizeHeading(double heading) {
-    // Add 180 to the heading and take the modulus with 360 to wrap the angle.
-    // This ensures the result is between [0, 360) degrees.
-    heading = fmod(heading + 180.0, 360.0);
-
-    // If the result is negative (e.g., due to fmod returning a negative value),
-    // add 360 to shift it into the [0, 360) range.
-    if (heading < 0)
-        heading += 360.0;
-
-    // Subtract 180 to convert the range from [0, 360) to [-180, 180).
-    heading -= 180.0;
-    
-    // Ensure 180 stays as 180, and -180 stays as -180.
-    if (heading == -180.0)
-        heading = 180.0;
-
-    // Return the normalized heading value.
-    return heading;
-}
-
-double normalizeHeading180(double heading) {
-    heading = fmod(heading, 360.0);
-    if (heading > 180) {
-        heading -= 360;
-    } else if (heading < -180) {
-        heading += 360;
-    }
-    return heading;
-}
-
-double normHeading(double heading)
-{
-    // Add 180 to the heading and take the modulus with 360 to wrap the angle.
-    // This ensures the result is between [0, 360) degrees.
-    double normHeading = fmod(heading + 180.0, 360.0);
-
-    // If the result is negative (e.g., due to fmod returning a negative value),
-    // add 360 to shift it into the [0, 360) range.
-    if (normHeading < 0)
-    {
-        normHeading += 360.0;
-    }
-
-    // Subtract 180 to convert the range from [0, 360) to [-180, 180).
-    normHeading -= 180.0;
-
-    if ((heading + 180.0) > 0 && normHeading == -180)
-    {
-        // Ensure 180 stays as 180, and -180 stays as -180.
-        normHeading = 180.0;
-    }
-
-    // Return the normalized heading value.
-    return normHeading;
-}
-
-double normHeading360(double heading)
-{
-    // Take the modulus with 360 to wrap the angle.
-    // This ensures the result is between [0, 360) degrees.
-    double normHeading = fmod(heading, 360.0);
-
-    // If the result is negative (e.g., due to fmod returning a negative value),
-    // add 360 to shift it into the [0, 360) range.
-    if (normHeading < 0)
-    {
-        normHeading += 360.0;
-    }
-
-    // Return the normalized heading value in [0, 360) range
-    return normHeading;
-}
-
 /**
  * Calculate the shortest path error between target and current heading.
  * Ensures the error is always in the range of -180 to +180 degrees for smooth PID control.
@@ -92,40 +18,6 @@ double normHeading360(double heading)
  * 2. Robot always takes the shortest path to target heading
  * 3. Error magnitude never exceeds 180 degrees
  */
-double getHeadingError360(double targetHeading, double currentHeading)
-{
-    // First normalize both headings to 0-360 range
-    double error = normHeading360(targetHeading) - normHeading360(currentHeading);
-
-    // Convert error to -180 to +180 range for shortest path
-    if (error > 180)
-    {
-        error -= 360; // If error > 180, shorter to turn CCW
-    }
-    else if (error < -180)
-    {
-        error += 360; // If error < -180, shorter to turn CW
-    }
-
-    return error; // Returns error in range -180 to +180 degrees
-}
-
-double getHeadingError(double targetHeading, double currentHeading)
-{
-    double error = targetHeading - currentHeading;
-
-    // Convert error to -180 to +180 range for shortest path
-    if (error > 180)
-    {
-        error -= 360;
-    }
-    else if (error < -180)
-    {
-        error += 360;
-    }
-
-    return error;
-}
 
 // Implement slip detection logic
 bool isSlipping(double motorSpeed, double encoderSpeed)
@@ -274,9 +166,9 @@ double getEncoderSpeed(vex::rotation &encoder)
 {
     return encoder.velocity(vex::velocityUnits::rpm) * encoderWheelCircumferenceCM / 60.0;
 }
-double convertHeading(double currentHeading, double offset)
-{
-    return currentHeading + offset;  // Apply heading
+
+double getRotation() {
+    return InertialSensor.rotation(degrees) + headingOffset;
 }
 
 void PIDVoltageCapCorrection(double &leftVoltage, double &rightVoltage, double absoluteMaxVoltage)
@@ -379,40 +271,10 @@ int colorDetectionTask(void *params)
     return 0;
 }
 
-// Gets heading in counterclockwise degrees
-// Converts raw clockwise sensor reading & applies calibration offset
-double getAdjustedHeading()
-{
-    // Convert clockwise sensor to counterclockwise & apply offset
-    return normHeading(InertialSensor.heading() + headingOffset);
+
+double getAdjustedRotation() {
+    return InertialSensor.rotation(degrees) + headingOffset;
 }
-
-double convertToVEXHeading(double euclideanHeading)
-{
-    // Convert counterclockwise to clockwise
-    double vexHeading = fmod(360.0 - euclideanHeading, 360.0);
-    if (vexHeading < 0)
-    {
-        vexHeading += 360.0;
-    }
-    return vexHeading;
-}
-
-// Convert from Euclidean/CCW heading to VEX CW heading
-double convertEuclideanToVEX(double euclideanHeading) {
-    // Correct formula: VEX = (90 - Cartesian) mod 360
-    double vexHeading = 90.0 - euclideanHeading;
-    
-    // Normalize to 0-360 range using fmod
-    vexHeading = fmod(vexHeading, 360.0);
-    if (vexHeading < 0) {
-        vexHeading += 360.0;
-    }
-    
-    return vexHeading;
-}
-
-
 
 void waitForButtonPress() {
     // Display a message on the Brain's screen

@@ -8,13 +8,13 @@
 // Global Position Variables
 extern double globalX;           // X-coordinate on the field
 extern double globalY;           // Y-coordinate on the field
-extern double globalHeading;     // Orientation in degrees
+extern double globalRotation;    // Cumulative rotation in degrees
 
 // Previous Encoder Values
 extern double prevLeftEncoder;   // Previous left encoder reading
 extern double prevRightEncoder;  // Previous right encoder reading
 extern double prevXEncoder;      // Previous X encoder reading
-extern double prevHeading;       // Previous heading reading
+extern double prevRotation;      // Previous rotation reading
 
 // Add these function prototypes
 void setStartPosition(double startX = 0, double startY = 0, double startHeading = 0);

@@ -8,26 +8,32 @@
 
 using namespace vex; // Use the VEX namespace
 
-    void autonTest()
-    {
-        
-        initializeOpticalSensor();
-        
-        headingOffset = 0; 
-        
-        
-       // forwardMP(100); // Mirrored angle from 138 to 42 (180 - 138 = 42)
-      forwardMP(200, 120, 0, 0.1, 0.0, 0.00, 0.00, 0.1, 0.1, 0.1, 100);
-           
-        wait(200, msec);
-       /* 
-        LeftMotor1.setBrake(brakeType::coast);
-        LeftMotor2.setBrake(brakeType::coast);
-        LeftMotor3.setBrake(brakeType::coast);
-        RightMotor1.setBrake(brakeType::coast);
-        RightMotor2.setBrake(brakeType::coast);
-        RightMotor3.setBrake(brakeType::coast);
-        */
+/*straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed,
+                    kp_heading, ki_heading, kd_heading,
+                    accelHeadingScaling, decelHeadingScaling,
+                    approachHeadingScaling, maxSpeed);
+*/                    
+   void autonTest()
+{
+    initializeOpticalSensor();
+    
+    headingOffset = 0; 
+    
+    forwardMP(200, 80, -25, 25, 0.5, 0.00, 0.00, 0.1, 0.1, 0.05, 100);
+       
+    wait(200, msec);
+    
+    /*
+    // Explicitly ensure all motors are braked at the end
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].setBrake(brake);
+        rightMotor[i].setBrake(brake);
+        leftMotor[i].stop();
+        rightMotor[i].stop();
     }
+    */
+
+    //wait(10000, msec);  // Wait to test resistance
+}
 
 

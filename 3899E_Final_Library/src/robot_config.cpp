@@ -39,6 +39,7 @@ const double accelerationFactor = 1.05; // Adjust this factor globally
 const double absoluteMaxRPM = 600;
 const double absoluteMaxVoltage = 12;
 const double gearRatio = 6;
+const double VOLTAGE_TOLERANCE = 0.1;
 const double minLaunchPower = 20;
 const double DRIVE_MOTOR_RPM_ADJ = 400.0 / 600.0;     // Drivetrain geared to 400 RPM over 600 RPM motor cartridge
 const double TRACK_WIDTH = 31.0;          // Distance between left/right encoders in cm

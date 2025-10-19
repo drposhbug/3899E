@@ -9,13 +9,13 @@ using namespace vex;
 // Global Odometry Variables
 double globalX = 0.0;       // Tracks the robot's X-coordinate on the field
 double globalY = 0.0;       // Tracks the robot's Y-coordinate on the field
-double globalHeading = 0.0; // Tracks the robot's orientation (in degrees)
+double globalRotation = 0.0; // Tracks the robot's cumulative rotation (in degrees)
 
 // Previous Encoder Readings (used to calculate delta changes)
 double prevLeftEncoder = 0.0;  // Stores the last reading from the left encoder
 double prevRightEncoder = 0.0; // Stores the last reading from the right encoder
 double prevXEncoder = 0.0;     // Stores the last reading from the X encoder (if enabled)
-double prevHeading = 0.0;      // Stores the last heading from the inertial sensor
+double prevRotation = 0.0;     // Stores the last rotation from the inertial sensor
 
 // Encoder State Management
 bool xEncoderEnabled = true; // Determines whether the X encoder is active (disabled during spot turns)
@@ -37,7 +37,7 @@ void setStartPosition(double startX, double startY, double startHeading)
     globalY = startY;
 
     // Calculate offset between current inertial reading and desired heading
-    headingOffset = startHeading - InertialSensor.heading();
+    headingOffset = startHeading - InertialSensor.rotation(degrees);
 
     // Convert cm to degrees for encoders
     double startX_deg = (startX / encoderWheelCircumferenceCM) * 360.0;
@@ -56,19 +56,19 @@ void updateOdometry()
     double leftEncoder = passiveEncoderLeft.position(vex::rotationUnits::deg);                            // Current left encoder value in degrees
     double rightEncoder = passiveEncoderRight.position(vex::rotationUnits::deg);                          // Current right encoder value in degrees
     double xEncoder = xEncoderEnabled ? passiveEncoderX.position(vex::rotationUnits::deg) : prevXEncoder; // Read from X encoder if enabled
-    double currentHeading = getAdjustedHeading();                                                         // Current heading from the inertial sensor in degrees
+    double currentRotation = getAdjustedRotation();                                                        // Current heading from the inertial sensor in degrees
 
     // Step 2: Calculate Delta Changes
     double deltaLeft = leftEncoder - prevLeftEncoder;                // Change in left encoder value
     double deltaRight = rightEncoder - prevRightEncoder;             // Change in right encoder value
     double deltaX = xEncoder - prevXEncoder;                         // Change in X encoder value (if enabled)
-    double deltaHeading = normHeading(currentHeading - prevHeading); // Change in heading (normalized)
+    double deltaRotation = currentRotation - prevRotation;
 
     // Step 3: Update Previous Values for the Next Cycle
     prevLeftEncoder = leftEncoder;   // Store current left encoder value for the next update
     prevRightEncoder = rightEncoder; // Store current right encoder value for the next update
     prevXEncoder = xEncoder;         // Store current X encoder value for the next update
-    prevHeading = currentHeading;    // Store current heading for the next update
+    prevRotation = currentRotation;     // Store current rotation for the next update
 
     // Step 4: Calculate Average Distance Traveled
     // Average distance moved by the robot based on both left and right encoders
@@ -77,23 +77,23 @@ void updateOdometry()
     // Step 5: Calculate Movement Components (ΔX and ΔY)
     // Cache trigonometric calculations for better performance
     double deltaXPos = 0.0, deltaYPos = 0.0;
-    double headingRad = globalHeading * (M_PI / 180.0); // Convert heading to radians
+    double headingRad = globalRotation * (M_PI / 180.0);    // Convert current heading to radians
 
     if (currentState == TURNING)
     {
-        double deltaHeadingRad = deltaHeading * (M_PI / 180.0);
-        if (fabs(deltaHeadingRad) > 0.001)
+        double deltaRotationRad = deltaRotation * (M_PI / 180.0); // Change in heading in radians
+        if (fabs(deltaRotationRad) > 0.001)
         {
             // Calculate individual turning radii for Y wheels
-            double leftRadius = (deltaLeft * (encoderWheelCircumferenceCM / 360.0)) / deltaHeadingRad;
-            double rightRadius = (deltaRight * (encoderWheelCircumferenceCM / 360.0)) / deltaHeadingRad;
+            double leftRadius = (deltaLeft * (encoderWheelCircumferenceCM / 360.0)) / deltaRotationRad;
+            double rightRadius = (deltaRight * (encoderWheelCircumferenceCM / 360.0)) / deltaRotationRad;
             double avgRadius = (leftRadius + rightRadius) / 2.0;
 
             // Use actual X encoder readings for X position change
             deltaXPos = (deltaX * (encoderWheelCircumferenceCM / 360.0));
 
             // Y change uses the average of parallel wheels
-            deltaYPos = avgRadius * (sin(headingRad + deltaHeadingRad) - sin(headingRad));
+            deltaYPos = avgRadius * (sin(headingRad + deltaRotationRad) - sin(headingRad));
         }
     }
     else if (currentState == STRAIGHT)
@@ -110,10 +110,10 @@ void updateOdometry()
     // Step 6: Update Global Position
     globalX += deltaXPos;                        // Update global X position
     globalY += deltaYPos;                        // Update global Y position
-    globalHeading = normHeading(currentHeading); // Update global heading and ensure it stays normalized
+    globalRotation = currentRotation; // Update global heading
 
     // Step 7: Debugging Information (Displayed on Brain Screen)
-    Brain.Screen.printAt(10, 20, "X: %.2f, Y: %.2f, Heading: %.2f", globalX, globalY, globalHeading);
+    Brain.Screen.printAt(10, 20, "X: %.2f, Y: %.2f, Rotation: %.2f", globalX, globalY, globalRotation);
     // Brain.Screen.printAt(10, 40, "DeltaLeft: %.2f, DeltaRight: %.2f", deltaLeft, deltaRight);
     // Brain.Screen.printAt(10, 60, "DeltaHeading: %.2f", deltaHeading);
 }
@@ -164,8 +164,8 @@ void turnToPoint(double targetX, double targetY,
 
     double deltaX = targetX - globalX;
     double deltaY = targetY - globalY;
-    double turnAmount = -fmod(atan2(deltaY, deltaX) * 180.0 / M_PI + 360.0, 360.0);
-    turnOdometry(convertEuclideanToVEX(turnAmount), breakDistanceInDegrees, minSpeed, maxSpeed);
+    double turnAmount = atan2(deltaY, deltaX) * 180.0 / M_PI;
+    turnOdometry(turnAmount, breakDistanceInDegrees, minSpeed, maxSpeed);
 
     // Brain.Screen.clearScreen();  // Clear previous prints
     // Brain.Screen.printAt(10,100, "deltaX: %.2f deltaY: %.2f", deltaX, deltaY);
@@ -236,8 +236,7 @@ void forwardToPoint(double targetX, double targetY,
 
     double distanceToTarget, targetHeading;
     calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
-    targetHeading = convertEuclideanToVEX(targetHeading);
-
+    
     // Move straight with PID heading correction
     straightOdometry(distanceToTarget, breakDistance, targetHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading, accelHeadingScaling,
@@ -286,8 +285,7 @@ void backwardToPoint(double targetX, double targetY,
     // Calculate initial path to target
     double distanceToTarget, targetHeading;
     calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
-    targetHeading = normHeading(targetHeading + 180.0);
-    targetHeading = convertEuclideanToVEX(targetHeading);
+    targetHeading = targetHeading + 180.0;  // Just add 180 for backward
     distanceToTarget = -fabs(distanceToTarget);
 
     // Brain.Screen.printAt(10, 140, "Calc heading: %.2f", targetHeading);
@@ -299,8 +297,8 @@ void backwardToPoint(double targetX, double targetY,
 
     // Move straight with PID heading correction
     straightOdometry(distanceToTarget, breakDistance, minSpeed, targetHeading,
-                     kp_heading, ki_heading, kd_heading, accelHeadingScaling,
-                     decelHeadingScaling, approachHeadingScaling, maxSpeed);
+                    kp_heading, ki_heading, kd_heading, accelHeadingScaling,
+                    decelHeadingScaling, approachHeadingScaling, maxSpeed);
 
     // Check if we've exceeded timeout
     if ((Brain.Timer.time(msec) - startTime) > TIMEOUT)

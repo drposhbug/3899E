@@ -5,16 +5,8 @@
 #include "robot_config.h"
 
 // Heading functions
-double normalizeHeading(double heading);
-double normHeading(double heading);
-double normHeading360(double heading);
-double normalizeHeading180(double heading);
-double getHeadingError360(double targetHeading, double currentHeading);
-double getHeadingError(double targetHeading, double currentHeading);
-double convertHeading(double currentHeading, double offset);
-double getAdjustedHeading();
-double convertToVEXHeading(double euclideanHeading);
-double convertEuclideanToVEX(double euclideanHeading);
+double getRotation();
+double getAdjustedRotation();
 
 // Motor/Speed detection
 bool isSlipping(double motorSpeed, double encoderSpeed);

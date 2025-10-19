@@ -109,7 +109,7 @@ private:
 // Forward/backward wrappers
 void forwardMP(double targetDistance,
             double breakDistance = 35, 
-            double cartesianAngle = 0,
+            double targetHeading = 0,
             double minSpeed = 16,
             double kp_heading = 1, 
             double ki_heading = 0.01,
@@ -121,7 +121,7 @@ void forwardMP(double targetDistance,
 
 void backwardMP(double targetDistance,
              double breakDistance = 35, 
-             double cartesianAngle = 0,
+             double targetHeading = 0,
              double minSpeed = 17,
              double kp_heading = 0.4, 
              double ki_heading = 0.01,
@@ -132,12 +132,12 @@ void backwardMP(double targetDistance,
              double maxSpeed = 100);
 
 // Turn wrappers
-void leftMP(double targetAngle, 
+void leftMP(double turnAmount, 
     double breakDistance = 35, 
     double minSpeed = 17, 
     double maxSpeed = 100);
 
-void rightMP(double targetAngle,
+void rightMP(double turnAmount,
              double breakDistance = 35,
              double minSpeed = 17,
              double maxSpeed = 100);
@@ -146,8 +146,8 @@ void pivotTurnOdometry(double targetHeading,
              double breakDistanceInDegrees,
              double minSpeed, double maxSpeed);
 
-void pivotLeftMP(double targetAngle, double breakDistance, double minSpeed, double maxSpeed);
+void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
-void pivotRightMP(double targetAngle, double breakDistance, double minSpeed, double maxSpeed);
+void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
 #endif // PID_TASKS_H;

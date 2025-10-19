@@ -61,6 +61,7 @@ extern const double RIGHT_ENCODER_OFFSET_Y;
 //Declare Constants
 extern const double wheelCircumferenceCM;
 extern const double encoderWheelCircumferenceCM;
+extern const double VOLTAGE_TOLERANCE;
 
 //original
 enum ArmPosition {
