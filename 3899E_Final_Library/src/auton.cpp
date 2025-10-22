@@ -13,14 +13,16 @@ using namespace vex; // Use the VEX namespace
                     accelHeadingScaling, decelHeadingScaling,
                     approachHeadingScaling, maxSpeed);
 */                    
+
+//turnOdometry(turnAmount, breakDistance, minSpeed, maxSpeed)
    void autonTest()
 {
     initializeOpticalSensor();
     
     headingOffset = 0; 
     
-    forwardMP(200, 80, -25, 25, 0.5, 0.00, 0.00, 0.1, 0.1, 0.05, 100);
-       
+    backwardMP(200, 60, 0, 30, 0.5, 0.00, 0.00, 0.5, 0.5, 0.5, 100);
+    //leftMP(45,15,15);   
     wait(200, msec);
     
     /*

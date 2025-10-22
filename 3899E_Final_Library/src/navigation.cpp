@@ -586,36 +586,6 @@ void straightOdometry(double targetDistance,
         double leftSlipRatio = calculateSlipRatio(leftMotorRPM, avgEncoderRPM);
         double rightSlipRatio = calculateSlipRatio(rightMotorRPM, avgEncoderRPM);
 
-               // double adjustedHeadingCorrection = headingCorrection * avgEncoderRPM / absoluteMaxRPM; //dynamically reduce heading correction at slower speed based on percentage of max speed
-        /*
-                //Quadratics scaling factor for PID
-                double scaleFactorPower = 2;
-                double speedRatio = std::min(1.0, std::fabs(avgEncoderRPM / maxDriveMotorRPM)); //caps max speed ratio at 1:1
-                double scaleFactor = std::pow(speedRatio, scaleFactorPower);
-                double adjustedHeadingCorrection = headingCorrection * scaleFactor;
-        */
-/*
-        for (int i = 0; i < 3; i++)
-        {
-            // Use leftLaunchControl if minLaunchPower threshold is met for the left side
-            // Get motor speed in RPM
-            leftMotorRPM[i] = leftMotor[i].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-            rightMotorRPM[i] = rightMotor[i].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-        }
-*/
-        /*
-            Brain.Screen.setCursor(1,1);
-        Brain.Screen.print("Distance: %.1f Target: %.1f Break: %.1f",
-            std::fabs(currentDistance), std::fabs(targetDistance), breakDistance);
-
-        Brain.Screen.setCursor(2,1);
-        Brain.Screen.print("Decel/Accel: %d/%d", decel, accelCompleted);
-
-        Brain.Screen.setCursor(3,1);
-        Brain.Screen.print("Dist Check: %d",
-            std::fabs(currentDistance) >= std::fabs(targetDistance) - breakDistance);
-        */
-
         // Launch Phase
         if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && !accelCompleted && !decel)
         { // will keep going until acceleration is complete and not in decel
@@ -638,8 +608,8 @@ void straightOdometry(double targetDistance,
             // Apply to all 3 motors on both sides with PID correction - CORRECTED SIGNS
             for (int i = 0; i < 3; i++)
             {
-                motorVoltageLeft[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling * headingDirection);
-                motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling * headingDirection);
+                motorVoltageLeft[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
+                motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
             }
 
                 maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
@@ -673,8 +643,8 @@ void straightOdometry(double targetDistance,
             for (int i = 0; i < 3; i++)
             {
                 // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection * headingDirection);
-                motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection * headingDirection);
+                motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection);
+                motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection);
                 // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
             }
 
@@ -717,8 +687,8 @@ else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && dece
             for (int i = 0; i < 3; i++)
             {
                 // If drifting right, apply power to LEFT wheel (opposite of acceleration)
-                motorVoltageLeft[i] = std::max(0.0, (headingCorrection * decelHeadingScaling * headingDirection));
-                motorVoltageRight[i] = std::max(0.0,-(headingCorrection * decelHeadingScaling * headingDirection));
+                motorVoltageLeft[i] = std::max(0.0, (headingCorrection * decelHeadingScaling));
+                motorVoltageRight[i] = std::max(0.0,-(headingCorrection * decelHeadingScaling));
                 
                 // Handle left side based on lockup
                 if (leftBrakeMode == brakeType::coast)
@@ -763,8 +733,8 @@ else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && dece
             for (int i = 0; i < 3; i++)
             {
                 // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * headingDirection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * headingDirection * approachHeadingScaling);
+                motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
+                motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
                 // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
             }
         }
