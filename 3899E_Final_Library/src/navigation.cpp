@@ -900,7 +900,7 @@ void leftMP(double turnAmount, double breakDistance, double minSpeed, double max
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     
     // CCW = positive turn, so add the turn amount
-    double targetRotation = currentHeading + turnAmount;
+    double targetRotation = currentHeading - turnAmount;
     
     turnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
 }
@@ -911,7 +911,7 @@ void rightMP(double turnAmount, double breakDistance, double minSpeed, double ma
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     
     // CW = negative turn, so subtract the turn amount
-    double targetRotation = currentHeading - turnAmount;
+    double targetRotation = currentHeading + turnAmount;
     
     turnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
 }

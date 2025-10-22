@@ -21,8 +21,8 @@ using namespace vex; // Use the VEX namespace
     
     headingOffset = 0; 
     
-    backwardMP(200, 60, 0, 30, 0.5, 0.00, 0.00, 0.5, 0.5, 0.5, 100);
-    //leftMP(45,15,15);   
+    //backwardMP(200, 60, 0, 30, 0.5, 0.00, 0.00, 0.5, 0.5, 0.5, 100);
+    leftMP(45,30,10);   
     wait(200, msec);
     
     /*
