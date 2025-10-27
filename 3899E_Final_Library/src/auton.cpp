@@ -27,9 +27,9 @@ using namespace vex; // Use the VEX namespace
     
     //backwardMP(200, 60, 0, 30, 0.5, 0.00, 0.00, 0.5, 0.5, 0.5, 100);
     //leftMP(45,30,10);   
-    turnOdometry(-180, 120, 7, 100);
+    turnOdometry(180, 90, 10, 100);
     wait(300, msec);
-    turnOdometry(0, 100, 7, 50);
+    turnOdometry(360, 90, 10, 100);
     wait(200, msec);
     
     /*

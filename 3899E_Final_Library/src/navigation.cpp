@@ -58,7 +58,9 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     bool decel = false;
 
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
-    double headingError = targetHeading - currentHeading;
+    int completeRotations = (int)(currentHeading / 360.0);  
+    double targetRotationHeading = targetHeading + (completeRotations * 360.0);
+    double headingError = targetRotationHeading - currentHeading;
     double currentDistanceInDegrees = headingError;
 
     Brain.Screen.printAt(10, 40, "Target Head: %.2f", targetHeading);
@@ -79,9 +81,9 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // 0.25 = 25% slip tolerance for balanced control
     // may need to go above 25% given built in difference between encoder and wheel spin speed
     const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
-    const double SLIP_THRESHOLD_TRACTION = 0.5; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
-    const double SLIP_THRESHOLD_ABS = 0.35;
-    const double EXIT_TOLERANCE_DEGREES = 0.5;
+    const double SLIP_THRESHOLD_TRACTION = 1; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
+    const double SLIP_THRESHOLD_ABS = 10;
+    const double EXIT_TOLERANCE_DEGREES = 1.2;
       
     double averageMotorVoltage = 0;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
@@ -100,11 +102,11 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
 
     // Loop to continuously adjust motor power 
-    while ((maxSpeedVoltage > 0 && headingError >= EXIT_TOLERANCE_DEGREES) || 
-       (maxSpeedVoltage < 0 && headingError =< -EXIT_TOLERANCE_DEGREES)) 
+    while ((maxSpeedVoltage > 0 && currentHeading <= targetRotationHeading - EXIT_TOLERANCE_DEGREES) || 
+       (maxSpeedVoltage < 0 && currentHeading >= targetRotationHeading + EXIT_TOLERANCE_DEGREES)) 
        {
         currentHeading = InertialSensor.rotation(degrees) + headingOffset;
-        headingError = targetHeading - currentHeading;
+        headingError = targetRotationHeading - currentHeading;
         currentDistanceInDegrees = headingError;
         
         Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
@@ -120,6 +122,9 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
                                 (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
                                  (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+        // Average the encoder values
+        double averageEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2.0;                         
         // double minSpeedVoltage = std::copysign((minSpeed * 0.01 * 12), normTargetHeading);
 
         // Calculate current distance in degrees
@@ -139,8 +144,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         {
 
             // Call traction control class and get adjusted motor voltage
-        double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
-        double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
+        double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, averageEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
+        double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, averageEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
 
         // Find the minimum MAGNITUDE (most conservative)
         double syncedMotorVoltage = std::min(fabs(leftTractionVoltage), fabs(rightTractionVoltage));
