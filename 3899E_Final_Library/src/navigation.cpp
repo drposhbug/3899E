@@ -67,13 +67,10 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // Convert % Speed input to voltage with max voltage of 12
     double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, headingError);
     double minSpeedVoltage = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, headingError);
-    double launchVoltage = std::copysign(5, headingError);
+    double launchVoltage = std::copysign(4, headingError);
     double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(launchVoltage)), headingError);
 
     double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM;
-    double maxDriveMotorRPM = (maxSpeed * .01) * absoluteMaxRPM;
-
-    
 
     // Maximum slip threshold for spot turns before reducing power
     // Range: 0-1, where:
@@ -81,17 +78,18 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // 1 = Full slip allowed (most aggressive)
     // 0.25 = 25% slip tolerance for balanced control
     // may need to go above 25% given built in difference between encoder and wheel spin speed
-    const double TURN_ACCEL_FACTOR_LAUNCH = 1.4;
-    const double SLIP_THRESHOLD_TRACTION = 0.35; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
+    const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
+    const double SLIP_THRESHOLD_TRACTION = 0.5; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
     const double SLIP_THRESHOLD_ABS = 0.35;
+    const double EXIT_TOLERANCE_DEGREES = 0.5;
       
     double averageMotorVoltage = 0;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage}; // Initialize all elements to minimum launch speed
-    vex::brakeType leftBrakeMode[3];
-    vex::brakeType rightBrakeMode[3];
+ 
     double leftEncoderRollingAverage = 0;
     double rightEncoderRollingAverage = 0;
+    double voltageRollingAverage = 0;
 
     // Declaration for slip threshold
     ABSController ABSControllerLeft(SLIP_THRESHOLD_ABS);
@@ -101,9 +99,10 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
 
-    // Loop to continuously adjust motor power based on PID control
-    while (std::abs(headingError) > 9) // Removed crossed180 check
-    {
+    // Loop to continuously adjust motor power 
+    while ((maxSpeedVoltage > 0 && headingError >= EXIT_TOLERANCE_DEGREES) || 
+       (maxSpeedVoltage < 0 && headingError =< -EXIT_TOLERANCE_DEGREES)) 
+       {
         currentHeading = InertialSensor.rotation(degrees) + headingOffset;
         headingError = targetHeading - currentHeading;
         currentDistanceInDegrees = headingError;
@@ -113,15 +112,14 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         Brain.Screen.printAt(10, 140, "Target: %.2f", targetHeading);
        
         // Get motor RPM with adjustment for each side
-        double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+        double leftMotorRPM = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
 
         // Get encoder RPM with both circumference and radius ratio adjustments
         double leftEncoderRPM = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
-                                (encoderWheelCircumferenceCM / wheelCircumferenceCM) * ENCODER_RADIUS_RATIO;
+                                (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
-                                 (encoderWheelCircumferenceCM / wheelCircumferenceCM) * ENCODER_RADIUS_RATIO;
-        double avgEncoderRPM = (fabs(leftEncoderRPM) + fabs(rightEncoderRPM)) / 2;
+                                 (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         // double minSpeedVoltage = std::copysign((minSpeed * 0.01 * 12), normTargetHeading);
 
         // Calculate current distance in degrees
@@ -144,8 +142,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
         double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
 
-        // Synchronized control - use the lower voltage (more conservative) for BOTH sides
-        double syncedMotorVoltage = std::min(leftTractionVoltage, rightTractionVoltage);
+        // Find the minimum MAGNITUDE (most conservative)
+        double syncedMotorVoltage = std::min(fabs(leftTractionVoltage), fabs(rightTractionVoltage));
 
         // Apply to all 3 motors on both sides with original signs preserved
         for (int i = 0; i < 3; i++)
@@ -155,26 +153,14 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         }
 
             averageMotorVoltage = (fabs(motorVoltageLeft[0]) + fabs(motorVoltageRight[0]) + fabs(motorVoltageLeft[1]) + fabs(motorVoltageRight[1]) + fabs(motorVoltageLeft[2]) + fabs(motorVoltageRight[2])) / numberDriveMotor;
-            // averageMotorVoltage = (fabs(motorVoltageLeft[0]) + fabs(motorVoltageRight[0]) + fabs(motorVoltageLeft[1]) + fabs(motorVoltageRight[1]) + fabs(motorVoltageLeft[2]) + fabs(motorVoltageRight[2])) / numberDriveMotor;
-            //    Brain.Screen.printAt(10, 20, "Launch Phase");
+           
+            // Update rolling average
+            voltageRollingAverage = rollingAverage(averageMotorVoltage, voltageRollingAverage, 5);
 
-            //  if (std::fabs(robotRadiansPerSecond) >= maxRadiansPerSecond * (1 - percentSpeedLoss)){
-            //      accelCompleted = true;
-            //  }
-
-            if (std::fabs(averageMotorVoltage) >= (std::fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE))
-            {
-                accelCompleted = true;
-                Brain.Screen.printAt(10, 80, "Accel Completed");
-            }
-
-            Brain.Screen.printAt(10, 20, "Launch Phase");
-            // Brain.Screen.printAt(10, 180, "Current Heading: %.2f", currentNormHeading);
-            // Brain.Screen.printAt(10, 200, "Target Distance: %.2f", targetDistanceInDegrees);
-
-            // Cruise Phase
-
-            // testing cruise with traction control
+            if (fabs(voltageRollingAverage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE)){
+            accelCompleted = true;
+            Brain.Screen.printAt(10, 20, "Launch Phase");}
+            
         }
         else if ((std::abs(headingError) > fabs(breakDistanceInDegrees)) && accelCompleted)
         {
@@ -187,16 +173,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
                 motorVoltageLeft[i] = maxSpeedVoltage;
                 motorVoltageRight[i] = maxSpeedVoltage;
             }
-
-            // for (int i = 0; i < 3; i++) {
-            //  Use leftLaunchControl if minLaunchPower threshold is met for the left side
-            // motorVoltageLeft[i] = tractionControlLeft[i].tractionControlSpeed(motorVoltageLeft[i], leftMotorAngularRadians[i], robotRadiansPerSecond, accelFactorCruise);      // get slip voltage
-            // motorVoltageRight[i] = tractionControlRight[i].tractionControlSpeed(motorVoltageRight[i], rightMotorAngularRadians[i], robotRadiansPerSecond, accelFactorCruise);
-            // }
-
-            // Decel Phase
-
-            // If declerating then go to ABS routine
+        
         }
         else if ((std::abs(headingError) <= fabs(breakDistanceInDegrees)) && decelCompleted == false)
      {
@@ -214,37 +191,21 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         vex::brakeType leftBrakeMode = ABSControllerLeft.ABSSpeedReduction(leftMotorRPM, leftEncoderRPM);
         vex::brakeType rightBrakeMode = ABSControllerRight.ABSSpeedReduction(rightMotorRPM, rightEncoderRPM);
 
-        for (int i = 0; i < 3; i++)
-        {
-            // No PID correction for turns - just handle ABS
-            motorVoltageLeft[i] = 0;
-            motorVoltageRight[i] = 0;
-            
-            // Handle left side based on lockup
-            if (leftBrakeMode == brakeType::coast)
-            {
-                leftMotor[i].setBrake(coast);
-                motorVoltageLeft[i] = 0;
-            }
-            else if (motorVoltageLeft[i] <= 0)
-            {
-                leftMotor[i].setBrake(brake);
-                motorVoltageLeft[i] = 0;
-            }
-            
-            // Handle right side based on lockup
-            if (rightBrakeMode == brakeType::coast)
-            {
-                rightMotor[i].setBrake(coast);
-                motorVoltageRight[i] = 0;
-            }
-            else if (motorVoltageRight[i] <= 0)
-            {
-                rightMotor[i].setBrake(brake);
-                motorVoltageRight[i] = 0;
-            }
+        brakeType syncedBrakeMode;
+
+        if (leftBrakeMode == brakeType::coast || rightBrakeMode == brakeType::coast) {
+            syncedBrakeMode = brakeType::coast;
+        } else {
+            syncedBrakeMode = brakeType::brake;
         }
 
+        for (int i = 0; i < 3; i++)
+        {
+            motorVoltageLeft[i] = 0;
+            motorVoltageRight[i] = 0;
+            leftMotor[i].setBrake(syncedBrakeMode);
+            rightMotor[i].setBrake(syncedBrakeMode);
+        }
         leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
         rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
 
@@ -283,21 +244,6 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
             Brain.Screen.printAt(10, 20, "Approach Phase");
         }
 
-        // Pair 1: Leading wheels
-        double lowerVoltageLeading = std::min(std::fabs(motorVoltageLeft[0]), std::fabs(motorVoltageRight[2]));
-        motorVoltageLeft[0] = std::copysign(lowerVoltageLeading, motorVoltageLeft[0]);
-        motorVoltageRight[2] = std::copysign(lowerVoltageLeading, motorVoltageRight[2]);
-
-        // Pair 2: Middle wheels
-        double lowerVoltageMiddle = std::min(std::fabs(motorVoltageLeft[1]), std::fabs(motorVoltageRight[1]));
-        motorVoltageLeft[1] = std::copysign(lowerVoltageMiddle, motorVoltageLeft[1]);
-        motorVoltageRight[1] = std::copysign(lowerVoltageMiddle, motorVoltageRight[1]);
-
-        // Pair 3: Trailing wheels
-        double lowerVoltageTrailing = std::min(std::fabs(motorVoltageLeft[2]), std::fabs(motorVoltageRight[0]));
-        motorVoltageLeft[2] = std::copysign(lowerVoltageTrailing, motorVoltageLeft[2]);
-        motorVoltageRight[0] = std::copysign(lowerVoltageTrailing, motorVoltageRight[0]);
-
         // Power Drive Motors
 
         // turnDirection = std::copysign(turnDirection, normTargetHeading);
@@ -319,7 +265,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         // leftMotor[i].stop(brake);
         // rightMotor[2-i].stop(brake);
         leftMotor[i].stop(brake);
-        rightMotor[2 - i].stop(brake);
+        rightMotor[i].stop(brake);
     }
 }
 
@@ -480,7 +426,6 @@ void straightOdometry(double targetDistance,
 
     // Add timer for acceleration phase
     vex::timer accelTimer;
-    double accelTime = 0;
 
     // Reset the encoders to start counting from zero
     passiveEncoderLeft.resetPosition();
@@ -492,7 +437,7 @@ void straightOdometry(double targetDistance,
 
     // Motion Parameters
     double currentDistance = 0;
-    double headingDirection = (targetDistance > 0) ? 1.0 : -1.0;
+    //double headingDirection = (targetDistance > 0) ? 1.0 : -1.0;
 
     // Target Speeds & Voltages
     double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
@@ -503,10 +448,7 @@ void straightOdometry(double targetDistance,
 
 
     // RPM Parameters
-    double percentRPMLoss = 0.1;
     double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM; // Adjusted for frictional losses
-    double maxDriveMotorRPM = (maxSpeed * .01) * absoluteMaxRPM * percentRPMLoss;
-    double maxMotorRPM = 0;
     double maxEncoderRPM = 0;
     // Motor Arrays
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
@@ -520,6 +462,7 @@ void straightOdometry(double targetDistance,
     double avgMotorVoltage = 0; // Used for phase transition checking
     double leftEncoderRollingAverage = 0;
     double rightEncoderRollingAverage = 0;
+    double voltageRollingAverage = 0;
 
     bool decel = false;
     bool decelCompleted = false;
@@ -581,10 +524,6 @@ void straightOdometry(double targetDistance,
   // Get middle motor RPM only (index 1 - traction wheel)
         double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
         double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-
-        // Calculate slip ratios for debugging
-        double leftSlipRatio = calculateSlipRatio(leftMotorRPM, avgEncoderRPM);
-        double rightSlipRatio = calculateSlipRatio(rightMotorRPM, avgEncoderRPM);
 
         // Launch Phase
         if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && !accelCompleted && !decel)
@@ -941,10 +880,7 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
     double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(launchVoltage)), headingError);
 
     double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM;
-    double maxDriveMotorRPM = (maxSpeed * .01) * absoluteMaxRPM;
-
     
-
     // Maximum slip threshold for spot turns before reducing power
     // Range: 0-1, where:
     // 0 = No slip allowed (most conservative)

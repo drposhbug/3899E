@@ -18,11 +18,18 @@ using namespace vex; // Use the VEX namespace
    void autonTest()
 {
     initializeOpticalSensor();
+
+    // Reset gyro to ensure clean starting state
+    InertialSensor.setRotation(0, degrees);
+    InertialSensor.setHeading(0, degrees);
     
     headingOffset = 0; 
     
     //backwardMP(200, 60, 0, 30, 0.5, 0.00, 0.00, 0.5, 0.5, 0.5, 100);
-    leftMP(45,30,10);   
+    //leftMP(45,30,10);   
+    turnOdometry(-180, 120, 7, 100);
+    wait(300, msec);
+    turnOdometry(0, 100, 7, 50);
     wait(200, msec);
     
     /*

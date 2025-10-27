@@ -103,7 +103,7 @@ void driverControl()
         {
             spinForInProgress = false;
             intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
         }
         // Stop intake motors when no intake buttons pressed (and no other intake active)
         else
