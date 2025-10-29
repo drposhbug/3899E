@@ -61,7 +61,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     int completeRotations = (int)(currentHeading / 360.0);  
     double targetRotationHeading = targetHeading + (completeRotations * 360.0);
     double headingError = targetRotationHeading - currentHeading;
-    double currentDistanceInDegrees = headingError;
+    //double currentDistanceInDegrees = headingError;
 
     Brain.Screen.printAt(10, 40, "Target Head: %.2f", targetHeading);
     Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
@@ -81,8 +81,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // 0.25 = 25% slip tolerance for balanced control
     // may need to go above 25% given built in difference between encoder and wheel spin speed
     const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
-    const double SLIP_THRESHOLD_TRACTION = 1; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
-    const double SLIP_THRESHOLD_ABS = 10;
+    const double SLIP_THRESHOLD_TRACTION = 10; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
+    const double SLIP_THRESHOLD_ABS = 100;
     const double EXIT_TOLERANCE_DEGREES = 1.2;
       
     double averageMotorVoltage = 0;
@@ -107,7 +107,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
        {
         currentHeading = InertialSensor.rotation(degrees) + headingOffset;
         headingError = targetRotationHeading - currentHeading;
-        currentDistanceInDegrees = headingError;
+        //currentDistanceInDegrees = headingError;
         
         Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
         Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);
@@ -167,6 +167,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
             Brain.Screen.printAt(10, 20, "Launch Phase");}
             
         }
+
+        // Cruise Phase
         else if ((std::abs(headingError) > fabs(breakDistanceInDegrees)) && accelCompleted)
         {
             // break;
@@ -269,8 +271,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     {
         // leftMotor[i].stop(brake);
         // rightMotor[2-i].stop(brake);
-        leftMotor[i].stop(brake);
-        rightMotor[i].stop(brake);
+        leftMotor[i].stop(coast);
+        rightMotor[i].stop(coast);
     }
 }
 
@@ -401,8 +403,10 @@ void arcTurn(double targetDistance,
     // Stop motors at end
     for (int i = 0; i < 3; i++)
     {
-        leftMotor[i].stop(brake);
-        rightMotor[i].stop(brake);
+       leftMotor[i].setBrake(coast);
+       rightMotor[i].setBrake(coast);  
+       leftMotor[i].stop();
+       rightMotor[i].stop();
     }
 }
 
@@ -426,7 +430,7 @@ void straightOdometry(double targetDistance,
     const double ACCEL_FACTOR_LAUNCH = 1.25;     // Acceleration rate MUST be > 1.0
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
     const double SLIP_THRESHOLD_TRACTION = 0.6; // Slip threshold 1 is always power, 0 is no power
-    const double SLIP_THRESHOLD_ABS = 0.4;      // ABS threshold 1 is hard brake, 0 is no brake
+    const double SLIP_THRESHOLD_ABS = 100;      // ABS threshold 1 is hard brake, 0 is no brake
     // ========================================
 
     // Add timer for acceleration phase
@@ -788,7 +792,7 @@ Brain.Screen.print("Distance: %.1f / %.1f",
     Brain.Screen.print("Distance: %.1f / %.1f", 
                        fabs(currentDistance), fabs(targetDistance));
                        
-    wait(10000, msec);
+    //wait(10000, msec);
     /*
         currentDistance = (passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees) ) / 2 * (encoderWheelCircumferenceCM / 360.0);
         // Debug print: Stopping motors
