@@ -110,7 +110,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         //currentDistanceInDegrees = headingError;
         
         Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
-        Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);
+        //Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);
         Brain.Screen.printAt(10, 140, "Target: %.2f", targetHeading);
        
         // Get motor RPM with adjustment for each side
@@ -429,8 +429,8 @@ void straightOdometry(double targetDistance,
     const double LAUNCH_VOLTAGE = 6;           // Starting voltage, must be higher than 0 
     const double ACCEL_FACTOR_LAUNCH = 1.25;     // Acceleration rate MUST be > 1.0
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
-    const double SLIP_THRESHOLD_TRACTION = 0.6; // Slip threshold 1 is always power, 0 is no power
-    const double SLIP_THRESHOLD_ABS = 100;      // ABS threshold 1 is hard brake, 0 is no brake
+    const double SLIP_THRESHOLD_TRACTION = .2; // Slip threshold 1 is always power, 0 is no power
+    const double SLIP_THRESHOLD_ABS = .3;      // ABS threshold 1 is hard brake, 0 is no brake
     // ========================================
 
     // Add timer for acceleration phase
@@ -484,6 +484,10 @@ void straightOdometry(double targetDistance,
     double maxAvgRightVoltage = 0;
     double maxLeftMotor[3] = {0, 0, 0};   // ← ADD THIS
     double maxRightMotor[3] = {0, 0, 0};  // ← ADD THIS
+    double maxLeftMotorRPM = 0;
+    double maxRightMotorRPM = 0;
+    double maxLeftEncoderRPM = 0;
+    double maxRightEncoderRPM = 0;
 
     // Declaration for slip threshold
     ABSController ABSControllerLeft(SLIP_THRESHOLD_ABS);
@@ -548,6 +552,7 @@ void straightOdometry(double targetDistance,
                 double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
                 double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
                 // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
+                Brain.Screen.printAt(10, 240, "LM:%.0f LE:%.0f RM:%.0f RE:%.0f", leftMotorRPM, leftEncoderRPM, rightMotorRPM, rightEncoderRPM);
 
                 // Synchronized control - use the lower voltage (more conservative) for BOTH sides
                 double syncedMotorVoltage = std::min(leftTractionVoltage, rightTractionVoltage);
@@ -661,8 +666,8 @@ else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && dece
                 }
             }
 
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
-            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 20);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 20);
 
             if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) ||
                 fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
@@ -765,7 +770,8 @@ Brain.Screen.print("Distance: %.1f / %.1f",
     }
 
     // Display detailed movement summary with all 6 motors
-    Brain.Screen.clearScreen();
+    // Brain.Screen.clearScreen();  // Comment out to keep debug prints
+    Brain.Screen.setCursor(10, 1);  // Just move to a new area
     Brain.Screen.setCursor(1, 1);
     Brain.Screen.print("=== Movement Complete ===");
 
@@ -791,6 +797,12 @@ Brain.Screen.print("Distance: %.1f / %.1f",
     Brain.Screen.setCursor(7, 1);
     Brain.Screen.print("Distance: %.1f / %.1f", 
                        fabs(currentDistance), fabs(targetDistance));
+
+    Brain.Screen.setCursor(8, 1);
+    Brain.Screen.print("LMotor: %.0f LEncAvg: %.0f", leftMotorRPM, leftEncoderRollingAverage);
+
+    Brain.Screen.setCursor(9, 1);
+    Brain.Screen.print("RMotor: %.0f REncAvg: %.0f", rightMotorRPM, rightEncoderRollingAverage);              
                        
     //wait(10000, msec);
     /*

@@ -25,14 +25,15 @@ using namespace vex; // Use the VEX namespace
     
     headingOffset = 0; 
     
-    //backwardMP(200, 60, 0, 30, 0.5, 0.00, 0.00, 0.5, 0.5, 0.5, 100);
+    //move(300, 80, forward);
+    forwardMP(200, 80, 0, 20, 0.9, 0.002, 0.00, 0.1, 100, 0.15, 100);
     //leftMP(45,30,10);   
-    turnOdometry(180, 20, 10, 100);
-    wait(300, msec);
-    turnOdometry(0, 20, 10, 100);
-    wait(200, msec);
-    turnOdometry(180, 20, 10, 100);
-    wait(200, msec);
+    //turnOdometry(180, 20, 10, 100);
+    //wait(300, msec);
+    //turnOdometry(0, 20, 10, 100);
+    //wait(200, msec);
+    //turnOdometry(180, 20, 10, 100);
+    //wait(200, msec);
     
     /*
     // Explicitly ensure all motors are braked at the end
