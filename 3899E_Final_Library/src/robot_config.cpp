@@ -4,14 +4,14 @@
 vex::brain Brain;
 vex::controller Controller;
 // Define Drive Motors
-vex::motor LeftMotor1 = vex::motor(vex::PORT1, vex::gearSetting::ratio6_1,true);
-vex::motor LeftMotor2 = vex::motor(vex::PORT11, vex::gearSetting::ratio6_1);
-vex::motor LeftMotor3 = vex::motor(vex::PORT12, vex::gearSetting::ratio6_1, true);
-vex::motor RightMotor1 = vex::motor(vex::PORT10, vex::gearSetting::ratio6_1);  // reversed
-vex::motor RightMotor2 = vex::motor(vex::PORT20, vex::gearSetting::ratio6_1, true);  // reversed
-vex::motor RightMotor3 = vex::motor(vex::PORT19, vex::gearSetting::ratio6_1); // reversed
+vex::motor LeftMotor1 = vex::motor(vex::PORT7, vex::gearSetting::ratio6_1,true);
+vex::motor LeftMotor2 = vex::motor(vex::PORT20, vex::gearSetting::ratio6_1);
+vex::motor LeftMotor3 = vex::motor(vex::PORT8, vex::gearSetting::ratio6_1, true);
+vex::motor RightMotor1 = vex::motor(vex::PORT1, vex::gearSetting::ratio6_1);  // reversed
+vex::motor RightMotor2 = vex::motor(vex::PORT11, vex::gearSetting::ratio6_1, true);  // reversed
+vex::motor RightMotor3 = vex::motor(vex::PORT2, vex::gearSetting::ratio6_1); // reversed
 // Define Intatke Motors
-vex::motor intakeMotor1 = vex::motor(vex::PORT2, vex::gearSetting::ratio6_1);
+vex::motor intakeMotor1 = vex::motor(vex::PORT10, vex::gearSetting::ratio6_1);
 vex::motor intakeMotor2 = vex::motor(vex::PORT9, vex::gearSetting::ratio6_1, true); // reversed
 // Define Pneumatics
 vex::pneumatics frontHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.G);

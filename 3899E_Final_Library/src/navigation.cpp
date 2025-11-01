@@ -110,7 +110,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         //currentDistanceInDegrees = headingError;
         
         Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
-        Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);
+        //Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);
         Brain.Screen.printAt(10, 140, "Target: %.2f", targetHeading);
        
         // Get motor RPM with adjustment for each side
@@ -429,8 +429,8 @@ void straightOdometry(double targetDistance,
     const double LAUNCH_VOLTAGE = 6;           // Starting voltage, must be higher than 0 
     const double ACCEL_FACTOR_LAUNCH = 1.25;     // Acceleration rate MUST be > 1.0
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
-    const double SLIP_THRESHOLD_TRACTION = 0.6; // Slip threshold 1 is always power, 0 is no power
-    const double SLIP_THRESHOLD_ABS = 100;      // ABS threshold 1 is hard brake, 0 is no brake
+    const double SLIP_THRESHOLD_TRACTION = 0.3; // Slip threshold 1 is always power, 0 is no power
+    const double SLIP_THRESHOLD_ABS = 0.25;      // ABS threshold 1 is hard brake, 0 is no brake
     // ========================================
 
     // Add timer for acceleration phase
@@ -661,8 +661,8 @@ else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && dece
                 }
             }
 
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
-            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
 
             if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) ||
                 fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))

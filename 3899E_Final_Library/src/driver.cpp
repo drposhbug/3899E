@@ -130,7 +130,7 @@ void driverControl()
             
             spinForInProgress = false;
             intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
         }
         else
         {
@@ -155,7 +155,7 @@ void driverControl()
             
             spinForInProgress = false;
             intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
         }
         else
         {
@@ -185,7 +185,7 @@ void driverControl()
                 if (isMatchLoadPneumaticsActive)
                 {
                     // Pneumatic extended - start intake
-                    intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
+                    intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
                     intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
                 }
                 else
@@ -203,6 +203,44 @@ void driverControl()
         else
         {
             wasL2Pressed = false;
+        }
+
+        // ==================== BUTTON X : JUSTIN YUEH SPECIAL BUTTON ====================
+        // all in
+        if (Controller.ButtonX.pressing())
+        {
+            if (!wasXPressed)
+            {
+                frontHoodPneumatics.set(true);      // Open front hood
+                backHoodPneumatics.set(true);       // Open back hood
+                matchLoadPneumatics.set(true);      // Open match load pneumatics
+                wasXPressed = true;
+            }
+            
+            spinForInProgress = false;
+            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            leftMotor[0].spin(forward, 12, vex::voltageUnits::volt);
+            leftMotor[1].spin(forward, 12, vex::voltageUnits::volt);
+            leftMotor[2].spin(forward, 12, vex::voltageUnits::volt);
+            rightMotor[0].spin(forward, 12, vex::voltageUnits::volt);
+            rightMotor[1].spin(forward, 12, vex::voltageUnits::volt);
+            rightMotor[2].spin(forward, 12, vex::voltageUnits::volt);
+        }
+        else
+        {
+            if (wasXPressed)
+            {
+                intakeMotor1.stop();
+                intakeMotor2.stop();
+                leftMotor[0].stop();
+                leftMotor[1].stop();
+                leftMotor[2].stop();
+                rightMotor[0].stop();
+                rightMotor[1].stop();
+                rightMotor[2].stop();
+                wasXPressed = false;
+            }
         }
 
         // Check if timed motor movements (spinFor) are complete
