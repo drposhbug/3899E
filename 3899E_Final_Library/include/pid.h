@@ -1,25 +1,44 @@
-#ifndef PID_H // Include guard to prevent multiple inclusions
+#ifndef PID_H
 #define PID_H
 
+/**
+ * PID Controller Class
+ * 
+ * Implements a Proportional-Integral-Derivative controller for precise motor control.
+ * Used primarily for heading correction during straight-line autonomous movements.
+ */
 class PID {
 public:
-    // Constructor to initialize PID coefficients and internal variables
+    /**
+     * Constructor - Initialize PID controller with tuning coefficients
+     * @param kp Proportional gain - responds to current error
+     * @param ki Integral gain - responds to accumulated error over time  
+     * @param kd Derivative gain - responds to rate of error change
+     */
     PID(double kp, double ki, double kd);
 
-    // Method to get PID control signal given a target value and current reading
+    /**
+     * Calculate PID output based on target and current values
+     * @param targetValue Desired setpoint value
+     * @param currentReading Current sensor reading
+     * @return PID correction value to apply to system
+     */
     double calculate(double targetValue, double currentReading);
 
-    // Method to reset the PID controller (useful when switching contexts)
+    /**
+     * Reset PID controller state
+     * Call this when switching between different control contexts
+     * to prevent integral windup and derivative spikes
+     */
     void pidReset();
 
-    // Method to set PID coefficients dynamically
-    void setCoefficients(double newKp, double newKi, double newKd);
-
 private:
-    double kp, ki, kd; // PID coefficients for proportional, integral, and derivative terms
+    // PID tuning coefficients
+    double kp, ki, kd;
+    
+    // Controller state variables
     double prevError;  // Previous error for derivative calculation
-    double integral;   // Sum of errors for integral calculation
-    double error; 
+    double integral;   // Accumulated error for integral calculation
 };
 
 #endif // PID_H

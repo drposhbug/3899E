@@ -1,46 +1,47 @@
-#include "pid.h"          // Include the PID header file
-#include "vex.h"          // Include the VEX library
-#include "robot_config.h" // Include the robot configuration to use the Brain object
+#include "pid.h"
+#include "vex.h"
+#include "robot_config.h"
 
-using namespace vex; // Use the VEX namespace
+using namespace vex;
 
-// Constructor to initialize PID coefficients and internal variables
+/**
+ * PID Constructor
+ * Initialize controller with tuning coefficients and reset state variables
+ */
 PID::PID(double kp, double ki, double kd)
     : kp(kp), ki(ki), kd(kd), prevError(0), integral(0) {}
 
-// Get PID control value after given target value and current reading
+/**
+ * Calculate PID Control Output
+ * Computes the correction value based on error between target and current reading
+ */
 double PID::calculate(double targetValue, double currentReading)
 {
-    // Calculate the error
+    // Calculate current error
     double error = targetValue - currentReading;
 
-    // Proportional term
+    // Proportional term - immediate response to current error
     double pTerm = kp * error;
 
-    // Integral term
+    // Integral term - response to accumulated error over time
     integral += error;
     double iTerm = ki * integral;
 
-    // Derivative term
+    // Derivative term - response to rate of error change
     double dTerm = kd * (error - prevError);
-    prevError = error; // Update previous error
+    prevError = error;
 
-    // PID output
+    // Return combined PID output
     return pTerm + iTerm + dTerm;
 }
 
-// Method to reset the PID controller (useful when switching contexts)
+/**
+ * Reset PID Controller State
+ * Clears accumulated error and previous error to prevent unwanted behavior
+ * when switching between different control contexts
+ */
 void PID::pidReset()
 {
-    error = 0;
-    prevError = 0; // Reset previous error to 0
-    integral = 0;  // Reset integral term to 0
-}
-
-// Method to set PID coefficients dynamically
-void PID::setCoefficients(double newKp, double newKi, double newKd)
-{
-    kp = newKp; // Set new proportional coefficient
-    ki = newKi; // Set new integral coefficient
-    kd = newKd; // Set new derivative coefficient
+    prevError = 0;
+    integral = 0;
 }
