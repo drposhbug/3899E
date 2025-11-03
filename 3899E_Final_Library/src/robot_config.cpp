@@ -15,15 +15,15 @@ vex::motor intakeMotor1 = vex::motor(vex::PORT10, vex::gearSetting::ratio6_1);
 vex::motor intakeMotor2 = vex::motor(vex::PORT9, vex::gearSetting::ratio6_1, true); // reversed
 // Define Pneumatics
 vex::pneumatics frontHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.G);
-vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
-vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
-vex::pneumatics hopperGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
+vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
+vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
+vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
 // Define Sensors
 vex::inertial InertialSensor = vex::inertial(vex::PORT6);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT13, true);  // Initialize the encoder on PORT10
 vex::rotation passiveEncoderRight = vex::rotation(vex::PORT18, true); // Initialize the encoder on PORT10
 vex::rotation passiveEncoderX = vex::rotation(vex::PORT5, true);     // Initialize the encoder on PORT10
-vex::optical opticalSensor = vex::optical(vex::PORT2);
+vex::optical opticalSensor = vex::optical(vex::PORT12);
 vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.A);
 // Global Variables
 double targetDriverSpeedLeft = 0.0;                  // Target speed for left motors (-100 to +100)

@@ -59,7 +59,7 @@ void driverControl()
     // Initialize pneumatics to default intake position
     frontHoodPneumatics.set(false);      // Front hood closed
     backHoodPneumatics.set(true);       // Back hood open
-    hopperGatePneumatics.set(true);
+    ptoPneumatics.set(true);
 
     while (true)
     {
@@ -82,40 +82,96 @@ void driverControl()
         motorPowerRight[1] = targetSpeedRight;
         motorPowerRight[2] = targetSpeedRight;
 
+/*
+// Convert joystick percent to motor speed (cm/s)
+        double targetSpeedLeft = ((targetPowerLeft * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
+        double targetSpeedRight = ((targetPowerRight * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
+
+       
+        // ADDED: Deceleration ramping to prevent tipping
+        static double currentSpeedLeft = 0;
+        static double currentSpeedRight = 0;
+        const double DECEL_RATE = 0.50;              // Normal deceleration (0.3=slow/safe, 0.5=balanced, 0.8=fast/responsive)
+        const double DIRECTION_CHANGE_RATE = 0.25;    // Direction reversal rate (0.15=very safe, 0.25=balanced, 0.45=quick)
+        const double NEAR_ZERO_THRESHOLD = 12;        // Speed to allow direction change (5=lenient, 12=balanced, 20=strict)
+
+        // Detect direction changes
+        bool leftDirChange = (targetSpeedLeft * currentSpeedLeft < 0) && (fabs(currentSpeedLeft) > NEAR_ZERO_THRESHOLD);
+        bool rightDirChange = (targetSpeedRight * currentSpeedRight < 0) && (fabs(currentSpeedRight) > NEAR_ZERO_THRESHOLD);
+
+        // Apply ramping (decel only)
+        if (leftDirChange) {
+            currentSpeedLeft += (0 - currentSpeedLeft) * DIRECTION_CHANGE_RATE;
+        } else if (fabs(targetSpeedLeft) < fabs(currentSpeedLeft)) {
+            currentSpeedLeft += (targetSpeedLeft - currentSpeedLeft) * DECEL_RATE;
+        } else {
+            currentSpeedLeft = targetSpeedLeft;
+        }
+
+        if (rightDirChange) {
+            currentSpeedRight += (0 - currentSpeedRight) * DIRECTION_CHANGE_RATE;
+        } else if (fabs(targetSpeedRight) < fabs(currentSpeedRight)) {
+            currentSpeedRight += (targetSpeedRight - currentSpeedRight) * DECEL_RATE;
+        } else {
+            currentSpeedRight = targetSpeedRight;
+        }
+
+        if (fabs(targetSpeedLeft - currentSpeedLeft) < 2) currentSpeedLeft = targetSpeedLeft;
+        if (fabs(targetSpeedRight - currentSpeedRight) < 2) currentSpeedRight = targetSpeedRight;
+
+        // Apply ramped speeds to all motors
+        motorPowerLeft[0] = currentSpeedLeft;
+        motorPowerLeft[1] = currentSpeedLeft;
+        motorPowerLeft[2] = currentSpeedLeft;
+        motorPowerRight[0] = currentSpeedRight;
+        motorPowerRight[1] = currentSpeedRight;
+        motorPowerRight[2] = currentSpeedRight;
+
+        */
+
         // ==================== BUTTON R1: NORMAL INTAKE ====================
         // Front hood closed, back hood open - standard intake position
         if (Controller.ButtonR1.pressing())
         {
+            // Only set pneumatics ONCE when button is first pressed (not every frame)
             if (!wasR1Pressed)
             {
-                frontHoodPneumatics.set(false);     // Close front hood
-                backHoodPneumatics.set(true);      // Open back hood
-                wasR1Pressed = true;
+                frontHoodPneumatics.set(true);     // Close front hood for intake
+                backHoodPneumatics.set(false);    // Open back hood for intake
+                wasR1Pressed = true;               // Mark that we've handled the press
             }
             
-            spinForInProgress = false;
-            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
-        }
-        // ==================== BUTTON RIGHT: REVERSE INTAKE ====================
-        // Eject cubes without changing hood position
-        else if (Controller.ButtonRight.pressing())
-        {
-            spinForInProgress = false;
+            // Run intake motors continuously ONLY while button is held
+            spinForInProgress = false;  // Cancel any timed motor movements
             intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
             intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
-        }
-        // Stop intake motors when no intake buttons pressed (and no other intake active)
-        else
-        {
-            if ((wasR1Pressed || !spinForInProgress) && !Controller.ButtonR2.pressing() && 
-                !Controller.ButtonL2.pressing() && !Controller.ButtonL1.pressing())
-            {
-                intakeMotor1.stop();
-                intakeMotor2.stop();
             }
-            wasR1Pressed = false;
-        }
+            // ==================== BUTTON RIGHT: REVERSE INTAKE ====================
+            // Eject cubes without changing hood position  
+            else if (Controller.ButtonRight.pressing())
+            {
+                // Run motors in reverse ONLY while button is held - no pneumatic changes
+                spinForInProgress = false;
+                intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
+                intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            }
+            // When neither R1 nor Right button pressed
+            else
+            {
+                // Stop motors when no intake buttons are active
+                if ((wasR1Pressed || !spinForInProgress) && !Controller.ButtonR2.pressing() && 
+                    !Controller.ButtonL2.pressing() && !Controller.ButtonL1.pressing())
+                {
+                    intakeMotor1.stop();
+                    intakeMotor2.stop();
+                }
+                
+                // FIXED: Only reset R1 flag when R1 is actually released
+                if (!Controller.ButtonR1.pressing())
+                {
+                    wasR1Pressed = false;
+                }
+            }
 
         // ==================== BUTTON R2: CHAMBER INTAKE ====================
         // Close both hoods to trap cubes in launch chamber
@@ -129,8 +185,8 @@ void driverControl()
             }
             
             spinForInProgress = false;
-            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
         }
         else
         {
@@ -161,12 +217,10 @@ void driverControl()
         {
             // When button released: close front hood and retract cubes
             if (wasL1Pressed)
-            {
-                frontHoodPneumatics.set(false);     // Close front hood immediately
-                
+            {          
                 // Briefly reverse intake to pull cubes away from hood (non-blocking)
-                intakeMotor1.spinFor(reverse, 90, rotationUnits::deg, 100, velocityUnits::pct, false);
-                intakeMotor2.spinFor(forward, 90, rotationUnits::deg, 100, velocityUnits::pct, false);
+                //intakeMotor1.spinFor(reverse, 90, rotationUnits::deg, 100, velocityUnits::pct, false);
+                //intakeMotor2.spinFor(forward, 90, rotationUnits::deg, 100, velocityUnits::pct, false);
                 
                 spinForInProgress = true;
                 wasL1Pressed = false;
@@ -258,6 +312,14 @@ void driverControl()
 
         LeftMotor3.spin(forward, motorPowerLeft[2], percent);
         RightMotor3.spin(forward, motorPowerRight[2], percent);
+
+        // ==================== CONTROLLER DISPLAY - RPM MONITORING ====================
+        // Display intake motor RPMs on controller screen
+        Controller.Screen.clearScreen();
+        Controller.Screen.setCursor(1, 1);
+        Controller.Screen.print("Intake1: %.0f RPM", intakeMotor1.velocity(velocityUnits::rpm));
+        Controller.Screen.setCursor(2, 1);
+        Controller.Screen.print("Intake2: %.0f RPM", intakeMotor2.velocity(velocityUnits::rpm));
 
         // Loop delay (20ms = 50Hz update rate)
         task::sleep(20);
