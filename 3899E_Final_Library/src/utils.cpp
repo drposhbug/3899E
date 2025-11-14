@@ -482,8 +482,8 @@ int simpleArmTask(void *params) {
     double targetPosition = static_cast<double>(p->position) + p->adjustment;
     
     // Move arm to position
-    armMotor1.spinToPosition(targetPosition, rotationUnits::deg, 100, velocityUnits::pct, false);
-    armMotor2.spinToPosition(targetPosition, rotationUnits::deg, 100, velocityUnits::pct, false);
+    //armMotor1.spinToPosition(targetPosition, rotationUnits::deg, 100, velocityUnits::pct, false);
+    //armMotor2.spinToPosition(targetPosition, rotationUnits::deg, 100, velocityUnits::pct, false);
     
     p->isComplete = true;
     p->isRunning = false;

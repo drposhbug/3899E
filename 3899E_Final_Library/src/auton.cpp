@@ -31,26 +31,19 @@ using namespace vex; // Use the VEX namespace
     //(targetDistance, breakDistance, targetHeading, minSpeed, Kp, Ki, Kd, 
     // accelHeadingScaling, decelHeadingScaling,approachHeadingScaling, maxSpeed
     
-    /*/frontHoodPneumatics.set(true);
-    backHoodPneumatics.set(true);
-    matchLoadPneumatics.set(true);
-    intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt); //forward is outtake reverse is intake
-    intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
-    wait(500, msec);
-    frontHoodPneumatics.set(false
-    backHoodPneumatics.set(false);
-    matchLoadPneumatics.set(false);*/
-    
 
 
     //george this is your stuff
     forwardMP(63, 38, 180, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
     leftMP(90,60,8);
     forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
+    intake();//skibidiajuus
     wait(1000, msec);
     backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
     leftMP(180,134,15);
     forwardMP(26, 18, 0, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
+    score();
+    
 
 
 

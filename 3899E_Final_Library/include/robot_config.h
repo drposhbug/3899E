@@ -6,8 +6,6 @@
 // Declare external instances of brain, controller, and motors
 extern vex::brain Brain;
 extern vex::controller Controller;
-extern vex::motor armMotor1;
-extern vex::motor armMotor2;
 
 // Declare arrays for the left and right motors
 extern vex::motor LeftMotor1;
@@ -25,10 +23,10 @@ extern vex::motor intakeMotor2;
 extern vex::pneumatics frontHoodPneumatics;
 extern vex::pneumatics backHoodPneumatics;
 extern vex::pneumatics matchLoadPneumatics;
-extern vex::pneumatics hopperGatePneumatics;
+extern vex::pneumatics ptoPneumatics;
 // Declare Sensors
 extern vex::inertial InertialSensor;
-extern vex::aivision visionSensor;
+//extern vex::aivision visionSensor;
 extern vex::aivision::colordesc red1;  // Declare the red descriptor
 extern vex::rotation passiveEncoderLeft; // Declare the passive encoder sensor
 extern vex::rotation passiveEncoderRight; // Declare the passive encoder sensor
