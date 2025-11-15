@@ -1,88 +1,104 @@
 #ifndef ROBOT_CONFIG_H
 #define ROBOT_CONFIG_H
 
-#include "vex.h" // Include the VEX library
+#include "vex.h"
 
-// Declare external instances of brain, controller, and motors
+// ========================================
+// CORE SYSTEM COMPONENTS
+// ========================================
+
+// Brain and controller instances
 extern vex::brain Brain;
 extern vex::controller Controller;
 
-// Declare arrays for the left and right motors
+// ========================================
+// DRIVE MOTORS (6-Motor Tank Drive)
+// ========================================
+
+// Individual drive motors
 extern vex::motor LeftMotor1;
 extern vex::motor LeftMotor2;
 extern vex::motor LeftMotor3;
 extern vex::motor RightMotor1;
 extern vex::motor RightMotor2;
 extern vex::motor RightMotor3;
+
+// Motor arrays for easy iteration
 extern vex::motor leftMotor[3];
 extern vex::motor rightMotor[3];
-// Declare motors as extern so they can be accessed globally
+
+// ========================================
+// INTAKE SYSTEM
+// ========================================
+
 extern vex::motor intakeMotor1;
 extern vex::motor intakeMotor2;
-// Declare Pneumatics;
+
+// ========================================
+// PNEUMATICS SYSTEM
+// ========================================
+
 extern vex::pneumatics frontHoodPneumatics;
 extern vex::pneumatics backHoodPneumatics;
 extern vex::pneumatics matchLoadPneumatics;
 extern vex::pneumatics ptoPneumatics;
-// Declare Sensors
+
+// ========================================
+// SENSORS
+// ========================================
+
 extern vex::inertial InertialSensor;
-//extern vex::aivision visionSensor;
-extern vex::aivision::colordesc red1;  // Declare the red descriptor
-extern vex::rotation passiveEncoderLeft; // Declare the passive encoder sensor
-extern vex::rotation passiveEncoderRight; // Declare the passive encoder sensor
-extern vex::rotation passiveEncoderX; // Declare the passive encoder sensor
+extern vex::rotation passiveEncoderLeft;
+extern vex::rotation passiveEncoderRight;
+extern vex::rotation passiveEncoderX;
 extern vex::optical opticalSensor;
 extern vex::bumper autonBumper;
 
-//Declare Global Variable
-extern double targetDriverSpeedLeft;
-extern double targetDriverSpeedRight;
-extern bool isAcceleratingLeft[3];
-extern bool isAcceleratingRight[3];
-// Separate Motor Arrays
-extern vex::motor leftMotors[3];
-extern vex::motor rightMotors[3];
-extern const double numberDriveMotor; 
-extern const double accelerationFactor;
+// Vision system
+extern vex::aivision::colordesc red1;
+extern vex::aivision visionSensor;
+
+// ========================================
+// ROBOT CONFIGURATION CONSTANTS
+// ========================================
+
+// Drive system specifications
+extern const double numberDriveMotor;
 extern const double absoluteMaxRPM;
 extern const double absoluteMaxVoltage;
 extern const double gearRatio;
-extern const double minLaunchPower;
-extern double headingOffset;
 extern const double DRIVE_MOTOR_RPM_ADJ;
-extern const double ENCODER_RADIUS_RATIO;
-extern const double TRACK_WIDTH;
-extern const double ENCODER_OFFSET_X;  
-extern const double LEFT_ENCODER_OFFSET_Y;  
-extern const double RIGHT_ENCODER_OFFSET_Y;
 
-//Declare Constants
+// Physical dimensions (in cm)
+extern const double TRACK_WIDTH;
 extern const double wheelCircumferenceCM;
 extern const double encoderWheelCircumferenceCM;
-extern const double VOLTAGE_TOLERANCE;
+extern const double ENCODER_RADIUS_RATIO;
 
-//original
+// Control parameters
+extern const double VOLTAGE_TOLERANCE;
+extern double headingOffset;
+
+// ========================================
+// ARM POSITION DEFINITIONS
+// ========================================
+
 enum ArmPosition {
-    Starting = 0,     // Position 0
-    Load1 = 83,  //85 original
+    Starting = 0,
+    Load1 = 83,
     Load2 = 128,
-    Hover = 580, // hover above side stake 
-    Side = 700,   // Position -770 (Y button)
-    Alliance = 550, // Position -550 (Right button)
+    Hover = 580,
+    Side = 700,
+    Alliance = 550,
     ScoringSide = 514,
-    ScoringAlliance =334, 
+    ScoringAlliance = 334,
     Descore = 437
 };
 
+// ========================================
+// INITIALIZATION FUNCTION
+// ========================================
 
-// Declare a variable to keep track of the arm's current position
-extern ArmPosition armstat;
-
-
-// Function to initialize the robot configuration
 void vexcodeInit(void);
 
-#endif
-
-
-
+#endif // ROBOT_CONFIG_H

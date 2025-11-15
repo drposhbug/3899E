@@ -1,14 +1,14 @@
+// ============================================================================
+// UTILS.H - Utility Functions and Helper Classes
+// ============================================================================
 #ifndef UTILS_H 
 #define UTILS_H
 
 #include "vex.h"
 #include "robot_config.h"
 
-// Heading functions
-double getRotation();
-double getAdjustedRotation();
+// ======================== MOTOR SPEED & DETECTION ===========================
 
-// Motor/Speed detection
 bool isSlipping(double motorSpeed, double encoderSpeed);
 bool isLocking(double motorSpeed, double encoderSpeed);
 bool isAccelerating(double targetDriverSpeed, double currentSpeed);
@@ -18,13 +18,14 @@ double calculateSlipRatio(double wheelSpeed, double robotSpeed);
 float rollingAverage(float newValue, float currentAverage, int n);
 void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage);
 
-// Color detection
+// ======================== COLOR DETECTION ===================================
+
 bool detectColor();
 void resetColorDetection();
 void initializeOpticalSensor();
-void ringEjection();
 
-// Motor control structs and functions
+// ======================== MOTOR CONTROL TASKS ===============================
+
 struct MotorControlParams {
     vex::motor* targetMotor;
     int DelayStart;
@@ -35,65 +36,60 @@ struct MotorControlParams {
 void MotorControl(vex::motor& targetMotor, int DelayStart, int OnTime, vex::directionType dir);
 int MotorControlThread(void* params);
 
-// Arm control
-struct ArmTaskParams {
-    bool isRunning;
-    int targetPosition;
-    int delayMs;
-    bool moveRequested;
-};
-int armTask(void* params);
+// ======================== COLOR DETECTION TASK ==============================
 
-// Color detection tasks
 enum class Color { RED, BLUE };
+
 struct ColorTaskParams {
     bool isRunning;
     Color targetColor;
     int delayMs;
 };
+
 int colorDetectionTask(void* params);
-void waitForButtonPress();
 
-// Struct for Arm Reset Task Parameters
-struct ArmResetTaskParams {
-    bool isRunning;
-    bool isResetComplete;
-};
+// ======================== INTAKE STALL DETECTION ============================
 
-// Function declaration
-int armResetTask(void *params);
-
-// Structure for intake stall detection
 struct IntakeStallTaskParams {
-    bool isRunning;         // Flag to control task execution
-    double stallThreshold;  // Velocity threshold for stall detection (in percent)
-    int reverseRotation;    // How much to reverse the intake in degrees
-    int reverseSpeed;       // Speed to use when reversing (in percent)
+    bool isRunning;
+    double stallThreshold;
+    int reverseRotation;
+    int reverseSpeed;
 };
 
-// Task function for monitoring intake stalls
-int intakeStallTask(void *params);
-
-// Function to start monitoring intake for stalls
-void startIntakeStallDetection();
-
-// Global task parameters
 extern IntakeStallTaskParams intakeStallParams;
 
-void waitForButton();
+int intakeStallTask(void* params);
+void startIntakeStallDetection();
 
+// ======================== WAIT UTILITIES ====================================
 
-// Enhanced arm task parameters
-struct SimpleArmTaskParams {
-    bool isRunning;          // Flag to control task execution
-    ArmPosition position;    // Target position enum
-    int adjustment;          // Adjustment value to add/subtract from position
-    int delayMs;             // Delay before moving to position
-    bool isComplete;         // Flag to indicate if the task has completed
+void waitForButtonPress();  // Wait for controller R1 button
+void waitForButton();        // Wait for auton bumper button
+
+// ======================== TRACTION CONTROL ==================================
+
+class tractionControl {
+public:
+    tractionControl(double minSpeedVoltage, double maxSpeedVoltage, double slipThreshold);
+    double tractionControlSpeed(double tractionMotorVoltage, double motorSpeed, 
+                               double robotSpeed, double accelFactor);
+
+private:
+    double minSpeedVoltage;
+    double maxSpeedVoltage;
+    double slipThreshold;
 };
 
-// Function declarations
-int simpleArmTask(void *params);
-void moveArm(ArmPosition position, int adjustment = 0, int delayMs = 0);
+// ======================== ABS BRAKING =======================================
+
+class ABSController {
+public:
+    ABSController(double lockThreshold);
+    vex::brakeType ABSSpeedReduction(double wheelSpeed, double robotSpeed);
+
+private:
+    double ABSLockThreshold;
+};
 
 #endif // UTILS_H
