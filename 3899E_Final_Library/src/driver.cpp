@@ -315,11 +315,11 @@ void driverControl()
 
         // ==================== CONTROLLER DISPLAY - RPM MONITORING ====================
         // Display intake motor RPMs on controller screen
-        Controller.Screen.clearScreen();
-        Controller.Screen.setCursor(1, 1);
-        Controller.Screen.print("Intake1: %.0f RPM", intakeMotor1.velocity(velocityUnits::rpm));
-        Controller.Screen.setCursor(2, 1);
-        Controller.Screen.print("Intake2: %.0f RPM", intakeMotor2.velocity(velocityUnits::rpm));
+        //Controller.Screen.clearScreen();
+        //Controller.Screen.setCursor(1, 1);
+        //Controller.Screen.print("Intake1: %.0f RPM", intakeMotor1.velocity(velocityUnits::rpm));
+        //Controller.Screen.setCursor(2, 1);
+        //Controller.Screen.print("Intake2: %.0f RPM", intakeMotor2.velocity(velocityUnits::rpm));
 
         // Loop delay (20ms = 50Hz update rate)
         task::sleep(20);
