@@ -5,6 +5,7 @@
 //void driveForDistance(double distanceCm, double heading); 
 //void driveForDistancePID(double distanceCm, double heading); 
 
-void autonTest();
+void autonLeft();
+void autonRight();
 
 #endif // AUTON_H

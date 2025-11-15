@@ -1228,3 +1228,27 @@ void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, doub
     
     pivotTurnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
 }
+
+void intake() //skibidi intake
+{
+    frontHoodPneumatics.set(false); //close front hood and open back hood
+    backHoodPneumatics.set(true);
+    for (int i = 0; i < 3; i++)
+    {
+        intakeMotor1.spin(forward, 12.0, voltageUnits::volt);
+        intakeMotor2.spin(forward, 12.0, voltageUnits::volt);
+    }
+    backHoodPneumatics.set(false); //close back hood after intake
+}
+
+void score() //skibidi score
+{
+    frontHoodPneumatics.set(true); //open front hood and close back hood
+    backHoodPneumatics.set(false);
+    for (int i = 0; i < 3; i++)
+    {
+        intakeMotor1.spin(forward, 12.0, voltageUnits::volt);
+        intakeMotor2.spin(forward, 12.0, voltageUnits::volt);
+    }
+    frontHoodPneumatics.set(false); //close front hood after scoring
+}

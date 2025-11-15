@@ -150,4 +150,7 @@ void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, doubl
 
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
+void intake(); //skibidi intake
+void score();  //skibidi score
+
 #endif // PID_TASKS_H;
