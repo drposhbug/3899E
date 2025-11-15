@@ -17,7 +17,8 @@ void runAuton(void) {
   //Reset Arm
   
    // Call the autonomous routine     
-   autonTest(); 
+   autonLeft(); 
+   //autonRight();
    //doubleDoinkerBlue();
    //skills();
    // calibration();
