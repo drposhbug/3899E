@@ -57,8 +57,8 @@ void driverControl()
     int maxSpeed = 100;
 
     // Initialize pneumatics to default intake position
-    frontHoodPneumatics.set(false);      // Front hood closed
-    backHoodPneumatics.set(true);       // Back hood open
+    frontHoodPneumatics.set(true);      // Front hood closed
+    backHoodPneumatics.set(false);       // Back hood open
     ptoPneumatics.set(true);
 
     while (true)
@@ -136,6 +136,7 @@ void driverControl()
             // Only set pneumatics ONCE when button is first pressed (not every frame)
             if (!wasR1Pressed)
             {
+                ptoPneumatics.set(true);
                 frontHoodPneumatics.set(true);     // Close front hood for intake
                 backHoodPneumatics.set(false);    // Open back hood for intake
                 wasR1Pressed = true;               // Mark that we've handled the press
@@ -146,11 +147,14 @@ void driverControl()
             intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
             intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
             }
-            // ==================== BUTTON RIGHT: REVERSE INTAKE ====================
+            // ==================== BUTTON R2: REVERSE INTAKE ====================
             // Eject cubes without changing hood position  
             else if (Controller.ButtonRight.pressing())
             {
                 // Run motors in reverse ONLY while button is held - no pneumatic changes
+                ptoPneumatics.set(true);
+                frontHoodPneumatics.set(true);     // Close front hood for intake
+                backHoodPneumatics.set(false);    // Open back hood for intake
                 spinForInProgress = false;
                 intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
                 intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
@@ -172,7 +176,7 @@ void driverControl()
                     wasR1Pressed = false;
                 }
             }
-
+/*
         // ==================== BUTTON R2: CHAMBER INTAKE ====================
         // Close both hoods to trap cubes in launch chamber
         if (Controller.ButtonR2.pressing())
@@ -197,21 +201,23 @@ void driverControl()
                 wasR2Pressed = false;
             }
         }
-
+*/
         // ==================== BUTTON L1: SCORING ====================
         // Open both hoods, run intake to score, retract on release
         if (Controller.ButtonL1.pressing())
         {
             if (!wasL1Pressed)
             {
-                frontHoodPneumatics.set(true);      // Open front hood
+                frontHoodPneumatics.set(false);      // Open front hood
                 backHoodPneumatics.set(true);      // Open back hood
+                ptoPneumatics.set(false);
                 wasL1Pressed = true;
+
             }
             
             spinForInProgress = false;
-            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
         }
         else
         {
@@ -235,20 +241,20 @@ void driverControl()
             {
                 isMatchLoadPneumaticsActive = !isMatchLoadPneumaticsActive;
                 matchLoadPneumatics.set(isMatchLoadPneumaticsActive);
-                
+                                
                 if (isMatchLoadPneumaticsActive)
                 {
                     // Pneumatic extended - start intake
-                    intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
-                    intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+                    //intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
+                    //intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
                 }
                 else
                 {
                     // Pneumatic retracted - stop intake
-                    intakeMotor1.stop();
-                    intakeMotor2.stop();
-                    intakeDirection = 0;
-                    intakeRunning = false;
+                    //intakeMotor1.stop();
+                    //intakeMotor2.stop();
+                    //intakeDirection = 0;
+                    //intakeRunning = false;
                 }
                 
                 wasL2Pressed = true;
