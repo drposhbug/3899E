@@ -59,7 +59,7 @@ void driverControl()
     // Initialize pneumatics to default intake position
     frontHoodPneumatics.set(true);      // Front hood closed
     backHoodPneumatics.set(false);       // Back hood open
-    ptoPneumatics.set(true);
+    ptoPneumatics.set(false);
 
     while (true)
     {
@@ -136,7 +136,7 @@ void driverControl()
             // Only set pneumatics ONCE when button is first pressed (not every frame)
             if (!wasR1Pressed)
             {
-                ptoPneumatics.set(true);
+                ptoPneumatics.set(false);
                 frontHoodPneumatics.set(true);     // Close front hood for intake
                 backHoodPneumatics.set(false);    // Open back hood for intake
                 wasR1Pressed = true;               // Mark that we've handled the press
@@ -210,7 +210,7 @@ void driverControl()
             {
                 frontHoodPneumatics.set(false);      // Open front hood
                 backHoodPneumatics.set(true);      // Open back hood
-                ptoPneumatics.set(false);
+                ptoPneumatics.set(true);
                 wasL1Pressed = true;
 
             }
@@ -265,8 +265,8 @@ void driverControl()
             wasL2Pressed = false;
         }
 
-        // ==================== BUTTON X : JUSTIN YUEH SPECIAL BUTTON ====================
-        // all in
+        /*// ==================== BUTTON X : JUSTIN YUEH SPECIAL BUTTON ====================
+        //all in
         if (Controller.ButtonX.pressing())
         {
             if (!wasXPressed)
@@ -301,7 +301,7 @@ void driverControl()
                 rightMotor[2].stop();
                 wasXPressed = false;
             }
-        }
+        }*/
 
         // Check if timed motor movements (spinFor) are complete
         if (spinForInProgress && !intakeMotor1.isSpinning() && !intakeMotor2.isSpinning())

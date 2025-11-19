@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iterator>
 #include <cstring> // Include the cstring library for strcmp
+#include <atomic>
 #include "odometry.h"
 
 #ifndef M_PI
@@ -1206,7 +1207,6 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
     }
 }
 
-
 //Turn left to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
 void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
     // Get current rotation
@@ -1227,4 +1227,140 @@ void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, doub
     double targetRotation = currentHeading - turnAmount;
     
     pivotTurnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
+}
+
+//intake only
+void intake(double time, bool pistonState) //time in milliseconds, true for pistons, false for no pistons
+{
+    vex::timer intakeTime;
+    intakeTime.reset();
+
+    if (pistonState == true){
+        frontHoodPneumatics.set(true); //close front hood and open back hood
+        backHoodPneumatics.set(false);
+    }
+    else {
+        frontHoodPneumatics.set(false); //no pistons
+        backHoodPneumatics.set(false);
+    }
+
+    while (intakeTime.time(timeUnits::msec) < time){
+        intakeMotor1.spin(reverse, 12.0, voltageUnits::volt);
+        intakeMotor2.spin(reverse, 12.0, voltageUnits::volt);
+        vex::task::sleep(10);
+    }
+    backHoodPneumatics.set(false); //close back hood after intake
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+}
+
+void stopIntake(){
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+}
+
+//asynchronous intake
+static std::atomic<bool> g_intakeTaskRunning(false);
+static double g_intakeTimeMs = 0;
+static bool g_intakePistonState = false;
+static vex::task g_intakeTaskHandle; //will hold the spawned task
+
+int intakeTaskEntry(void*) {
+    g_intakeTaskRunning.store(true);
+
+    //set pistons once at start
+    if (g_intakePistonState) {
+        frontHoodPneumatics.set(true);
+        backHoodPneumatics.set(false);
+    } else {
+        frontHoodPneumatics.set(false);
+        backHoodPneumatics.set(false);
+    }
+
+    vex::timer t;
+    t.reset();
+    while (g_intakeTaskRunning.load() && t.time(timeUnits::msec) < g_intakeTimeMs) {
+        intakeMotor1.spin(reverse, 12.0, voltageUnits::volt);
+        intakeMotor2.spin(reverse, 12.0, voltageUnits::volt);
+        vex::task::sleep(10);
+    }
+
+    //cleanup
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+    backHoodPneumatics.set(false);
+    g_intakeTaskRunning.store(false);
+    return 0;
+}
+
+//start intake asynchronously
+void intakeStart(double timeMs, bool pistonState) {
+    // if already running, stop previous then start new
+    if (g_intakeTaskRunning.load()) {
+        g_intakeTaskRunning.store(false);
+        vex::task::sleep(20);
+    }
+    g_intakeTimeMs = timeMs;
+    g_intakePistonState = pistonState;
+    g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
+}
+
+//stop the async intake task early
+void intakeStop() {
+    g_intakeTaskRunning.store(false);
+    vex::task::sleep(20); // allow task to clean up
+}
+
+void score(double time) //skibidi score
+{
+    double motorSpeed = 12.0;
+    vex::timer scoringTime;
+    scoringTime.reset();
+
+    frontHoodPneumatics.set(false); //open front hood and close back hood
+    backHoodPneumatics.set(true);
+    ptoPneumatics.set(true); //engage pto for scoring
+
+    while (scoringTime.time(timeUnits::msec) < time)
+    {
+        intakeMotor1.spin(reverse, motorSpeed, voltageUnits::volt);
+        intakeMotor2.spin(reverse, motorSpeed, voltageUnits::volt);
+        motorSpeed -= time * 0.006;
+        vex::task::sleep(10);
+    }
+    backHoodPneumatics.set(false); //close back hood after scoring
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+    ptoPneumatics.set(false); //disengage pto after scoring
+}
+
+void stopScore(){
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+}
+
+void outtake(double time) //skibidi outtake
+{
+    vex::timer outtakeTime;
+    outtakeTime.reset();
+
+        ptoPneumatics.set(true); //engage pto for outtake
+    frontHoodPneumatics.set(true); //open front hood for outtake
+    backHoodPneumatics.set(false); //close back hood for outtake
+
+    while (outtakeTime.time(timeUnits::msec) < time)
+    {
+        intakeMotor1.spin(forward, 12.0, voltageUnits::volt);
+        intakeMotor2.spin(forward, 12.0, voltageUnits::volt);
+        vex::task::sleep(10);
+    }
+    frontHoodPneumatics.set(false); //close back hood after outtake
+    ptoPneumatics.set(false); //disengage pto after outtake
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+}
+
+void stopOuttake(){
+    intakeMotor1.stop();
+    intakeMotor2.stop();
 }

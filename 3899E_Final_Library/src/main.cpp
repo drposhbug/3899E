@@ -9,16 +9,18 @@
 
 using namespace vex;
 
-competition Competition;
+vex::competition Competition;
 
 void runAuton(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Autonomous Mode...");
   //Reset Arm
   
-   // Call the autonomous routine     
+   //autonTest();    
    //autonLeft(); 
    //autonRight();
+  //autonFwdRight();
+  autonFwdLeft();
    //doubleDoinkerBlue();
    //skills();
    // calibration();

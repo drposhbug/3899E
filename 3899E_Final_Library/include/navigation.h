@@ -150,4 +150,13 @@ void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, doubl
 
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
+void intake(double time, bool pistonState);
+void intakeStart(double timeMs, bool pistonState);
+void intakeStop();
+void score(double time);
+void stopScore();
+void stopIntake();
+void outtake(double time);
+void stopOuttake();
+
 #endif // PID_TASKS_H;

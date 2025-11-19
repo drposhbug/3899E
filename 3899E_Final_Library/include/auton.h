@@ -7,5 +7,9 @@
 
 void autonLeft();
 void autonRight();
+void autonTest();
+void autonFwdRight();
+void autonFwdLeft();
+
 
 #endif // AUTON_H

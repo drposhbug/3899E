@@ -19,9 +19,9 @@ vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
 vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
 vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
 // Define Sensors
-vex::inertial InertialSensor = vex::inertial(vex::PORT6);
-vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT13, true);  // Initialize the encoder on PORT10
-vex::rotation passiveEncoderRight = vex::rotation(vex::PORT18, true); // Initialize the encoder on PORT10
+vex::inertial InertialSensor = vex::inertial(vex::PORT18);
+vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT9, true);  // Initialize the encoder on PORT10
+vex::rotation passiveEncoderRight = vex::rotation(vex::PORT17, true); // Initialize the encoder on PORT10
 vex::rotation passiveEncoderX = vex::rotation(vex::PORT5, true);     // Initialize the encoder on PORT10
 vex::optical opticalSensor = vex::optical(vex::PORT12);
 vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.A);
@@ -81,6 +81,8 @@ void vexcodeInit(void)
     }
     InertialSensor.resetHeading(); // Reset heading to 0
     Brain.Screen.printAt(10, 40, "Calibration Complete");
+    wait(500, vex::msec);
+    Brain.Screen.clearScreen();
 
     // Reset motor positions
     resetMotorPositions();
