@@ -15,7 +15,7 @@ using namespace vex; // Use the VEX namespace
 */                    
 
 //turnOdometry(turnAmount, breakDistance, minSpeed, maxSpeed)
-   void autonTest()
+   void autonLeft()
 {
     initializeOpticalSensor();
 
@@ -31,19 +31,30 @@ using namespace vex; // Use the VEX namespace
     //(targetDistance, breakDistance, targetHeading, minSpeed, Kp, Ki, Kd, 
     // accelHeadingScaling, decelHeadingScaling,approachHeadingScaling, maxSpeed
     
-
-
-    //george this is your stuff
-    forwardMP(63, 38, 180, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
-    leftMP(90,60,8);
-    forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
-    intake();//skibidiajuus
-    wait(1000, msec);
-    backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
-    leftMP(180,134,15);
-    forwardMP(26, 18, 0, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
-    score();
+    /*/frontHoodPneumatics.set(true);
+    backHoodPneumatics.set(true);
+    matchLoadPneumatics.set(true);
+    intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt); //forward is outtake reverse is intake
+    intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+    wait(500, msec);
+    frontHoodPneumatics.set(false
+    backHoodPneumatics.set(false);
+    matchLoadPneumatics.set(false);*/
     
+
+
+    //george this is MY stuffnegnagaffgafgniafa
+    forwardMP(79, 38, 180, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
+    wait(200, msec);
+    leftMP(90,60,12.5);
+    wait(200, msec);
+    forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
+    wait(200, msec);
+    backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
+    wait(200, msec);
+    leftMP(175,125,20);
+    wait(200, msec);
+    forwardMP(35, 18, 0, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
 
 
 
@@ -71,6 +82,30 @@ using namespace vex; // Use the VEX namespace
     */
 
     //wait(10000, msec);  // Wait to test resistance
+}
+
+void autonRight(){
+    initializeOpticalSensor();
+
+    InertialSensor.setRotation(0, degrees);
+ 
+    headingOffset = 0;
+    
+    forwardMP(80, 38, 0, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
+    wait(200, msec);
+    rightMP(90,65,12.5);
+    wait(200, msec);
+    forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
+    wait(200, msec);
+    backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
+    wait(200, msec);
+    rightMP(78,50,20);
+    wait(200, msec);
+    backwardMP(3, 3, 90, 10, 0, 0.00, 0.00, 0., 0, 0, 20);
+    wait(200, msec);
+    rightMP(78,50,20);
+    wait(200, msec);
+    forwardMP(37, 18, 270, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
 }
 
 

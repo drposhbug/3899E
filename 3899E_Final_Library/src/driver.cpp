@@ -57,8 +57,8 @@ void driverControl()
     int maxSpeed = 100;
 
     // Initialize pneumatics to default intake position
-    frontHoodPneumatics.set(false);      // Front hood closed
-    backHoodPneumatics.set(true);       // Back hood open
+    frontHoodPneumatics.set(true);      // Front hood closed
+    backHoodPneumatics.set(false);       // Back hood open
     ptoPneumatics.set(true);
 
     while (true)
@@ -136,42 +136,34 @@ void driverControl()
             // Only set pneumatics ONCE when button is first pressed (not every frame)
             if (!wasR1Pressed)
             {
-                frontHoodPneumatics.set(true);     // Close front hood for intake
-                backHoodPneumatics.set(false);    // Open back hood for intake
-                wasR1Pressed = true;               // Mark that we've handled the press
+                frontHoodPneumatics.set(false);     // Close front hood
+                backHoodPneumatics.set(true);      // Open back hood
+                wasR1Pressed = true;
             }
             
-            // Run intake motors continuously ONLY while button is held
-            spinForInProgress = false;  // Cancel any timed motor movements
+            spinForInProgress = false;
+            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+        }
+        // ==================== BUTTON RIGHT: REVERSE INTAKE ====================
+        // Eject cubes without changing hood position
+        else if (Controller.ButtonRight.pressing())
+        {
+            spinForInProgress = false;
             intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
             intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
-            }
-            // ==================== BUTTON RIGHT: REVERSE INTAKE ====================
-            // Eject cubes without changing hood position  
-            else if (Controller.ButtonRight.pressing())
+        }
+        // Stop intake motors when no intake buttons pressed (and no other intake active)
+        else
+        {
+            if ((wasR1Pressed || !spinForInProgress) && !Controller.ButtonR2.pressing() && 
+                !Controller.ButtonL2.pressing() && !Controller.ButtonL1.pressing())
             {
-                // Run motors in reverse ONLY while button is held - no pneumatic changes
-                spinForInProgress = false;
-                intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-                intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+                intakeMotor1.stop();
+                intakeMotor2.stop();
             }
-            // When neither R1 nor Right button pressed
-            else
-            {
-                // Stop motors when no intake buttons are active
-                if ((wasR1Pressed || !spinForInProgress) && !Controller.ButtonR2.pressing() && 
-                    !Controller.ButtonL2.pressing() && !Controller.ButtonL1.pressing())
-                {
-                    intakeMotor1.stop();
-                    intakeMotor2.stop();
-                }
-                
-                // FIXED: Only reset R1 flag when R1 is actually released
-                if (!Controller.ButtonR1.pressing())
-                {
-                    wasR1Pressed = false;
-                }
-            }
+            wasR1Pressed = false;
+        }
 
         // ==================== BUTTON R2: CHAMBER INTAKE ====================
         // Close both hoods to trap cubes in launch chamber
@@ -197,21 +189,23 @@ void driverControl()
                 wasR2Pressed = false;
             }
         }
-
+*/
         // ==================== BUTTON L1: SCORING ====================
         // Open both hoods, run intake to score, retract on release
         if (Controller.ButtonL1.pressing())
         {
             if (!wasL1Pressed)
             {
-                frontHoodPneumatics.set(true);      // Open front hood
+                frontHoodPneumatics.set(false);      // Open front hood
                 backHoodPneumatics.set(true);      // Open back hood
+                ptoPneumatics.set(false);
                 wasL1Pressed = true;
+
             }
             
             spinForInProgress = false;
-            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
         }
         else
         {
@@ -235,20 +229,20 @@ void driverControl()
             {
                 isMatchLoadPneumaticsActive = !isMatchLoadPneumaticsActive;
                 matchLoadPneumatics.set(isMatchLoadPneumaticsActive);
-                
+                                
                 if (isMatchLoadPneumaticsActive)
                 {
                     // Pneumatic extended - start intake
-                    intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
-                    intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+                    //intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
+                    //intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
                 }
                 else
                 {
                     // Pneumatic retracted - stop intake
-                    intakeMotor1.stop();
-                    intakeMotor2.stop();
-                    intakeDirection = 0;
-                    intakeRunning = false;
+                    //intakeMotor1.stop();
+                    //intakeMotor2.stop();
+                    //intakeDirection = 0;
+                    //intakeRunning = false;
                 }
                 
                 wasL2Pressed = true;
@@ -312,14 +306,6 @@ void driverControl()
 
         LeftMotor3.spin(forward, motorPowerLeft[2], percent);
         RightMotor3.spin(forward, motorPowerRight[2], percent);
-
-        // ==================== CONTROLLER DISPLAY - RPM MONITORING ====================
-        // Display intake motor RPMs on controller screen
-        Controller.Screen.clearScreen();
-        Controller.Screen.setCursor(1, 1);
-        Controller.Screen.print("Intake1: %.0f RPM", intakeMotor1.velocity(velocityUnits::rpm));
-        Controller.Screen.setCursor(2, 1);
-        Controller.Screen.print("Intake2: %.0f RPM", intakeMotor2.velocity(velocityUnits::rpm));
 
         // Loop delay (20ms = 50Hz update rate)
         task::sleep(20);
