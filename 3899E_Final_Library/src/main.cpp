@@ -20,7 +20,9 @@ void runAuton(void) {
    //autonLeft(); 
    //autonRight();
   //autonFwdRight();
-  autonFwdLeft();
+  //autonFwdLeft();
+  SpeedwayAutonLeft();
+  //SpeedwayAutonRight();
    //doubleDoinkerBlue();
    //skills();
    // calibration();

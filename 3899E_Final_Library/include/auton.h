@@ -10,6 +10,8 @@ void autonRight();
 void autonTest();
 void autonFwdRight();
 void autonFwdLeft();
+void SpeedwayAutonLeft();
+void SpeedwayAutonRight();
 
 
 #endif // AUTON_H

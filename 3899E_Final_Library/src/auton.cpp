@@ -14,6 +14,8 @@ using namespace vex; // Use the VEX namespace
                     approachHeadingScaling, maxSpeed);
 */                    
 
+
+
 //turnOdometry(turnAmount, breakDistance, minSpeed, maxSpeed)
    void autonLeft()
 {
@@ -126,7 +128,7 @@ void autonFwdRight(){
     ptoPneumatics.set(false);
 
     intakeStart(3000, true);  //runs intake for 3 seconds with pistons
-    forwardMP(45, 25, 0, 20, 0.70, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
+    forwardMP(45, 25, 0, 20, 0.70, 0.0, 0.0, 0.0, 0.55, 0, 80);
     matchLoadPneumatics.set(false);
     wait(200, msec);
     leftMP(80,40,12.5);
@@ -157,12 +159,35 @@ void autonFwdLeft(){
 void SpeedwayAutonLeft(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 180;
+    headingOffset = 0;
     ptoPneumatics.set(false);
 
-    forwardMP(150,60,180,30,0.5,0,0,0,0.55,0.3,100);
-}
+    leftMP(13,10,10,50);
+    wait(400, msec);
+    forwardMP(50,30,-13,20);
+    wait(400, msec);
+    leftMP(105,82,20);
+    wait(400, msec);
+    forwardMP(76, 49, -124.5, 20);
+    wait(200, msec);
+    leftMP(54.5,45,15);
+    wait(200, msec);
+    //intake(2000,true);
+    forwardMP(25
+        ,15,-180,20);
+    wait(200, msec);
+    backwardMP(20,15,-180,15);
+    //wait(200, msec);
+    //leftMP(180,150,20);
+    //forwardMP(35,18,90,15,0.815,0.0,0.0,0.0,0.55,0.3,80);
+    //score(1000);
+    double currentHeading = InertialSensor.rotation(vex::degrees);
+Controller.Screen.print("Heading: %.2f", currentHeading);
+    
+    //intake(miliseconds, true/false for on/off pistons)
+        //outtake and scoring are just how many ms
 
+}
 
 void SpeedwayAutonRight(){
     initializeOpticalSensor();

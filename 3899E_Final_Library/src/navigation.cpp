@@ -845,6 +845,7 @@ void backwardMP(double targetDistance,
 
 //Turn left to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
 void leftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
+
     // Get current rotation
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     
@@ -852,6 +853,7 @@ void leftMP(double turnAmount, double breakDistance, double minSpeed, double max
     double targetRotation = currentHeading - turnAmount;
     
     turnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
+   
 }
 
 //Turn right to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
@@ -863,6 +865,7 @@ void rightMP(double turnAmount, double breakDistance, double minSpeed, double ma
     double targetRotation = currentHeading + turnAmount;
     
     turnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
+
 }
 
 
@@ -1296,7 +1299,7 @@ int intakeTaskEntry(void*) {
 //start intake asynchronously
 void intakeStart(double timeMs, bool pistonState) {
     // if already running, stop previous then start new
-    if (g_intakeTaskRunning.load()) {
+    if (g_intakeTaskRunning.load()) {   
         g_intakeTaskRunning.store(false);
         vex::task::sleep(20);
     }
