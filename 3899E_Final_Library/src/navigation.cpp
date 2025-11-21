@@ -1232,8 +1232,19 @@ void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, doub
     pivotTurnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
 }
 
+void intake(bool state) {
+    if (state == true){
+       intakeMotor1.spin(reverse, 12.0, voltageUnits::volt);
+       intakeMotor2.spin(reverse, 12.0, voltageUnits::volt);
+    }
+    else {
+        intakeMotor1.stop();
+        intakeMotor2.stop();
+    }
+}
+
 //intake only
-void intake(double time, bool pistonState) //time in milliseconds, true for pistons, false for no pistons
+void intake2(double time, bool pistonState) //time in milliseconds, true for pistons, false for no pistons
 {
     vex::timer intakeTime;
     intakeTime.reset();
