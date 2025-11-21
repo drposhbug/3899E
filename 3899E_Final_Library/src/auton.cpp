@@ -142,7 +142,7 @@ void autonFwdLeft(){
     headingOffset = 0;
     ptoPneumatics.set(false);
 
-    forwardMP(200,80,0,30,0,0,0,0,0,0,100);
+    forwardMP(5,4,0,20,0,0,0,0,0,0,50);
     /*intake(3000, true);  //runs intake for 3 seconds with pistons
     forwardMP(45, 25, 0, 20, 0.70, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
     matchLoadPneumatics.set(false);

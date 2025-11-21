@@ -20,6 +20,8 @@ void runAuton(void) {
    //autonLeft(); 
    //autonRight();
   //autonFwdRight();
+  frontHoodPneumatics.set(true);
+  frontHoodPneumatics.set(false);    
   autonFwdLeft();
    //doubleDoinkerBlue();
    //skills();

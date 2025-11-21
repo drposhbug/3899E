@@ -5,7 +5,7 @@ vex::brain Brain;
 vex::controller Controller;
 // Define Drive Motors
 vex::motor LeftMotor1 = vex::motor(vex::PORT7, vex::gearSetting::ratio6_1,true);
-vex::motor LeftMotor2 = vex::motor(vex::PORT20, vex::gearSetting::ratio6_1);
+vex::motor LeftMotor2 = vex::motor(vex::PORT19, vex::gearSetting::ratio6_1);
 vex::motor LeftMotor3 = vex::motor(vex::PORT8, vex::gearSetting::ratio6_1, true);
 vex::motor RightMotor1 = vex::motor(vex::PORT1, vex::gearSetting::ratio6_1);  // reversed
 vex::motor RightMotor2 = vex::motor(vex::PORT11, vex::gearSetting::ratio6_1, true);  // reversed
@@ -20,9 +20,9 @@ vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
 vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
 // Define Sensors
 vex::inertial InertialSensor = vex::inertial(vex::PORT18);
-vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT9, true);  // Initialize the encoder on PORT10
+vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT6, true);  // Initialize the encoder on PORT10
 vex::rotation passiveEncoderRight = vex::rotation(vex::PORT17, true); // Initialize the encoder on PORT10
-vex::rotation passiveEncoderX = vex::rotation(vex::PORT5, true);     // Initialize the encoder on PORT10
+//vex::rotation passiveEncoderX = vex::rotation(vex::PORT5, true);     // Initialize the encoder on PORT10
 vex::optical opticalSensor = vex::optical(vex::PORT12);
 vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.A);
 // Global Variables
