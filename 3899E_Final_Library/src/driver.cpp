@@ -265,12 +265,14 @@ void driverControl()
             wasL2Pressed = false;
         }
 
-        /*// ==================== BUTTON X : JUSTIN YUEH SPECIAL BUTTON ====================
+        // ==================== BUTTON X : JUSTIN YUEH SPECIAL BUTTON ====================
         //all in
         if (Controller.ButtonX.pressing())
         {
             if (!wasXPressed)
             {
+                Controller.rumble("-. .. --. --. . .-.");
+                Controller.Screen.print("all in");
                 frontHoodPneumatics.set(true);      // Open front hood
                 backHoodPneumatics.set(true);       // Open back hood
                 matchLoadPneumatics.set(true);      // Open match load pneumatics
@@ -301,7 +303,7 @@ void driverControl()
                 rightMotor[2].stop();
                 wasXPressed = false;
             }
-        }*/
+        }
 
         // Check if timed motor movements (spinFor) are complete
         if (spinForInProgress && !intakeMotor1.isSpinning() && !intakeMotor2.isSpinning())

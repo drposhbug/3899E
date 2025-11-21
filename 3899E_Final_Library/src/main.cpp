@@ -20,9 +20,9 @@ void runAuton(void) {
    //autonLeft(); 
    //autonRight();
   //autonFwdRight();
-  frontHoodPneumatics.set(true);
-  frontHoodPneumatics.set(false);    
-  autonFwdLeft();
+  //autonFwdLeft();
+  SpeedwayAutonLeft();
+  //SpeedwayAutonRight();
    //doubleDoinkerBlue();
    //skills();
    // calibration();

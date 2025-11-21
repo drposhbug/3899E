@@ -845,6 +845,7 @@ void backwardMP(double targetDistance,
 
 //Turn left to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
 void leftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
+
     // Get current rotation
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     
@@ -852,6 +853,7 @@ void leftMP(double turnAmount, double breakDistance, double minSpeed, double max
     double targetRotation = currentHeading - turnAmount;
     
     turnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
+   
 }
 
 //Turn right to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
@@ -863,6 +865,7 @@ void rightMP(double turnAmount, double breakDistance, double minSpeed, double ma
     double targetRotation = currentHeading + turnAmount;
     
     turnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
+
 }
 
 
@@ -1269,6 +1272,12 @@ int intakeTaskEntry(void*) {
     g_intakeTaskRunning.store(true);
 
     //set pistons once at start
+    if bool matchLoad = true {
+        matchLoadPneumatics.set(true);
+    } else {
+        matchLoadPneumatics.set(false);
+    }
+
     if (g_intakePistonState) {
         frontHoodPneumatics.set(true);
         backHoodPneumatics.set(false);
@@ -1289,14 +1298,16 @@ int intakeTaskEntry(void*) {
     intakeMotor1.stop();
     intakeMotor2.stop();
     backHoodPneumatics.set(false);
+    matchLoadPneumatics.set(false);
     g_intakeTaskRunning.store(false);
+
     return 0;
 }
 
 //start intake asynchronously
-void intakeStart(double timeMs, bool pistonState) {
+void intakeStart(double timeMs, bool pistonState, bool matchLoad) {
     // if already running, stop previous then start new
-    if (g_intakeTaskRunning.load()) {
+    if (g_intakeTaskRunning.load()) {   
         g_intakeTaskRunning.store(false);
         vex::task::sleep(20);
     }
@@ -1304,6 +1315,8 @@ void intakeStart(double timeMs, bool pistonState) {
     g_intakePistonState = pistonState;
     g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
 }
+
+
 
 //stop the async intake task early
 void intakeStop() {
