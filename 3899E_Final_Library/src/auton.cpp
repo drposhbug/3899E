@@ -173,8 +173,7 @@ void SpeedwayAutonLeft(){
     leftMP(54.5,45,15);
     wait(200, msec);
     //intake(2000,true);
-    forwardMP(25
-        ,15,-180,20);
+    forwardMP(25,15,-180,20);
     wait(200, msec);
     backwardMP(20,15,-180,15);
     //wait(200, msec);
