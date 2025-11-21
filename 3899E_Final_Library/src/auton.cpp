@@ -43,19 +43,20 @@ using namespace vex; // Use the VEX namespace
     backHoodPneumatics.set(false);
     matchLoadPneumatics.set(false);*/
     
+
+
+    //george this is MY stuffnegnagaffgafgniafa
     forwardMP(79, 38, 180, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
     wait(200, msec);
     leftMP(90,60,12.5);
     wait(200, msec);
     forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
-    intake(1000, true);
     wait(200, msec);
     backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
     wait(200, msec);
     leftMP(175,125,20);
     wait(200, msec);
     forwardMP(35, 18, 0, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
-    score(1000);
 
 
 
@@ -97,7 +98,6 @@ void autonRight(){
     rightMP(90,65,12.5);
     wait(200, msec);
     forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
-    intake(1000, true);
     wait(200, msec);
     backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
     wait(200, msec);
@@ -108,53 +108,8 @@ void autonRight(){
     rightMP(78,50,20);
     wait(200, msec);
     forwardMP(37, 18, 270, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
-    score(1000);
 }
 
-void autonTest(){
-    initializeOpticalSensor();
-    InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
-
-    intake(500, true);  //runs intake for 5 miliseconds with pistons
-    wait(500, msec);
-    score(1000);
-}
-
-void autonFwdRight(){
-    initializeOpticalSensor();
-    InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
-    ptoPneumatics.set(false);
-
-    intakeStart(3000, true);  //runs intake for 3 seconds with pistons
-    forwardMP(45, 25, 0, 20, 0.70, 0.0, 0.0, 0.0, 0.55, 0, 80);
-    matchLoadPneumatics.set(false);
-    wait(200, msec);
-    leftMP(80,40,12.5);
-    wait(200, msec);
-    forwardMP(25, 10, 90, 15, 0.7, 0.0, 0.0, 0.0, 0.55, 0.3, 50);
-    wait(200, msec);
-    outtake(3000); //outtake for 3 seconds
-}
-
-void autonFwdLeft(){
-    initializeOpticalSensor();
-    InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
-    ptoPneumatics.set(false);
-
-    forwardMP(200,80,0,30,0,0,0,0,0,0,100);
-    /*intake(3000, true);  //runs intake for 3 seconds with pistons
-    forwardMP(45, 25, 0, 20, 0.70, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
-    matchLoadPneumatics.set(false);
-    wait(200, msec);
-    rightMP(90,40,12.5);
-    wait(200, msec);
-    forwardMP(20, 10, 90, 15, 0.70, 0.0, 0.0, 0.0, 0.55, 0.3, 50);
-    wait(200, msec);
-    score(4000); //score for 3 seconds*/
-}
 
 void SpeedwayAutonLeft(){
     initializeOpticalSensor();
