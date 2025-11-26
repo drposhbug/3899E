@@ -140,8 +140,15 @@ void driverControl()
                 wasR1Pressed = true;               // Mark that we've handled the press
             }
             
-            // Run intake motors continuously ONLY while button is held
-            spinForInProgress = false;  // Cancel any timed motor movements
+            spinForInProgress = false;
+            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+        }
+        // ==================== BUTTON RIGHT: REVERSE INTAKE ====================
+        // Eject cubes without changing hood position
+        else if (Controller.ButtonRight.pressing())
+        {
+            spinForInProgress = false;
             intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
             intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
         }
@@ -275,13 +282,9 @@ void driverControl()
         {
             if (!wasXPressed)
             {
-                Controller.rumble(".-.-.-");  //
-                Controller.Screen.print("all in");
-                Brain.Screen.print("all in");
                 frontHoodPneumatics.set(true);      // open everything
                 backHoodPneumatics.set(true);       
-                matchLoadPneumatics.set(true);
-                ptoPneumatics.set(true);      
+                matchLoadPneumatics.set(true);      
                 wasXPressed = true;
             }
             
