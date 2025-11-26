@@ -93,7 +93,8 @@ void autonRight(){
  
     headingOffset = 0;
     
-    forwardMP(80, 38, 0, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
+    forwardMP(10, 5, 0, 20);
+    /*forwardMP(80, 38, 0, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
     wait(200, msec);
     rightMP(90,65,12.5);
     wait(200, msec);
@@ -107,7 +108,7 @@ void autonRight(){
     wait(200, msec);
     rightMP(78,50,20);
     wait(200, msec);
-    forwardMP(37, 18, 270, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
+    forwardMP(37, 18, 270, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);*/
 }
 
 
@@ -115,24 +116,64 @@ void SpeedwayAutonLeft(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     headingOffset = 0;
-    ptoPneumatics.set(false);
+    ptoPneumatics.set(true);
+    backHoodPneumatics.set(false);
+    frontHoodPneumatics.set(true);
 
-    leftMP(13,10,10,50);
+    leftMP(16,10,20,50);
     wait(400, msec);
-    intakeStart(2000,false,false);
-    forwardMP(50,30,-13,20);
+    intake(true,100);
+    forwardMP(80,60,-18,20,0.615,0,0,0.1,0.05,0.05,50);
     wait(400, msec);
+    backwardMP(7,4,-20,15);
+    intake(false, 0);
+    rightMP(52,47,20);
+    forwardMP(18,10,29,30,0.5,0,0,0.1,0.05,0.05,100);
+    ptoPneumatics.set(true);
+    backHoodPneumatics.set(true);
+    frontHoodPneumatics.set(false);
+    score(400, 95);
+    score(1000, 65);
+    score(1000, 65);
+    backwardMP(116,67,45,15);
+    rightMP(97,60,20);
+    wait(200, msec);
+    matchLoadPneumatics.set(true);
+    //forwardMP(27,19,180,20);
+    rightMotor[0].spin(forward,12,vex::voltageUnits::volt);
+    rightMotor[1].spin(forward,12,vex::voltageUnits::volt);
+    rightMotor[2].spin(forward,12,vex::voltageUnits::volt);
+    leftMotor[0].spin(forward,12,vex::voltageUnits::volt);
+    leftMotor[1].spin(forward,12,vex::voltageUnits::volt);
+    leftMotor[2].spin(forward,12,vex::voltageUnits::volt);
+    wait(800, msec);
+    rightMotor[0].stop();
+    rightMotor[1].stop();
+    rightMotor[2].stop();
+    leftMotor[0].stop();
+    leftMotor[1].stop();
+    leftMotor[2].stop();
+    intake(true,100);
+    wait(700, msec);
+    intake(false,0);
+    
+
+
+
+    /*
     leftMP(105,82,20);
     wait(400, msec);
     forwardMP(76, 49, -124.5, 20);
     wait(200, msec);
     leftMP(54.5,45,15);
     wait(200, msec);
-    intakeStart(2000,false,true);
+    matchLoadPneumatics.set(true);
+    intake(true);
     forwardMP(25,15,-180,20);   
     wait(200, msec);
+    intake(false);
     backwardMP(20,15,-180,15);
-    //wait(200, msec);
+    wait(200, msec);
     //leftMP(180,150,20);
     //forwardMP(35,18,90,15,0.815,0.0,0.0,0.0,0.55,0.3,80);
     //score(1000);
@@ -141,14 +182,31 @@ Controller.Screen.print("Heading: %.2f", currentHeading);
     
     //intake(miliseconds, true/false for on/off pistons)
         //outtake and scoring are just how many ms
-
+*/
 }
 
 void SpeedwayAutonRight(){
-    initializeOpticalSensor();
+   initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     headingOffset = 0;
     ptoPneumatics.set(false);
-
-    forwardMP(150,60,0,30,0.5,0,0,0,0.55,0.3,100);
+    backHoodPneumatics.set(false);
+    frontHoodPneumatics.set(false);
+    rightMP(14,10,20,50);
+    wait(400, msec);
+    intakeStart(2000, 75, true, false);
+    forwardMP(80,58,20,20,0.615,0,0,0.1,0.05,0.05,50);
+    wait(400, msec);
+    backwardMP(7,4,20,15);
+    leftMP(60,50,20);
+    forwardMP(24,10,-40,30,0.5,0,0,0.1,0.05,0.05,100);
+    ptoPneumatics.set(true);
+    outtake(2000);
+    wait(200, msec);
+    rightMP(190,6,20,50);
+    forwardMP(80,10,180,20);
+    leftMP(50,10,20,50);
+    intake(true,50);
+    wait(500, msec);
+    intake(false,0);
 }

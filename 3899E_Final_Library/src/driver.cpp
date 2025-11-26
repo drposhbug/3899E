@@ -56,10 +56,6 @@ void driverControl()
 
     int maxSpeed = 100;
 
-    // Initialize pneumatics to default intake position
-    frontHoodPneumatics.set(true);      // Front hood closed
-    backHoodPneumatics.set(false);       // Back hood open
-    ptoPneumatics.set(false);
 
     while (true)
     {
@@ -74,6 +70,7 @@ void driverControl()
         double targetSpeedLeft = ((targetPowerLeft * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
         double targetSpeedRight = ((targetPowerRight * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
 
+        
         // Apply speeds to all motors
         motorPowerLeft[0] = targetSpeedLeft;
         motorPowerLeft[1] = targetSpeedLeft;
@@ -138,6 +135,8 @@ void driverControl()
             {
                 frontHoodPneumatics.set(true);     // Close front hood for intake
                 backHoodPneumatics.set(false);    // Open back hood for intake
+                ptoPneumatics.set(false);
+
                 wasR1Pressed = true;               // Mark that we've handled the press
             }
             
@@ -182,7 +181,32 @@ void driverControl()
                 wasR2Pressed = false;
             }
         }
-*/
+
+        // ========================= BUTTON RIGHT: OUTTAKE ====================
+        // close front hood, close back hood, run intake in reverse
+        if (Controller.ButtonRight.pressing())
+        {
+            if (!wasRightPressed)
+            {
+                frontHoodPneumatics.set(false);     // Close front hood for outtake
+                backHoodPneumatics.set(false);      // Close back hood for outtake
+                ptoPneumatics.set(false);
+                wasRightPressed = true;
+            }
+            spinForInProgress = false;
+            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+        }
+        else
+        {
+            if (wasRightPressed)
+            {
+                intakeMotor1.stop();
+                intakeMotor2.stop();
+                wasRightPressed = false;
+            }
+        }
+
         // ==================== BUTTON L1: SCORING ====================
         // Open both hoods, run intake to score, retract on release
         if (Controller.ButtonL1.pressing())
@@ -193,7 +217,6 @@ void driverControl()
                 backHoodPneumatics.set(true);      // Open back hood
                 ptoPneumatics.set(true);
                 wasL1Pressed = true;
-
             }
             
             spinForInProgress = false;
@@ -252,9 +275,13 @@ void driverControl()
         {
             if (!wasXPressed)
             {
+                Controller.rumble(".-.-.-");  //
+                Controller.Screen.print("all in");
+                Brain.Screen.print("all in");
                 frontHoodPneumatics.set(true);      // open everything
                 backHoodPneumatics.set(true);       
-                matchLoadPneumatics.set(true);      
+                matchLoadPneumatics.set(true);
+                ptoPneumatics.set(true);      
                 wasXPressed = true;
             }
             

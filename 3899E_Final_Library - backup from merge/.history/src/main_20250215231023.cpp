@@ -1,0 +1,41 @@
+#include "vex.h" // Include the VEX library
+#include "robotConfig.h" // Include the robot configuration
+#include "driver.h" // Include the driver control functions
+#include "auton.h" // Include the autonomous functions
+#include "utils.h"
+#include "navigation.h"
+
+using namespace vex;
+
+competition Competition;
+void runAuton(void) {
+  Brain.Screen.clearScreen();;
+  Brain.Screen.print("Running Autonomous Mode...");
+  //Reset Arm
+  
+   // Call the autonomous routine     
+   //autonRoutineRedLeft(); 
+  autonRoutine11();
+    
+  //Brain.Screen.print("Autonomous Program Complete");
+}
+
+void runDriver(void) {
+  Brain.Screen.clearScreen();
+  Brain.Screen.print("Running Driver Control Mode...");
+  driverControl(); // Start driver control function
+}
+
+int main() {
+  // Initializing Robot Configuration. DO NOT REMOVE! note
+  //task armm(armTask);
+  vexcodeInit();
+  initializeOpticalSensor();
+  //armMotor.setBrake(brakeType::brake);
+  //elbowMotor.setBrake(brakeType::brake);
+ Competition.autonomous(runAuton);
+ 
+ Competition.drivercontrol(runDriver);
+
+}
+
