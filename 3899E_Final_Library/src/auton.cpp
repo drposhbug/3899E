@@ -210,3 +210,15 @@ void SpeedwayAutonRight(){
     wait(500, msec);
     intake(false,0);
 }
+
+void odomTest(){
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = 0;
+
+    setStartingPosition(0.0, 0.0, 0.0);
+    startOdometryTask();
+
+    forwardToPoint(100, 100, 20, 15, 0.615, 0, 0, 0.1, 0.05, 0.05, 50);
+    
+}

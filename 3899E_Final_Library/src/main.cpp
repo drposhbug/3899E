@@ -14,18 +14,17 @@ vex::competition Competition;
 void runAuton(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Autonomous Mode...");
-  //Reset Arm
   
-   //autonTest();    
-   //autonLeft(); 
-   //autonRight();
+  //autonTest();    
+  //autonLeft(); 
+  //autonRight();
   //autonFwdRight();
   //autonFwdLeft();
-  SpeedwayAutonLeft();
+  //SpeedwayAutonLeft();
   //SpeedwayAutonRight();
-   //doubleDoinkerBlue();
-   //skills();
-   // calibration();
+  //doubleDoinkerBlue();
+  //skills();
+  odomTest();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 

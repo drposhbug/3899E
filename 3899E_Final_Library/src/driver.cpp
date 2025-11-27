@@ -314,6 +314,21 @@ void driverControl()
             }
         }*/
 
+        // ==================== BUTTON A : WING TOGGLE ====================
+        if (Controller.ButtonA.pressing())
+        {
+            if (!wasAPressed)
+            {
+                wingPneumatics.set(!matchLoadPneumatics.value()); // Toggle wing pneumatics
+                wasAPressed = true;
+            }
+        }
+        else
+        {
+            wasAPressed = false;
+        }
+
+
         // Check if timed motor movements (spinFor) are complete
         if (spinForInProgress && !intakeMotor1.isSpinning() && !intakeMotor2.isSpinning())
         {

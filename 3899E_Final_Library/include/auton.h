@@ -12,6 +12,7 @@ void autonFwdRight();
 void autonFwdLeft();
 void SpeedwayAutonLeft();
 void SpeedwayAutonRight();
+void odomTest();
 
 
 #endif // AUTON_H
