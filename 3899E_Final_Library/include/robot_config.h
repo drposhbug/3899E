@@ -24,6 +24,7 @@ extern vex::pneumatics frontHoodPneumatics;
 extern vex::pneumatics backHoodPneumatics;
 extern vex::pneumatics matchLoadPneumatics;
 extern vex::pneumatics ptoPneumatics;
+extern vex::pneumatics wingPneumatics;
 // Declare Sensors
 extern vex::inertial InertialSensor;
 //extern vex::aivision visionSensor;

@@ -61,7 +61,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     int completeRotations = (int)(currentHeading / 360.0);  
     double targetRotationHeading = targetHeading + (completeRotations * 360.0);
-    double headingError = targetRotationHeading - currentHeading;
+    double headingError = currentHeading - targetRotationHeading;
     //double currentDistanceInDegrees = headingError;
 
     Brain.Screen.printAt(10, 40, "Target Head: %.2f", targetHeading);
@@ -1230,6 +1230,87 @@ void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, doub
     double targetRotation = currentHeading - turnAmount;
     
     pivotTurnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
+}
+
+//=============================================================================
+// ABSOLUTE HEADING WRAPPER FUNCTIONS - FINAL VERSION
+// Add these functions to your navigation.cpp file
+//=============================================================================
+
+//Forward wrapper - uses absolute heading with forward as 0°
+void driveForward(double targetDistance,
+             double breakDistance, 
+             double targetHeading,
+             double minSpeed,
+             double kp_heading, 
+             double ki_heading,
+             double kd_heading, 
+             double accelHeadingScaling,
+             double decelHeadingScaling, 
+             double approachHeadingScaling,
+             double maxSpeed) {
+    // Convert from forward=0° to internal heading system
+    double internalHeading = targetHeading + headingOffset;
+    straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
+                    kp_heading, ki_heading, kd_heading,
+                    accelHeadingScaling, decelHeadingScaling,
+                    approachHeadingScaling, maxSpeed);
+}
+
+//Backward wrapper - uses absolute heading with forward as 0°
+void driveBackward(double targetDistance,
+              double breakDistance, 
+              double targetHeading,
+              double minSpeed,
+              double kp_heading, 
+              double ki_heading,
+              double kd_heading, 
+              double accelHeadingScaling,
+              double decelHeadingScaling, 
+              double approachHeadingScaling,
+              double maxSpeed) {
+    // Force negative distance for backward movement
+    targetDistance = -std::fabs(targetDistance);
+    // Convert from forward=0° to internal heading system
+    double internalHeading = targetHeading + headingOffset;
+    straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
+                    kp_heading, ki_heading, kd_heading,
+                    accelHeadingScaling, decelHeadingScaling,
+                    approachHeadingScaling, maxSpeed);
+}
+
+//Turn right to absolute heading - FORCES CLOCKWISE DIRECTION
+void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed) {
+    // Get current heading
+    double currentHeading = InertialSensor.rotation(degrees);
+    
+    // Calculate target in internal system
+    double internalTarget = absoluteTargetHeading + headingOffset;
+    double internalCurrent = currentHeading + headingOffset;
+    
+    // Force clockwise direction by adding 360° if needed
+    while (internalTarget <= internalCurrent) {
+        internalTarget += 360.0;
+    }
+    
+    turnOdometry(internalTarget, breakDistance, minSpeed, maxSpeed);
+}
+
+//Turn left to absolute heading - FORCES COUNTER-CLOCKWISE DIRECTION
+void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed) {
+    // Get current heading
+    double currentHeading = InertialSensor.rotation(degrees);
+    
+    // Calculate target in internal system
+    double internalTarget = absoluteTargetHeading + headingOffset;
+    double internalCurrent = currentHeading + headingOffset;
+    
+    // Force counter-clockwise direction by subtracting 360° if needed
+    while (internalTarget >= internalCurrent) {
+        internalTarget -= 360.0;
+    }
+    
+    turnOdometry(internalTarget, breakDistance, minSpeed, maxSpeed);
 }
 
 void intake(bool state, double speedPct){

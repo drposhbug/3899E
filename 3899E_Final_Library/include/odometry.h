@@ -16,6 +16,10 @@ extern double prevRightEncoder;  // Previous right encoder reading
 extern double prevXEncoder;      // Previous X encoder reading
 extern double prevRotation;      // Previous rotation reading
 
+// Function declarations for odometry task management
+void startOdometryTask();
+void stopOdometryTask();
+
 // Add these function prototypes
 void setStartPosition(double startX = 0, double startY = 0, double startHeading = 0);
 

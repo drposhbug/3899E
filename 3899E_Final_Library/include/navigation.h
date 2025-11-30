@@ -150,6 +150,34 @@ void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, doubl
 
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
+void driveForward(double targetDistance,
+             double breakDistance, 
+             double targetHeading,
+             double minSpeed,
+             double kp_heading, 
+             double ki_heading,
+             double kd_heading, 
+             double accelHeadingScaling,
+             double decelHeadingScaling, 
+             double approachHeadingScaling,
+             double maxSpeed);
+
+void driveBackward(double targetDistance,
+              double breakDistance, 
+              double targetHeading,
+              double minSpeed,
+              double kp_heading, 
+              double ki_heading,
+              double kd_heading, 
+              double accelHeadingScaling,
+              double decelHeadingScaling, 
+              double approachHeadingScaling,
+              double maxSpeed);
+
+void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed);
+
+void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed);
+
 void intake(bool state, double speedPct);
 void intake2(double time, bool pistonState);
 void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
