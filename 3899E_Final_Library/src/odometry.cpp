@@ -99,7 +99,7 @@ void updateOdometry()
     else if (currentState == STRAIGHT)
     {
         // Straight-line odometry updates
-        double deltaX = xEncoder - prevXEncoder;        // Use X encoder for lateral movement
+        // Use X encoder for lateral movement
         deltaXPos = avgDeltaDistance * cos(headingRad); // Straight X-axis movement
         deltaYPos = avgDeltaDistance * sin(headingRad); // Straight Y-axis movement
     }
@@ -110,7 +110,7 @@ void updateOdometry()
     // Step 6: Update Global Position
     globalX += deltaXPos;                        // Update global X position
     globalY += deltaYPos;                        // Update global Y position
-    globalRotation = currentRotation; // Update global heading
+    globalRotation = fmod(globalRotation + 360.0, 360.0); // Update global heading
 
     // Step 7: Debugging Information (Displayed on Brain Screen)
     Brain.Screen.printAt(10, 20, "X: %.2f, Y: %.2f, Rotation: %.2f", globalX, globalY, globalRotation);
@@ -260,8 +260,9 @@ void forwardToPoint(double targetX, double targetY,
     // wait(2000, msec);  // Small delay to ensure we can read the values
 }
 
-void backwardToPoint(double targetX, double targetY,
-                     double breakDistance, double minSpeed,
+void backwardToPoint(double targetX, double targetY, 
+                     double minSpeed,
+                     double breakDistance,
                      double kp_heading, double ki_heading,
                      double kd_heading, double accelHeadingScaling,
                      double decelHeadingScaling, double approachHeadingScaling,
@@ -317,7 +318,6 @@ void backwardToPoint(double targetX, double targetY,
     // Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
     // wait(2000, msec);  // Small delay to ensure we can read the values
 }
-
 
 // Initialize odometry task parameters
 OdometryTaskParams odometryParams = {false};

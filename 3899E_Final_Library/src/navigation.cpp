@@ -1268,11 +1268,6 @@ void intake2(double time, bool pistonState) //time in milliseconds, true for pis
     intakeMotor2.stop();
 }
 
-void stopIntake(){
-    intakeMotor1.stop();
-    intakeMotor2.stop();
-}
-
 //asynchronous intake
 static std::atomic<bool> g_intakeTaskRunning(false);
 static double g_intakeTimeMs = 0;
