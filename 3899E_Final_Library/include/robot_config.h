@@ -24,6 +24,7 @@ extern vex::pneumatics frontHoodPneumatics;
 extern vex::pneumatics backHoodPneumatics;
 extern vex::pneumatics matchLoadPneumatics;
 extern vex::pneumatics ptoPneumatics;
+extern vex::pneumatics wingPneumatics;
 // Declare Sensors
 extern vex::inertial InertialSensor;
 //extern vex::aivision visionSensor;
@@ -56,7 +57,7 @@ extern const double ENCODER_OFFSET_X;
 extern const double LEFT_ENCODER_OFFSET_Y;  
 extern const double RIGHT_ENCODER_OFFSET_Y;
 
-//Declare Constants
+ //Declare Constants
 extern const double wheelCircumferenceCM;
 extern const double encoderWheelCircumferenceCM;
 extern const double VOLTAGE_TOLERANCE;
@@ -81,6 +82,49 @@ extern ArmPosition armstat;
 
 // Function to initialize the robot configuration
 void vexcodeInit(void);
+
+// Motion Profile Default Parameters - Organized by movement type
+namespace MotionDefaults {
+    // Forward/Straight Movement Defaults
+    namespace StraightForward {
+        constexpr double BREAK_DISTANCE = 35.0;
+        constexpr double MIN_SPEED = 16.0;
+        constexpr double MAX_SPEED = 100.0;
+        constexpr double KP_HEADING = 0.615;
+        constexpr double KI_HEADING = 0.0;
+        constexpr double KD_HEADING = 0.0;
+        constexpr double ACCEL_HEADING_SCALING = 0.10;
+        constexpr double DECEL_HEADING_SCALING = 0.05;
+        constexpr double APPROACH_HEADING_SCALING = 0.05;
+    }
+    
+    // Backward Movement Defaults
+    namespace StraightBackward {
+        constexpr double BREAK_DISTANCE = 30.0;
+        constexpr double MIN_SPEED = 15.0;
+        constexpr double MAX_SPEED = 80.0;
+        constexpr double KP_HEADING = 0.8;
+        constexpr double KI_HEADING = 0.0;
+        constexpr double KD_HEADING = 0.0;
+        constexpr double ACCEL_HEADING_SCALING = 0.08;
+        constexpr double DECEL_HEADING_SCALING = 0.06;
+        constexpr double APPROACH_HEADING_SCALING = 0.06;
+    }
+    
+    // Left Turn Defaults
+    namespace TurningLeft {
+        constexpr double BREAK_DISTANCE = 25.0;
+        constexpr double MIN_SPEED = 17.0;
+        constexpr double MAX_SPEED = 100.0;
+    }
+    
+    // Right Turn Defaults
+    namespace TurningRight {
+        constexpr double BREAK_DISTANCE = 25.0;
+        constexpr double MIN_SPEED = 17.0;
+        constexpr double MAX_SPEED = 100.0;
+    }
+}
 
 #endif
 

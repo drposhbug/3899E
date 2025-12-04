@@ -18,6 +18,7 @@ vex::pneumatics frontHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.G);
 vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
 vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
 vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
+vex::pneumatics wingPneumatics = vex::pneumatics(Brain.ThreeWirePort.D);
 // Define Sensors
 vex::inertial InertialSensor = vex::inertial(vex::PORT18);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT6, true);  // Initialize the encoder on PORT10

@@ -98,10 +98,13 @@ void updateOdometry()
     }
     else if (currentState == STRAIGHT)
     {
-        // Straight-line odometry updates
-        // Use X encoder for lateral movement
-        deltaXPos = avgDeltaDistance * cos(headingRad); // Straight X-axis movement
-        deltaYPos = avgDeltaDistance * sin(headingRad); // Straight Y-axis movement
+        // Calculate lateral movement from X encoder (sideways drift)
+        double lateralMovement = (deltaX * (encoderWheelCircumferenceCM / 360.0));
+        
+        // Combine forward movement with lateral drift compensation
+        // Forward component + lateral component rotated into global frame
+        deltaXPos = avgDeltaDistance * cos(headingRad) + lateralMovement * (-sin(headingRad));
+        deltaYPos = avgDeltaDistance * sin(headingRad) + lateralMovement * cos(headingRad);
     }
 
     // Brain.Screen.printAt(10, 80, "xEnabled: %d", xEncoderEnabled);
@@ -189,6 +192,97 @@ void turnToPoint(double targetX, double targetY,
     // Brain.Screen.printAt(10, 20, "TURN COMPLETE");
     // Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
     // wait(2000, msec);  // Small delay to ensure we can read the values
+}
+
+
+// Function to force LEFT turn to face a specific (x,y) coordinate  
+void turnLeftToPoint(double targetX, double targetY,
+                    double breakDistanceInDegrees,
+                    double minSpeed, double maxSpeed)
+{
+    // Set state to TURNING
+    currentState = TURNING;
+
+    // Start timer for timeout safety
+    double startTime = Brain.Timer.time(msec);
+    const double TIMEOUT = 3000; // 3 seconds maximum for turn
+
+    // Update odometry to get fresh position
+    updateOdometry();
+
+    double deltaX = targetX - globalX;
+    double deltaY = targetY - globalY;
+    double targetAbsoluteHeading = atan2(deltaY, deltaX) * 180.0 / M_PI;
+    
+    // Get current heading in robot coordinate system
+    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    
+    // Start with the target in robot coordinate system
+    double targetHeading = -targetAbsoluteHeading + headingOffset;
+    
+    // FORCE counter-clockwise by making target lower than current (negative error)
+    // Keep subtracting 360° until target < current (this forces CCW motion)
+    while (targetHeading >= currentHeading) {
+        targetHeading -= 360.0;
+    }
+    
+    turnOdometry(targetHeading, breakDistanceInDegrees, minSpeed, maxSpeed);
+
+    // Check if we've exceeded timeout
+    if ((Brain.Timer.time(msec) - startTime) > TIMEOUT)
+    {
+        Brain.Screen.printAt(10, 40, "Turn timeout");
+    }
+
+    // Update odometry after completing turn
+    updateOdometry();
+    // Set state back to STATIONARY
+    currentState = STATIONARY;
+}
+
+// Function to force RIGHT turn to face a specific (x,y) coordinate
+void turnRightToPoint(double targetX, double targetY,
+                     double breakDistanceInDegrees,
+                     double minSpeed, double maxSpeed)
+{
+    // Set state to TURNING
+    currentState = TURNING;
+
+    // Start timer for timeout safety
+    double startTime = Brain.Timer.time(msec);
+    const double TIMEOUT = 3000; // 3 seconds maximum for turn
+
+    // Update odometry to get fresh position
+    updateOdometry();
+
+    double deltaX = targetX - globalX;
+    double deltaY = targetY - globalY;
+    double targetAbsoluteHeading = atan2(deltaY, deltaX) * 180.0 / M_PI;
+    
+    // Get current heading in robot coordinate system
+    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    
+    // Start with the target in robot coordinate system
+    double targetHeading = -targetAbsoluteHeading + headingOffset;
+    
+    // FORCE clockwise by making target higher than current (positive error)
+    // Keep adding 360° until target > current (this forces CW motion)
+    while (targetHeading <= currentHeading) {
+        targetHeading += 360.0;
+    }
+    
+    turnOdometry(targetHeading, breakDistanceInDegrees, minSpeed, maxSpeed);
+
+    // Check if we've exceeded timeout
+    if ((Brain.Timer.time(msec) - startTime) > TIMEOUT)
+    {
+        Brain.Screen.printAt(10, 40, "Turn timeout");
+    }
+
+    // Update odometry after completing turn
+    updateOdometry();
+    // Set state back to STATIONARY
+    currentState = STATIONARY;
 }
 
 // Function to turn robot to face a specific (x,y) coordinate

@@ -14,6 +14,20 @@ using namespace vex; // Use the VEX namespace
                     approachHeadingScaling, maxSpeed);
 */                    
 
+void autonTest(){
+   initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = 0;
+   driveBackward(70, 40, 0);
+   turnRight(-90, 80); 
+   driveBackward(70, 40, 90);
+   turnRight(-180,80); 
+   driveBackward(70, 40, 180);
+   turnRight(-270, 80); 
+   driveBackward(70, 40, 270);
+   turnRight(-360, 80); 
+   driveBackward(70, 40, 360);
+}
 
 
 //turnOdometry(turnAmount, breakDistance, minSpeed, maxSpeed)
@@ -211,6 +225,7 @@ void SpeedwayAutonRight(){
     intake(false,0);
 }
 
+/*
 void odomTest(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
@@ -222,3 +237,5 @@ void odomTest(){
     forwardToPoint(100, 100, 20, 15, 0.615, 0, 0, 0.1, 0.05, 0.05, 50);
     
 }
+
+*/
