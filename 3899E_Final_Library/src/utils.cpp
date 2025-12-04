@@ -1,5 +1,5 @@
 #include "vex.h"
-#include "robot_config.h" // Move this before utils.h since utils.h needs ArmPosition
+#include "robot_config.h" 
 #include "utils.h"
 #include <cmath>
 #include <algorithm>

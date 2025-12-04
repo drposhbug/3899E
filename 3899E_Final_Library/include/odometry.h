@@ -36,31 +36,41 @@ void calculatePathToTarget(double currentX, double currentY,
                          double& distance, double& heading);  // Calculates path parameters to target
 
 void turnToPoint(double targetX, double targetY,            
-                double breakDistanceInDegrees,
-                double minSpeed = 15.0,  
-                double maxSpeed = 100);                    
+                double breakDistanceInDegrees = 25.0,
+                double minSpeed = 17.0,  
+                double maxSpeed = 100.0);
+
+void turnLeftToPoint(double targetX, double targetY,            
+                double breakDistanceInDegrees = 25.0,
+                double minSpeed = 17.0,  
+                double maxSpeed = 100.0);
+
+void turnRightToPoint(double targetX, double targetY,            
+                double breakDistanceInDegrees = 25.0,
+                double minSpeed = 17.0,  
+                double maxSpeed = 100.0);
 
 void forwardToPoint(double targetX, double targetY,             
-               double breakDistance,                 // breakDistance
-               double minSpeed = 15.0,  
-               double kp_heading = 0.2,                    // kp_heading
-               double ki_heading = 0.0,                    // ki_heading
-               double kd_heading = 0.0,                    // kd_heading
-               double accelHeadingScaling = 0.4,          // accelHeadingScaling
-               double decelHeadingScaling = 0.25,          // decelHeadingScaling
-               double approachHeadingScaling = 0.25,       // approachHeadingScaling                 
-               double maxSpeed = 100);    
+               double breakDistance = 35.0,
+               double minSpeed = 16.0,  
+               double kp_heading = 0.615,
+               double ki_heading = 0.0,
+               double kd_heading = 0.0,
+               double accelHeadingScaling = 0.10,
+               double decelHeadingScaling = 0.05,
+               double approachHeadingScaling = 0.05,
+               double maxSpeed = 100.0);
 
 void backwardToPoint(double targetX, double targetY,             
-               double breakDistance,                 // breakDistance
+               double breakDistance = 30.0,
                double minSpeed = 15.0,  
-               double kp_heading = 100,                    // kp_heading
-               double ki_heading = 0.0,                    // ki_heading
-               double kd_heading = 0.0,                    // kd_heading
-               double accelHeadingScaling = 0.0,          // accelHeadingScaling
-               double decelHeadingScaling = 0.0,          // decelHeadingScaling
-               double approachHeadingScaling = 0.0,       // approachHeadingScaling                 
-               double maxSpeed = 100);                
+               double kp_heading = 0.8,
+               double ki_heading = 0.0,
+               double kd_heading = 0.0,
+               double accelHeadingScaling = 0.08,
+               double decelHeadingScaling = 0.06,
+               double approachHeadingScaling = 0.06,
+               double maxSpeed = 80.0);
 
 // Struct for odometry task parameters
 struct OdometryTaskParams {

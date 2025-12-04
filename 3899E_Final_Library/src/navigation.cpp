@@ -61,7 +61,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     int completeRotations = (int)(currentHeading / 360.0);  
     double targetRotationHeading = targetHeading + (completeRotations * 360.0);
-    double headingError = currentHeading - targetRotationHeading;
+    double headingError = targetRotationHeading - currentHeading;
     //double currentDistanceInDegrees = headingError;
 
     Brain.Screen.printAt(10, 40, "Target Head: %.2f", targetHeading);
@@ -84,7 +84,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
     const double SLIP_THRESHOLD_TRACTION = 10; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
     const double SLIP_THRESHOLD_ABS = 100;
-    const double EXIT_TOLERANCE_DEGREES = 1.2;
+    const double EXIT_TOLERANCE_DEGREES = 4;
       
     double averageMotorVoltage = 0;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
@@ -270,10 +270,10 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // Stop all motors at end of routine after approach
     for (int i = 0; i < 3; i++)
     {
-        // leftMotor[i].stop(brake);
-        // rightMotor[2-i].stop(brake);
-        leftMotor[i].stop(coast);
-        rightMotor[i].stop(coast);
+        leftMotor[i].setBrake(brake);
+        rightMotor[i].setBrake(brake);
+        leftMotor[i].stop();
+        rightMotor[i].stop();
     }
 }
 
@@ -1250,7 +1250,8 @@ void driveForward(double targetDistance,
              double approachHeadingScaling,
              double maxSpeed) {
     // Convert from forward=0° to internal heading system
-    double internalHeading = targetHeading + headingOffset;
+    //double internalHeading = targetHeading + headingOffset;
+    double internalHeading = -targetHeading + headingOffset;
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
                     accelHeadingScaling, decelHeadingScaling,
@@ -1281,36 +1282,36 @@ void driveBackward(double targetDistance,
 
 //Turn right to absolute heading - FORCES CLOCKWISE DIRECTION
 void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed) {
-    // Get current heading
-    double currentHeading = InertialSensor.rotation(degrees);
+    // Get current heading in robot coordinate system
+    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     
-    // Calculate target in internal system
-    double internalTarget = absoluteTargetHeading + headingOffset;
-    double internalCurrent = currentHeading + headingOffset;
+    // Start with the target in robot coordinate system
+    double targetHeading = -absoluteTargetHeading + headingOffset;
     
-    // Force clockwise direction by adding 360° if needed
-    while (internalTarget <= internalCurrent) {
-        internalTarget += 360.0;
+    // FORCE clockwise by making target higher than current (positive error)
+    // Keep adding 360° until target > current (this forces CW motion)
+    while (targetHeading <= currentHeading) {
+        targetHeading += 360.0;
     }
     
-    turnOdometry(internalTarget, breakDistance, minSpeed, maxSpeed);
+    turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed);
 }
 
 //Turn left to absolute heading - FORCES COUNTER-CLOCKWISE DIRECTION
 void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed) {
-    // Get current heading
-    double currentHeading = InertialSensor.rotation(degrees);
+    // Get current heading in robot coordinate system
+    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     
-    // Calculate target in internal system
-    double internalTarget = absoluteTargetHeading + headingOffset;
-    double internalCurrent = currentHeading + headingOffset;
+    // Start with the target in robot coordinate system
+    double targetHeading = -absoluteTargetHeading + headingOffset;
     
-    // Force counter-clockwise direction by subtracting 360° if needed
-    while (internalTarget >= internalCurrent) {
-        internalTarget -= 360.0;
+    // FORCE counter-clockwise by making target lower than current (negative error)
+    // Keep subtracting 360° until target < current (this forces CCW motion)
+    while (targetHeading >= currentHeading) {
+        targetHeading -= 360.0;
     }
     
-    turnOdometry(internalTarget, breakDistance, minSpeed, maxSpeed);
+    turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed);
 }
 
 void intake(bool state, double speedPct){

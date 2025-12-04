@@ -15,7 +15,7 @@ void runAuton(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Autonomous Mode...");
   
-  //autonTest();    
+  autonTest();    
   //autonLeft(); 
   //autonRight();
   //autonFwdRight();
