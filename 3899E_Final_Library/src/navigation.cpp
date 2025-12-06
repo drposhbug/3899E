@@ -1238,6 +1238,7 @@ void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, doub
 //=============================================================================
 
 //Forward wrapper - uses absolute heading with forward as 0°
+//Forward wrapper - uses absolute heading with forward as 0°
 void driveForward(double targetDistance,
              double breakDistance, 
              double targetHeading,
@@ -1249,16 +1250,27 @@ void driveForward(double targetDistance,
              double decelHeadingScaling, 
              double approachHeadingScaling,
              double maxSpeed) {
-    // Convert from forward=0° to internal heading system
-    //double internalHeading = targetHeading + headingOffset;
-    double internalHeading = -targetHeading + headingOffset;
+    // Get current robot heading
+    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    
+    // Check if this is near startup position (within 5 degrees of 0)
+    bool isNearStartup = (std::fabs(currentHeading) < 5.0);
+    
+    double internalHeading;
+    if (isNearStartup && targetHeading != 0) {
+        // For first movement from startup, don't flip coordinate system
+        internalHeading = targetHeading + headingOffset;
+    } else {
+        // Normal coordinate system conversion for subsequent movements
+        internalHeading = -targetHeading + headingOffset;  // ✅ KEEP THE FLIPPING
+    }
+    
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
                     accelHeadingScaling, decelHeadingScaling,
                     approachHeadingScaling, maxSpeed);
 }
 
-//Backward wrapper - uses absolute heading with forward as 0°
 void driveBackward(double targetDistance,
               double breakDistance, 
               double targetHeading,
@@ -1270,10 +1282,23 @@ void driveBackward(double targetDistance,
               double decelHeadingScaling, 
               double approachHeadingScaling,
               double maxSpeed) {
-    // Force negative distance for backward movement
     targetDistance = -std::fabs(targetDistance);
-    // Convert from forward=0° to internal heading system
-    double internalHeading = targetHeading + headingOffset;
+    
+    // Get current robot heading
+    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    
+    // Check if this is near startup position (within 5 degrees of 0)
+    bool isNearStartup = (std::fabs(currentHeading) < 5.0);
+    
+    double internalHeading;
+    if (isNearStartup && targetHeading != 0) {
+        // For first movement from startup, don't flip coordinate system
+        internalHeading = targetHeading + headingOffset;
+    } else {
+        // Normal coordinate system conversion for subsequent movements
+        internalHeading = -targetHeading + headingOffset;  // ✅ KEEP THE FLIPPING
+    }
+    
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
                     accelHeadingScaling, decelHeadingScaling,
