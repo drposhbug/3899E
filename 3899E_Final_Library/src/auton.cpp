@@ -18,15 +18,15 @@ void autonTest(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     headingOffset = 0;
-   driveForward(70, 40, 0);
-   turnRight(-90, 80); 
-   driveForward(70, 40, -90);
-   turnRight(-180,80); 
-   driveForward(70, 40, -180);
-   turnRight(-270, 80); 
-   driveForward(70, 40, -270);
-   turnRight(-360, 80); 
-   driveForward(70, 40, -360);
+   driveBackward(70, 40, 0);
+   turnLeft(90, 80); 
+   driveBackward(70, 40, 90);
+   turnLeft(180,80); 
+   driveBackward(70, 40, 180);
+   turnLeft(270, 80); 
+   driveBackward(70, 40, 270);
+   turnLeft(360, 80); 
+   driveBackward(70, 40, 360);
 }
 
 

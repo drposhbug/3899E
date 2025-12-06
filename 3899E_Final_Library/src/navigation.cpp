@@ -1250,20 +1250,8 @@ void driveForward(double targetDistance,
              double decelHeadingScaling, 
              double approachHeadingScaling,
              double maxSpeed) {
-    // Get current robot heading
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
-    
-    // Check if this is near startup position (within 5 degrees of 0)
-    bool isNearStartup = (std::fabs(currentHeading) < 5.0);
-    
-    double internalHeading;
-    if (isNearStartup && targetHeading != 0) {
-        // For first movement from startup, don't flip coordinate system
-        internalHeading = targetHeading + headingOffset;
-    } else {
-        // Normal coordinate system conversion for subsequent movements
-        internalHeading = -targetHeading + headingOffset;  // ✅ KEEP THE FLIPPING
-    }
+    // MATCH the coordinate system used by turnRight/turnLeft
+    double internalHeading = -targetHeading + headingOffset;  // ✅ WITH FLIPPING
     
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
@@ -1284,20 +1272,8 @@ void driveBackward(double targetDistance,
               double maxSpeed) {
     targetDistance = -std::fabs(targetDistance);
     
-    // Get current robot heading
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
-    
-    // Check if this is near startup position (within 5 degrees of 0)
-    bool isNearStartup = (std::fabs(currentHeading) < 5.0);
-    
-    double internalHeading;
-    if (isNearStartup && targetHeading != 0) {
-        // For first movement from startup, don't flip coordinate system
-        internalHeading = targetHeading + headingOffset;
-    } else {
-        // Normal coordinate system conversion for subsequent movements
-        internalHeading = -targetHeading + headingOffset;  // ✅ KEEP THE FLIPPING
-    }
+    // SAME coordinate system as forward and turns
+    double internalHeading = -targetHeading + headingOffset;  // ✅ WITH FLIPPING
     
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
