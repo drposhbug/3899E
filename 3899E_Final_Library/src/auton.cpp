@@ -29,6 +29,27 @@ void autonTest(){
    driveBackward(70, 40, 360);
 }
 
+void odomTest(){
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = 0;
+    
+    // Set starting position and start odometry tracking
+    setStartPosition(0.0, 0.0, 0.0);
+    startOdometryTask();
+    
+    // Robot faces 0°, move backward 70cm by going forward to (-70, 0)
+    forwardToPoint(0, 70, 40);  // This will make robot face 180° and move forward to reach (-70, 0)
+    turnRightToPoint (70, 0, 70);
+    //forwardToPoint(-100, 140, 40); 
+    /*
+    // Or if you want true backward movement, turn around first then move forward
+    turnToPoint(-70, 0);  // Turn to face the target
+    forwardToPoint(-70, 0);  // Move forward to the target
+    */
+    
+    stopOdometryTask();
+}
 
 //turnOdometry(turnAmount, breakDistance, minSpeed, maxSpeed)
    void autonLeft()

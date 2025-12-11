@@ -15,7 +15,7 @@ void runAuton(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Autonomous Mode...");
   
-  autonTest();    
+  //autonTest();    
   //autonLeft(); 
   //autonRight();
   //autonFwdRight();
@@ -24,7 +24,7 @@ void runAuton(void) {
   //SpeedwayAutonRight();
   //doubleDoinkerBlue();
   //skills();
-  //odomTest();
+  odomTest();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 

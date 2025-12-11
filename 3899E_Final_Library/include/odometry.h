@@ -2,6 +2,7 @@
 #ifndef ODOMETRY_H
 #define ODOMETRY_H
 #include "navigation.h"
+#include "robot_config.h"
 #include <thread>
 #include <chrono>
 
@@ -36,41 +37,41 @@ void calculatePathToTarget(double currentX, double currentY,
                          double& distance, double& heading);  // Calculates path parameters to target
 
 void turnToPoint(double targetX, double targetY,            
-                double breakDistanceInDegrees = 25.0,
-                double minSpeed = 17.0,  
-                double maxSpeed = 100.0);
+                double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
+                double minSpeed = MotionDefaults::TurningLeft::MIN_SPEED,  
+                double maxSpeed = MotionDefaults::TurningLeft::MAX_SPEED);
 
-void turnLeftToPoint(double targetX, double targetY,            
-                double breakDistanceInDegrees = 25.0,
-                double minSpeed = 17.0,  
-                double maxSpeed = 100.0);
+void turnLeftToPoint(double targetX, double targetY,
+                    double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
+                    double minSpeed = MotionDefaults::TurningLeft::MIN_SPEED,
+                    double maxSpeed = MotionDefaults::TurningLeft::MAX_SPEED);
 
-void turnRightToPoint(double targetX, double targetY,            
-                double breakDistanceInDegrees = 25.0,
-                double minSpeed = 17.0,  
-                double maxSpeed = 100.0);
+void turnRightToPoint(double targetX, double targetY,
+                     double breakDistanceInDegrees = MotionDefaults::TurningRight::BREAK_DISTANCE,
+                     double minSpeed = MotionDefaults::TurningRight::MIN_SPEED,
+                     double maxSpeed = MotionDefaults::TurningRight::MAX_SPEED);
 
 void forwardToPoint(double targetX, double targetY,             
-               double breakDistance = 35.0,
-               double minSpeed = 16.0,  
-               double kp_heading = 0.615,
-               double ki_heading = 0.0,
-               double kd_heading = 0.0,
-               double accelHeadingScaling = 0.10,
-               double decelHeadingScaling = 0.05,
-               double approachHeadingScaling = 0.05,
-               double maxSpeed = 100.0);
+               double breakDistance = MotionDefaults::StraightForward::BREAK_DISTANCE,
+               double minSpeed = MotionDefaults::StraightForward::MIN_SPEED,  
+               double kp_heading = MotionDefaults::StraightForward::KP_HEADING,
+               double ki_heading = MotionDefaults::StraightForward::KI_HEADING,
+               double kd_heading = MotionDefaults::StraightForward::KD_HEADING,
+               double accelHeadingScaling = MotionDefaults::StraightForward::ACCEL_HEADING_SCALING,
+               double decelHeadingScaling = MotionDefaults::StraightForward::DECEL_HEADING_SCALING,
+               double approachHeadingScaling = MotionDefaults::StraightForward::APPROACH_HEADING_SCALING,
+               double maxSpeed = MotionDefaults::StraightForward::MAX_SPEED);    
 
 void backwardToPoint(double targetX, double targetY,             
-               double breakDistance = 30.0,
-               double minSpeed = 15.0,  
-               double kp_heading = 0.8,
-               double ki_heading = 0.0,
-               double kd_heading = 0.0,
-               double accelHeadingScaling = 0.08,
-               double decelHeadingScaling = 0.06,
-               double approachHeadingScaling = 0.06,
-               double maxSpeed = 80.0);
+               double breakDistance = MotionDefaults::StraightBackward::BREAK_DISTANCE,
+               double minSpeed = MotionDefaults::StraightBackward::MIN_SPEED,  
+               double kp_heading = MotionDefaults::StraightBackward::KP_HEADING,
+               double ki_heading = MotionDefaults::StraightBackward::KI_HEADING,
+               double kd_heading = MotionDefaults::StraightBackward::KD_HEADING,
+               double accelHeadingScaling = MotionDefaults::StraightBackward::ACCEL_HEADING_SCALING,
+               double decelHeadingScaling = MotionDefaults::StraightBackward::DECEL_HEADING_SCALING,
+               double approachHeadingScaling = MotionDefaults::StraightBackward::APPROACH_HEADING_SCALING,
+               double maxSpeed = MotionDefaults::StraightBackward::MAX_SPEED);
 
 // Struct for odometry task parameters
 struct OdometryTaskParams {

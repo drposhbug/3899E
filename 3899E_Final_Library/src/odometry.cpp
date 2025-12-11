@@ -89,11 +89,11 @@ void updateOdometry()
             double rightRadius = (deltaRight * (encoderWheelCircumferenceCM / 360.0)) / deltaRotationRad;
             double avgRadius = (leftRadius + rightRadius) / 2.0;
 
-            // Use actual X encoder readings for X position change
-            deltaXPos = (deltaX * (encoderWheelCircumferenceCM / 360.0));
+            // Use actual Y encoder readings for Y position change  
+            deltaYPos = (deltaX * (encoderWheelCircumferenceCM / 360.0));
 
-            // Y change uses the average of parallel wheels
-            deltaYPos = avgRadius * (sin(headingRad + deltaRotationRad) - sin(headingRad));
+            // X change uses the average of parallel wheels
+            deltaXPos = avgRadius * (sin(headingRad + deltaRotationRad) - sin(headingRad));
         }
     }
     else if (currentState == STRAIGHT)
@@ -103,8 +103,8 @@ void updateOdometry()
         
         // Combine forward movement with lateral drift compensation
         // Forward component + lateral component rotated into global frame
-        deltaXPos = avgDeltaDistance * cos(headingRad) + lateralMovement * (-sin(headingRad));
-        deltaYPos = avgDeltaDistance * sin(headingRad) + lateralMovement * cos(headingRad);
+        deltaYPos = avgDeltaDistance * cos(headingRad) + lateralMovement * (-sin(headingRad));
+        deltaXPos = avgDeltaDistance * sin(headingRad) + lateralMovement * cos(headingRad);
     }
 
     // Brain.Screen.printAt(10, 80, "xEnabled: %d", xEncoderEnabled);
@@ -113,7 +113,7 @@ void updateOdometry()
     // Step 6: Update Global Position
     globalX += deltaXPos;                        // Update global X position
     globalY += deltaYPos;                        // Update global Y position
-    globalRotation = fmod(globalRotation + 360.0, 360.0); // Update global heading
+    globalRotation = fmod(getAdjustedRotation() + 360.0, 360.0);
 
     // Step 7: Debugging Information (Displayed on Brain Screen)
     Brain.Screen.printAt(10, 20, "X: %.2f, Y: %.2f, Rotation: %.2f", globalX, globalY, globalRotation);
@@ -136,13 +136,11 @@ void calculatePathToTarget(double currentX, double currentY,
 
     distance = sqrt(deltaX * deltaX + deltaY * deltaY);
 
-    // Just return the absolute target heading without subtracting current heading
-    heading = atan2(deltaY, deltaX) * 180.0 / M_PI;
-
-    // Debug output
-    // Brain.Screen.clearScreen();
-    // Brain.Screen.printAt(10, 200, "AbsTgt=%.2f AbsCur=%.2f",
-    //                    heading, globalHeading);
+    // User coordinate system: 0° = +Y (forward), 90° = +X (right)
+    double userHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
+    
+    // Convert to VEX internal coordinates (CW positive, matches inertial sensor)
+    heading = -userHeading + headingOffset;
 }
 
 // Function to turn robot to face a specific (x,y) coordinate
@@ -165,10 +163,28 @@ void turnToPoint(double targetX, double targetY,
     // Update odometry to get fresh position
     updateOdometry();
 
+    // --- FINAL CORRECT TURN-TO-POINT HEADING CALCULATION ---
     double deltaX = targetX - globalX;
     double deltaY = targetY - globalY;
-    double turnAmount = atan2(deltaY, deltaX) * 180.0 / M_PI;
-    turnOdometry(turnAmount, breakDistanceInDegrees, minSpeed, maxSpeed);
+
+    // Correct angle on the field: 0° = forward (north), +90° = right, clockwise positive
+    double targetAbsoluteHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
+
+    // Current robot heading (already includes headingOffset)
+    double currentRobotHeading = getAdjustedRotation();
+
+    // Desired robot heading to face the point
+    double desiredRobotHeading = targetAbsoluteHeading + headingOffset;
+
+    // Calculate shortest turn direction (-180° … +180°)
+    double headingError = desiredRobotHeading - currentRobotHeading;
+    headingError = fmod(headingError + 540.0, 360.0) - 180.0;   // forces -180 to +180
+
+    // Final target heading that turnOdometry expects (unwrapped)
+    double finalTargetHeading = currentRobotHeading + headingError;
+
+    // Call the turn function with the correctly wrapped heading
+    turnOdometry(finalTargetHeading, breakDistanceInDegrees, minSpeed, maxSpeed);
 
     // Brain.Screen.clearScreen();  // Clear previous prints
     // Brain.Screen.printAt(10,100, "deltaX: %.2f deltaY: %.2f", deltaX, deltaY);
@@ -304,54 +320,24 @@ void turnRightToPoint(double targetX, double targetY,
 //   decelHeadingScaling: Heading correction scaling during deceleration
 //   approachHeadingScaling: Heading correction scaling during final approach
 //   minSpeed: Minimum speed to maintain during movement
-void forwardToPoint(double targetX, double targetY,
-                    double breakDistance, double minSpeed,
-                    double kp_heading, double ki_heading,
-                    double kd_heading, double accelHeadingScaling,
-                    double decelHeadingScaling, double approachHeadingScaling,
-                    double maxSpeed)
+void forwardToPoint(double targetX, double targetY, double breakDistance, 
+                   double minSpeed, double kp_heading, double ki_heading, 
+                   double kd_heading, double accelHeadingScaling, 
+                   double decelHeadingScaling, double approachHeadingScaling, 
+                   double maxSpeed)
 {
-    // Set state to STRAIGHT
-    currentState = STRAIGHT;
-
-    // Start timer for timeout safety
-    double startTime = Brain.Timer.time(msec);
-    const double TIMEOUT = 5000; // 5 seconds maximum for straight movement
-
-    // Update odometry to get fresh position
     updateOdometry();
-
-    // Brain.Screen.printAt(10, 140, "Calc heading: %.2f", targetHeading);
-    // Brain.Screen.printAt(10, 160, "Current pos: %.2f, %.2f", globalX, globalY);
-    // Brain.Screen.printAt(10, 180, "Target pos: %.2f, %.2f", targetX, targetY);
-    // wait(1000, msec);  // Give us time to see the values
-
-    // targetHeading = 0;
-
+    
     double distanceToTarget, targetHeading;
     calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
+
+    targetHeading = -targetHeading;
     
-    // Move straight with PID heading correction
-    straightOdometry(distanceToTarget, breakDistance, targetHeading, minSpeed,
-                    kp_heading, ki_heading, kd_heading, accelHeadingScaling,
-                    decelHeadingScaling, approachHeadingScaling, maxSpeed);
-
-    // Check if we've exceeded timeout
-    if ((Brain.Timer.time(msec) - startTime) > TIMEOUT)
-    {
-        //   Brain.Screen.printAt(10, 60, "Straight move timeout");
-    }
-
-    // Update odometry after completing movement
+    straightOdometry(distanceToTarget, breakDistance, targetHeading, minSpeed, 
+              kp_heading, ki_heading, kd_heading, accelHeadingScaling, 
+              decelHeadingScaling, approachHeadingScaling, maxSpeed);
+    
     updateOdometry();
-    // Set state back to STATIONARY
-    currentState = STATIONARY;
-    //  Brain.Screen.clearScreen();
-    // Add right before final }
-    // Brain.Screen.clearScreen();
-    // Brain.Screen.printAt(10, 20, "STRAIGHT COMPLETE");
-    // Brain.Screen.printAt(10, 40, "X: %.2f, Y: %.2f, H: %.2f", globalX, globalY, globalHeading);
-    // wait(2000, msec);  // Small delay to ensure we can read the values
 }
 
 void backwardToPoint(double targetX, double targetY, 

@@ -201,8 +201,8 @@ void driverControl()
                 wasRightPressed = true;
             }
             spinForInProgress = false;
-            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
         }
         else
         {
@@ -227,8 +227,8 @@ void driverControl()
             }
             
             spinForInProgress = false;
-            intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
         }
         else
         {
