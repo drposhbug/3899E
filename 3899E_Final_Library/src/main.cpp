@@ -21,7 +21,8 @@ void runAuton(void) {
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();
- SpeedwayAutonRight();
+ //SpeedwayAutonRight();
+  calibration();
   //doubleDoinkerBlue();
   //skills();
   //odomTest();

@@ -29,6 +29,18 @@ void autonTest(){
    driveBackward(40, 20, 360);
 }
 
+void Calibration
+{
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = 0;
+    setStartPosition(0.0, 0.0, 0.0);
+    startOdometryTask();
+    forwardToPoint(200, 0, 20);
+
+}
+
+
 void odomTest(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
