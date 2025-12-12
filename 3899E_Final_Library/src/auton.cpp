@@ -18,15 +18,15 @@ void autonTest(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     headingOffset = 0;
-   driveBackward(70, 40, 0);
+   driveBackward(40, 20, 0);
    turnLeft(90, 80); 
-   driveBackward(70, 40, 90);
+   driveBackward(40, 20, 90);
    turnLeft(180,80); 
-   driveBackward(70, 40, 180);
+   driveBackward(40, 20, 180);
    turnLeft(270, 80); 
-   driveBackward(70, 40, 270);
+   driveBackward(40, 20, 270);
    turnLeft(360, 80); 
-   driveBackward(70, 40, 360);
+   driveBackward(40, 20, 360);
 }
 
 void odomTest(){
@@ -223,17 +223,37 @@ Controller.Screen.print("Heading: %.2f", currentHeading);
 void SpeedwayAutonRight(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
+    headingOffset = 11;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
-    rightMP(14,10,20,50);
+    driveForward(60, 40, 20);
+    /*/turnRight(-13,10,20,30);
+    wait(250, msec);
+    intakeStart(2500, 75, true, false);
+    driveForward(80, 65, -13);
+    matchLoadPneumatics.set(true);
+    wait(250, msec);
+    driveBackward(7, 4, -13);
+    wait(250, msec);
+    matchLoadPneumatics.set(false);
+    turnRight(-130,85,20,80);
+    wait(250, msec);
+    driveForward(78, 65, -130);
+    wait(250, msec);
+    turnRight(-177,45,14,50);
+    wait(250, msec);
+    driveForward(26, 15, -178);
+    wait(250, msec);
+    driveBackward(26, 15, -178);
+    wait(250, msec);
+    turnRight(3,138,15,80);
+    wait(250, msec);
+    //intakeStart(2000, 75, true, false);
+    //driveForward(80, 20 , 16.5);
     wait(400, msec);
-    intakeStart(2000, 75, true, false);
-    forwardMP(80,58,20,20,0.615,0,0,0.1,0.05,0.05,50);
-    wait(400, msec);
-    backwardMP(7,4,20,15);
-    leftMP(60,50,20);
+    driveBackward(7, 4, -16.5);
+    rightMP(,50,20);
     forwardMP(24,10,-40,30,0.5,0,0,0.1,0.05,0.05,100);
     ptoPneumatics.set(true);
     outtake(2000);
@@ -243,7 +263,7 @@ void SpeedwayAutonRight(){
     leftMP(50,10,20,50);
     intake(true,50);
     wait(500, msec);
-    intake(false,0);
+    intake(false,0);*/
 }
 
 /*

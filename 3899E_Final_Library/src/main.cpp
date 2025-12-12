@@ -15,16 +15,16 @@ void runAuton(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Autonomous Mode...");
   
-  //autonTest();    
+//autonTest();    
   //autonLeft(); 
   //autonRight();
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();
-  //SpeedwayAutonRight();
+ SpeedwayAutonRight();
   //doubleDoinkerBlue();
   //skills();
-  odomTest();
+  //odomTest();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 
