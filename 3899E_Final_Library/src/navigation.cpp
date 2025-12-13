@@ -58,7 +58,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     bool accelCompleted = false;
     bool decel = false;
 
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
     int completeRotations = (int)(currentHeading / 360.0);  
     double targetRotationHeading = targetHeading + (completeRotations * 360.0);
     double headingError = targetRotationHeading - currentHeading;
@@ -106,7 +106,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     while ((maxSpeedVoltage > 0 && currentHeading <= targetRotationHeading - EXIT_TOLERANCE_DEGREES) || 
        (maxSpeedVoltage < 0 && currentHeading >= targetRotationHeading + EXIT_TOLERANCE_DEGREES)) 
        {
-        currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+        currentHeading = InertialSensor.rotation(degrees) - headingOffset;
         headingError = targetRotationHeading - currentHeading;
         //currentDistanceInDegrees = headingError;
         
@@ -522,7 +522,7 @@ void straightOdometry(double targetDistance,
         // Calculate the heading correction using the PID controller with normalization
         // Calculate the heading correction using normalized error
        // Use continuous rotation instead of heading()
-        double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+        double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
         double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
 
         // Get encoder speeds FIRST
@@ -847,7 +847,7 @@ void backwardMP(double targetDistance,
 void leftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
 
     // Get current rotation
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
     
     // CCW = positive turn, so add the turn amount
     double targetRotation = currentHeading - turnAmount;
@@ -859,7 +859,7 @@ void leftMP(double turnAmount, double breakDistance, double minSpeed, double max
 //Turn right to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
 void rightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
     // Get current rotation
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
     
     // CW = negative turn, so subtract the turn amount
     double targetRotation = currentHeading + turnAmount;
@@ -877,7 +877,7 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
     bool accelCompleted = false;
     bool decel = false;
 
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
     double headingError = targetHeading - currentHeading;
     double currentDistanceInDegrees = headingError;
 
@@ -961,7 +961,7 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
     // Loop to continuously adjust motor power based on PID control
     while (std::abs(headingError) > 9) // Removed crossed180 check
     {
-        currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+        currentHeading = InertialSensor.rotation(degrees) - headingOffset;
         headingError = targetHeading - currentHeading;
         currentDistanceInDegrees = headingError;
 
@@ -1213,7 +1213,7 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
 //Turn left to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
 void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
     // Get current rotation
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
     
     // CCW = positive turn, so add the turn amount
     double targetRotation = currentHeading + turnAmount;
@@ -1224,7 +1224,7 @@ void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, doubl
 //Turn right to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
     // Get current rotation
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
     
     // CW = negative turn, so subtract the turn amount
     double targetRotation = currentHeading - turnAmount;
@@ -1251,7 +1251,7 @@ void driveForward(double targetDistance,
              double approachHeadingScaling,
              double maxSpeed) {
     // MATCH the coordinate system used by turnRight/turnLeft
-    double internalHeading = -targetHeading + headingOffset;  // ✅ WITH FLIPPING
+    double internalHeading = -targetHeading;  // ✅ WITH FLIPPING
     
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
@@ -1273,7 +1273,7 @@ void driveBackward(double targetDistance,
     targetDistance = -std::fabs(targetDistance);
     
     // SAME coordinate system as forward and turns
-    double internalHeading = -targetHeading + headingOffset;  // ✅ WITH FLIPPING
+    double internalHeading = -targetHeading;  // ✅ WITH FLIPPING
     
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
@@ -1284,10 +1284,10 @@ void driveBackward(double targetDistance,
 //Turn right to absolute heading - FORCES CLOCKWISE DIRECTION
 void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed) {
     // Get current heading in robot coordinate system
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
     
     // Start with the target in robot coordinate system
-    double targetHeading = -absoluteTargetHeading + headingOffset;
+    double targetHeading = -absoluteTargetHeading;
     
     // FORCE clockwise by making target higher than current (positive error)
     // Keep adding 360° until target > current (this forces CW motion)
@@ -1301,10 +1301,10 @@ void turnRight(double absoluteTargetHeading, double breakDistance, double minSpe
 //Turn left to absolute heading - FORCES COUNTER-CLOCKWISE DIRECTION
 void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed) {
     // Get current heading in robot coordinate system
-    double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+    double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
     
     // Start with the target in robot coordinate system
-    double targetHeading = -absoluteTargetHeading + headingOffset;
+    double targetHeading = -absoluteTargetHeading;
     
     // FORCE counter-clockwise by making target lower than current (negative error)
     // Keep subtracting 360° until target < current (this forces CCW motion)

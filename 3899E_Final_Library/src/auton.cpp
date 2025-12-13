@@ -29,7 +29,7 @@ void autonTest(){
    driveBackward(40, 20, 360);
 }
 
-void Calibration
+/*/void Calibration
 {
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
@@ -38,7 +38,7 @@ void Calibration
     startOdometryTask();
     forwardToPoint(200, 0, 20);
 
-}
+}*/
 
 
 void odomTest(){
@@ -232,50 +232,35 @@ Controller.Screen.print("Heading: %.2f", currentHeading);
 */
 }
 
-void SpeedwayAutonRight(){
+void 7ballRight(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 11;
+    headingOffset = -16;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
-    driveForward(60, 40, 20);
-    /*/turnRight(-13,10,20,30);
-    wait(250, msec);
     intakeStart(2500, 75, true, false);
-    driveForward(80, 65, -13);
+    driveForward(51, 40, -16);
     matchLoadPneumatics.set(true);
     wait(250, msec);
-    driveBackward(7, 4, -13);
-    wait(250, msec);
+    turnRight(-126,85,20,80);
     matchLoadPneumatics.set(false);
-    turnRight(-130,85,20,80);
     wait(250, msec);
-    driveForward(78, 65, -130);
+    driveForward(71.5, 58, -126);
     wait(250, msec);
-    turnRight(-177,45,14,50);
+    turnRight(-179,48,10,50);
+    matchLoadPneumatics.set(true);
     wait(250, msec);
-    driveForward(26, 15, -178);
-    wait(250, msec);
-    driveBackward(26, 15, -178);
-    wait(250, msec);
-    turnRight(3,138,15,80);
-    wait(250, msec);
-    //intakeStart(2000, 75, true, false);
-    //driveForward(80, 20 , 16.5);
+    driveForward(26, 20, -179);
+    intakeStart(700, 75, false, true);
     wait(400, msec);
-    driveBackward(7, 4, -16.5);
-    rightMP(,50,20);
-    forwardMP(24,10,-40,30,0.5,0,0,0.1,0.05,0.05,100);
-    ptoPneumatics.set(true);
-    outtake(2000);
-    wait(200, msec);
-    rightMP(190,6,20,50);
-    forwardMP(80,10,180,20);
-    leftMP(50,10,20,50);
-    intake(true,50);
-    wait(500, msec);
-    intake(false,0);*/
+    matchLoadPneumatics.set(false);
+    driveBackward(26, 20, -179);
+    wait(250, msec); 
+    turnRight(3,155,15,70);
+    wait(250, msec);
+    driveForward(40, 35, -357);
+    outtake(3000);
 }
 
 /*
