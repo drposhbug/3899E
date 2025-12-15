@@ -1251,7 +1251,7 @@ void driveForward(double targetDistance,
              double approachHeadingScaling,
              double maxSpeed) {
     // MATCH the coordinate system used by turnRight/turnLeft
-    double internalHeading = -targetHeading + headingOffset;  // ✅ WITH FLIPPING
+    double internalHeading = -targetHeading;  // ✅ WITH FLIPPING
     
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
@@ -1273,7 +1273,7 @@ void driveBackward(double targetDistance,
     targetDistance = -std::fabs(targetDistance);
     
     // SAME coordinate system as forward and turns
-    double internalHeading = -targetHeading + headingOffset;  // ✅ WITH FLIPPING
+    double internalHeading = -targetHeading;  // ✅ WITH FLIPPING
     
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
@@ -1287,7 +1287,7 @@ void turnRight(double absoluteTargetHeading, double breakDistance, double minSpe
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     
     // Start with the target in robot coordinate system
-    double targetHeading = -absoluteTargetHeading + headingOffset;
+    double targetHeading = -absoluteTargetHeading;
     
     // FORCE clockwise by making target higher than current (positive error)
     // Keep adding 360° until target > current (this forces CW motion)
@@ -1304,7 +1304,7 @@ void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpee
     double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
     
     // Start with the target in robot coordinate system
-    double targetHeading = -absoluteTargetHeading + headingOffset;
+    double targetHeading = -absoluteTargetHeading;
     
     // FORCE counter-clockwise by making target lower than current (negative error)
     // Keep subtracting 360° until target < current (this forces CCW motion)
