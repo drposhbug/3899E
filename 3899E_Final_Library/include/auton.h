@@ -11,9 +11,11 @@ void autonTest();
 void autonFwdRight();
 void autonFwdLeft();
 void SpeedwayAutonLeft();
-void SpeedwayAutonRight();
+void SevenBallRight();
 void odomTest();
 void calibration();
+void soloAWP();
+void SevenBallLeft();
 
 
 #endif // AUTON_H

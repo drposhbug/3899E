@@ -21,7 +21,9 @@ void runAuton(void) {
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();
- 7ballRight();
+  SevenBallRight();
+  //SevenBallLeft();
+  //soloAWP();
   //calibration();
   //doubleDoinkerBlue();
   //skills();

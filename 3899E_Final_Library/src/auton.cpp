@@ -232,13 +232,101 @@ Controller.Screen.print("Heading: %.2f", currentHeading);
 */
 }
 
-void 7ballRight(){
-   initializeOpticalSensor();
+void SevenBallRight(){
+   matchLoadPneumatics.set(true);
+    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = -16;
+    headingOffset = -12;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
+    wait(50, msec);//necessary in order for matchload pneumatics to engage properly epstein fn
+    matchLoadPneumatics.set(false);
+   /* intakeStart(100, 75, true, false);
+    wait(200, msec);
+    intakeStart(100, 75, true, false);
+    wait(200, msec); */
+    intakeStart(1000, 40, true, false);
+    intakeStart(5500, 75, true, false);
+    driveForward(40, 30, -16);
+    wait(300, msec);
+    //matchLoadPneumatics.set(true);
+    driveForward(21, 21, -16);
+    wait(100, msec);
+    driveBackward(25, 15, -16);
+    wait(100, msec);
+    turnRight(-88,65);
+    driveForward(72, 35, -88);
+    //matchLoadPneumatics.set(false);
+    wait(100, msec);
+    turnLeft(-2,65);
+    pidlessForward(600, 20);
+    //driveForward(19, 18, 0);
+
+    //ptoPneumatics.set(true);
+    //intakeStart(7500, 75, true, true);
+    score(7500, 75);
+    turnRight(180,80);
+    driveForward(40,30,180);
+    intakeStart(3000,75,true,true);
+    turnRight(180,80);
+
+    //driveForward(71.5, 58, -126);
+    //wait(250, msec);
+    //turnRight(-179,25);
+    //matchLoadPneumatics.set(true);
+    //wait(250, msec);
+    //driveForward(26, 20, -179);
+    //intakeStart(700, 75, false, true);
+    //wait(400, msec);
+    //matchLoadPneumatics.set(false);
+    //driveBackward(26, 20, -179);
+    //wait(250, msec); 
+    //turnRight(1.5,155);
+    //wait(250, msec);
+    //driveForward(40, 35, -358.5);
+    //outtake(3000);
+}
+
+void SevenBallLeft(){
+    matchLoadPneumatics.set(true);
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = 12;
+    ptoPneumatics.set(false);
+    backHoodPneumatics.set(false);
+    frontHoodPneumatics.set(false);
+    wait(50, msec);//necessary in order for matchload pneumatics to engage properly epstein fn
+    matchLoadPneumatics.set(false);
+    intakeStart(1000, 35, true, false);
+    intakeStart(5500, 75, true, false);
+    driveForward(40, 30, 16);
+    wait(300, msec);
+    //matchLoadPneumatics.set(true);
+    driveForward(21, 21, 16);
+    wait(100, msec);
+    driveBackward(25, 15, 16);
+    wait(100, msec);
+    turnLeft(88,65);
+    driveForward(72, 35, 88);
+    //matchLoadPneumatics.set(false);
+    wait(100, msec);
+    turnRight(2,65);
+    pidlessForward(600, 20);
+    score(7500, 75);
+    //driveForward(19, 18, 0);
+
+    //ptoPneumatics.set(true);
+    //intakeStart(7500, 75, true, true);
+}
+
+void soloAWP(){
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = -16;
+    ptoPneumatics.set(true);
+    backHoodPneumatics.set(false);
+    frontHoodPneumatics.set(true);
     intakeStart(2500, 75, true, false);
     driveForward(51, 40, -16);
     matchLoadPneumatics.set(true);
@@ -257,10 +345,21 @@ void 7ballRight(){
     matchLoadPneumatics.set(false);
     driveBackward(26, 20, -179);
     wait(250, msec); 
-    turnRight(3,155,15,70);
+    turnRight(1.5,155,15,70);
     wait(250, msec);
-    driveForward(40, 35, -357);
-    outtake(3000);
+    driveForward(40, 35, -358.5);
+    outtake(1000);
+    driveBackward(42.5, 28, -360);
+    wait(200, msec);
+    turnLeft(-315, 33, 15, 70);
+    wait(300, msec);
+    driveForward(126, 75, -315);
+    outtake(1000);
+    driveBackward(20, 15, -315);
+}
+
+void nothing(){
+
 }
 
 /*

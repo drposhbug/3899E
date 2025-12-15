@@ -88,7 +88,7 @@ namespace MotionDefaults {
     // Forward/Straight Movement Defaults
     namespace StraightForward {
         constexpr double BREAK_DISTANCE = 35.0;
-        constexpr double MIN_SPEED = 16.0;
+        constexpr double MIN_SPEED = 20.0;
         constexpr double MAX_SPEED = 100.0;
         constexpr double KP_HEADING = 0.615;
         constexpr double KI_HEADING = 0.0;
@@ -101,7 +101,7 @@ namespace MotionDefaults {
     // Backward Movement Defaults
     namespace StraightBackward {
         constexpr double BREAK_DISTANCE = 30.0;
-        constexpr double MIN_SPEED = 15.0;
+        constexpr double MIN_SPEED = 20.0;
         constexpr double MAX_SPEED = 80.0;
         constexpr double KP_HEADING = 0.8;
         constexpr double KI_HEADING = 0.0;
@@ -113,15 +113,15 @@ namespace MotionDefaults {
     
     // Left Turn Defaults
     namespace TurningLeft {
-        constexpr double BREAK_DISTANCE = 25.0;
-        constexpr double MIN_SPEED = 17.0;
+        constexpr double BREAK_DISTANCE = 5.0;
+        constexpr double MIN_SPEED = 20.0;
         constexpr double MAX_SPEED = 100.0;
     }
     
     // Right Turn Defaults
     namespace TurningRight {
-        constexpr double BREAK_DISTANCE = 25.0;
-        constexpr double MIN_SPEED = 17.0;
+        constexpr double BREAK_DISTANCE = 5.0;
+        constexpr double MIN_SPEED = 20.0;
         constexpr double MAX_SPEED = 100.0;
     }
 }

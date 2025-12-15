@@ -151,9 +151,9 @@ void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, doubl
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
 void driveForward(double targetDistance,
-             double breakDistance = 35, 
+             double breakDistance = 10, 
              double targetHeading = 0,
-             double minSpeed = 16,
+             double minSpeed = 20,
              double kp_heading = 0.615, 
              double ki_heading = 0,
              double kd_heading = 0, 
@@ -163,9 +163,9 @@ void driveForward(double targetDistance,
              double maxSpeed = 100);
 
 void driveBackward(double targetDistance,
-              double breakDistance = 35, 
+              double breakDistance = 10, 
               double targetHeading = 0,
-              double minSpeed = 16,
+              double minSpeed = 20,
               double kp_heading = 0.615, 
               double ki_heading = 0,
               double kd_heading = 0, 
@@ -175,13 +175,13 @@ void driveBackward(double targetDistance,
               double maxSpeed = 100);
 
 void turnRight(double absoluteTargetHeading, 
-               double breakDistance = 35, 
-               double minSpeed = 14, 
+               double breakDistance = 5, 
+               double minSpeed = 20,
                double maxSpeed = 100);
 
 void turnLeft(double absoluteTargetHeading, 
-              double breakDistance = 35, 
-              double minSpeed = 14, 
+              double breakDistance = 5, 
+              double minSpeed = 20, 
               double maxSpeed = 100);
               
 void intake(bool state, double speedPct);
@@ -193,5 +193,6 @@ void stopScore();
 void stopIntake();
 void outtake(double time);
 void stopOuttake();
+void pidlessForward(double timeMs, double speedPct);
 
 #endif // PID_TASKS_H;

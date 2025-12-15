@@ -1315,6 +1315,30 @@ void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpee
     turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed);
 }
 
+void pidlessForward(double timeMs, double speedPct){
+    vex::timer forwardTime;
+    forwardTime.reset();
+
+    double voltagePower = (speedPct / 8.34);
+    while (forwardTime.time(timeUnits::msec) < timeMs)
+    {  
+        LeftMotor1.spin(forward, voltagePower, voltageUnits::volt);
+        LeftMotor2.spin(forward, voltagePower, voltageUnits::volt);
+        LeftMotor3.spin(forward, voltagePower, voltageUnits::volt);
+        RightMotor1.spin(forward, voltagePower, voltageUnits::volt);
+        RightMotor2.spin(forward, voltagePower, voltageUnits::volt);
+        RightMotor3.spin(forward, voltagePower, voltageUnits::volt);
+        vex::task::sleep(10);
+    }
+    LeftMotor1.stop(coast);
+    LeftMotor2.stop(coast);
+    LeftMotor3.stop(coast);
+    RightMotor1.stop(coast);
+    RightMotor2.stop(coast);
+    RightMotor3.stop(coast);
+}
+
+
 void intake(bool state, double speedPct){
     if (state == true){
        intakeMotor1.spin(reverse, (speedPct/8.34), voltageUnits::volt);
@@ -1381,8 +1405,8 @@ int intakeTaskEntry(void*) {
     t.reset();
     double intakeVoltage = g_intakePct / 8.34;
     while (g_intakeTaskRunning.load() && t.time(timeUnits::msec) < g_intakeTimeMs) {
-        intakeMotor1.spin(reverse, intakeVoltage, voltageUnits::volt);
-        intakeMotor2.spin(reverse, intakeVoltage, voltageUnits::volt);
+        intakeMotor1.spin(forward, intakeVoltage, voltageUnits::volt);
+        intakeMotor2.spin(forward, intakeVoltage, voltageUnits::volt);
         vex::task::sleep(10);
     }
 
@@ -1431,8 +1455,8 @@ void score(double time, double power) //skibidi score
     //(scoringTime.time(timeUnits::msec) < time) voltagePower -= time * 0.006;
     while (scoringTime.time(timeUnits::msec) < time)
     {  
-        intakeMotor1.spin(reverse, voltagePower, voltageUnits::volt);
-        intakeMotor2.spin(reverse, voltagePower, voltageUnits::volt);
+        intakeMotor1.spin(forward, voltagePower, voltageUnits::volt);
+        intakeMotor2.spin(forward, voltagePower, voltageUnits::volt);
         vex::task::sleep(10);
     }
     frontHoodPneumatics.set(false); //close back hood after scoring
