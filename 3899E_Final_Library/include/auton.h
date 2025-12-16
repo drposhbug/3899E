@@ -18,4 +18,10 @@ void soloAWP();
 void SevenBallLeft();
 
 
+// Distance sensor detection function
+bool detectDistanceDecline(vex::distance& sensor, double declineThreshold);
+
+// Cup pickup routine
+void cupPickupAndDeliver();
+
 #endif // AUTON_H

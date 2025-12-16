@@ -19,6 +19,7 @@ extern vex::motor rightMotor[3];
 // Declare motors as extern so they can be accessed globally
 extern vex::motor intakeMotor1;
 extern vex::motor intakeMotor2;
+extern vex::motor clawMotor;
 // Declare Pneumatics;
 extern vex::pneumatics frontHoodPneumatics;
 extern vex::pneumatics backHoodPneumatics;
@@ -34,6 +35,7 @@ extern vex::rotation passiveEncoderRight; // Declare the passive encoder sensor
 extern vex::rotation passiveEncoderX; // Declare the passive encoder sensor
 extern vex::optical opticalSensor;
 extern vex::bumper autonBumper;
+extern vex::distance distanceSensor;
 
 //Declare Global Variable
 extern double targetDriverSpeedLeft;

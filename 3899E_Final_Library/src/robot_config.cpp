@@ -13,6 +13,7 @@ vex::motor RightMotor3 = vex::motor(vex::PORT2, vex::gearSetting::ratio6_1); // 
 // Define Intatke Motors
 vex::motor intakeMotor1 = vex::motor(vex::PORT10, vex::gearSetting::ratio6_1, true);// reversed
 vex::motor intakeMotor2 = vex::motor(vex::PORT9, vex::gearSetting::ratio6_1); 
+vex::motor clawMotor = vex::motor(vex::PORT12, vex::gearSetting::ratio18_1);
 // Define Pneumatics
 vex::pneumatics frontHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.G);
 vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
@@ -26,6 +27,7 @@ vex::rotation passiveEncoderRight = vex::rotation(vex::PORT17, true); // Initial
 vex::rotation passiveEncoderX = vex::rotation(vex::PORT5, true);     // Initialize the encoder on PORT10
 vex::optical opticalSensor = vex::optical(vex::PORT12);
 vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.A);
+vex::distance distanceSensor = vex::distance(vex::PORT14);  // Change PORT14 to your port
 // Global Variables
 double targetDriverSpeedLeft = 0.0;                  // Target speed for left motors (-100 to +100)
 double targetDriverSpeedRight = 0.0;                 // Target speed for right motors (-100 to +100)

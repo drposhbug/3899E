@@ -14,6 +14,75 @@ using namespace vex; // Use the VEX namespace
                     approachHeadingScaling, maxSpeed);
 */                    
 
+//=============================================================================
+// DISTANCE SENSOR DECLINE DETECTION - SIMPLE VERSION
+//=============================================================================
+
+bool detectDistanceDecline(vex::distance& sensor, double declineThreshold) {
+    
+    // Wait for sensor to stabilize
+    vex::task::sleep(200);
+    
+    // Get the starting distance (baseline)
+    double baselineDistance = sensor.objectDistance(vex::distanceUnits::mm);
+    
+    // Keep checking distance in a loop
+    while (true) {
+        
+        // Get current distance reading
+        double currentDistance = sensor.objectDistance(vex::distanceUnits::mm);
+        
+        // Calculate how much distance has changed
+        double distanceChange = baselineDistance - currentDistance;
+        
+        // Check if distance DECREASED by threshold amount
+        if (distanceChange >= declineThreshold) {
+            return true; // Object detected!
+        }
+        
+        // If distance increased, update our baseline
+        if (currentDistance > baselineDistance) {
+            baselineDistance = currentDistance;
+        }
+        
+        // Wait 20ms before checking again
+        vex::task::sleep(20);
+    }
+    
+    return false;
+}
+
+//=============================================================================
+// CUP PICKUP AND DELIVERY ROUTINE
+//=============================================================================
+
+void cupPickupAndDeliver() {
+    
+    // Configuration values
+    double DECLINE_THRESHOLD = 100.0;  // Cup detected when distance drops by 100mm
+    double APPROACH_DISTANCE = 15.0;   // Drive forward 15cm
+    double RETURN_DISTANCE = 30.0;     // Drive back 30cm
+    double CLAW_ROTATION = 360.0;      // Claw rotation amount (adjust through testing)
+    
+    // Wait for cup to be detected
+    detectDistanceDecline(distanceSensor, DECLINE_THRESHOLD);
+    
+    // Drive forward to cup
+    driveForward(APPROACH_DISTANCE, 5, 0);
+    
+    // Close claw
+    clawMotor.spinFor(forward, CLAW_ROTATION, rotationUnits::deg, 50, velocityUnits::pct, true);
+    
+    // Turn 180 degrees
+    turnRight(180, 35, 17, 50);
+    
+    // Drive back (twice the distance)
+    driveForward(RETURN_DISTANCE, 10, 180);
+    
+    // Release claw
+    clawMotor.spinFor(reverse, CLAW_ROTATION, rotationUnits::deg, 50, velocityUnits::pct, true);
+}
+
 void autonTest(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
