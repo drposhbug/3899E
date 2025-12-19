@@ -21,7 +21,7 @@ void runAuton(void) {
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();
-  SevenBallRight();
+  cupPickupAndDeliver();
   //SevenBallLeft();
   //soloAWP();
   //calibration();

@@ -68,16 +68,16 @@ void cupPickupAndDeliver() {
     detectDistanceDecline(distanceSensor, DECLINE_THRESHOLD);
     
     // Drive forward to cup
-    driveForward(APPROACH_DISTANCE, 5, 0);
+    //driveForward(APPROACH_DISTANCE, 5, 0);
     
     // Close claw
-    clawMotor.spinFor(forward, CLAW_ROTATION, rotationUnits::deg, 50, velocityUnits::pct, true);
+   // clawMotor.spinFor(forward, CLAW_ROTATION, rotationUnits::deg, 50, velocityUnits::pct, true);
     
     // Turn 180 degrees
-    turnRight(180, 35, 17, 50);
+   // turnRight(180, 35, 17, 50);
     
     // Drive back (twice the distance)
-    driveForward(RETURN_DISTANCE, 10, 180);
+   // driveForward(RETURN_DISTANCE, 10, 180);
     
     // Release claw
     clawMotor.spinFor(reverse, CLAW_ROTATION, rotationUnits::deg, 50, velocityUnits::pct, true);
