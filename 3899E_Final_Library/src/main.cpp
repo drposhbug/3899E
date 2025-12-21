@@ -21,10 +21,10 @@ void runAuton(void) {
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();
-  //SpeedwayAutonRight();
+  SpeedwayAutonRight();
   //doubleDoinkerBlue();
   //skills();
-  odomTest();
+  //odomTest();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 
