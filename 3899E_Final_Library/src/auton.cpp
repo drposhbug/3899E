@@ -331,12 +331,12 @@ void soloAWP(){
     driveForward(51, 40, -16);
     matchLoadPneumatics.set(true);
     wait(250, msec);
-    turnRight(-126,85,20,80);
+    turnRight(-126,75,40,80);
     matchLoadPneumatics.set(false);
     wait(250, msec);
     driveForward(71.5, 58, -126);
     wait(250, msec);
-    turnRight(-179,48,10,50);
+    turnRight(-179,48,40,50);
     matchLoadPneumatics.set(true);
     wait(250, msec);
     driveForward(26, 20, -179);
