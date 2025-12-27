@@ -23,7 +23,7 @@ void runAuton(void) {
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  soloAWP();
+  //soloAWP();
   //calibration();
   //doubleDoinkerBlue();
   //skills();
