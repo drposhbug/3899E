@@ -17,7 +17,7 @@ void runAuton(void) {
   
 //autonTest();    
   //autonLeft(); 
-  //autonRight();
+  autonRight();
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();

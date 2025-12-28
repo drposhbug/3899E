@@ -431,7 +431,7 @@ void straightOdometry(double targetDistance,
     const double ACCEL_FACTOR_LAUNCH = 1.25;     // Acceleration rate MUST be > 1.0
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
     const double SLIP_THRESHOLD_TRACTION = 0.3; // Slip threshold 1 is always power, 0 is no power
-    const double SLIP_THRESHOLD_ABS = 0.25;      // ABS threshold 1 is hard brake, 0 is no brake
+    const double SLIP_THRESHOLD_ABS = 0.5;     // ABS threshold 1 is hard brake, 0 is no brake
     // ========================================
 
     // Add timer for acceleration phase
@@ -494,12 +494,20 @@ void straightOdometry(double targetDistance,
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
 
-    while (std::fabs(currentDistance) <= fabs(targetDistance) - 3)
+    while (std::fabs(currentDistance) <= fabs(targetDistance) - 7.5)
     {
 
         currentDistance = ((passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * encoderWheelCircumferenceCM;
         avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2]) / numberDriveMotor;
      
+
+// Display current encoder distance
+Brain.Screen.clearScreen();
+Brain.Screen.setCursor(1, 1);
+Brain.Screen.print("Current: %.2f cm", std::fabs(currentDistance));
+Brain.Screen.setCursor(2, 1);
+Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
+                        
         /*
         // Distance calculation debug
         Brain.Screen.clearScreen();  // Clear previous prints
@@ -724,7 +732,7 @@ maxAvgRightVoltage = std::max(maxAvgRightVoltage, currentAvgRightVoltage);
             rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
         }
         //}
-        
+/*        
 Brain.Screen.clearScreen();
 Brain.Screen.setCursor(1, 1);
 Brain.Screen.print("=== Movement Complete ===");
@@ -751,7 +759,7 @@ Brain.Screen.print("Target: %.2fV", fabs(maxSpeedVoltage));
 Brain.Screen.setCursor(7, 1);
 Brain.Screen.print("Distance: %.1f / %.1f", 
                    fabs(currentDistance), fabs(targetDistance));
-
+*/
         vex::task::sleep(10);
     }
 
