@@ -15,8 +15,12 @@ bool isAccelerating(double targetDriverSpeed, double currentSpeed);
 double getMotorSpeed(vex::motor& motor);
 double getEncoderSpeed(vex::rotation& encoder);
 double calculateSlipRatio(double wheelSpeed, double robotSpeed);
+double calculateLockupRatio(double wheelSpeed, double robotSpeed);
 float rollingAverage(float newValue, float currentAverage, int n);
 void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage);
+
+// Color detection enum (must be defined before use)
+enum class Color { RED, BLUE };
 
 // Color detection
 bool detectColor(Color targetColor);
@@ -47,13 +51,13 @@ struct ArmTaskParams {
 int armTask(void* params);
 
 // Color detection tasks
-enum class Color { RED, BLUE };
 struct ColorTaskParams {
     bool isRunning;
     Color targetColor;
     int delayMs;
 };
 int colorDetectionTask(void* params);
+
 void waitForButtonPress();
 
 // Struct for Arm Reset Task Parameters

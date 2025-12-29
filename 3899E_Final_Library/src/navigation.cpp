@@ -83,9 +83,13 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // may need to go above 25% given built in difference between encoder and wheel spin speed
     const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
     const double SLIP_THRESHOLD_TRACTION = 10; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
-    const double SLIP_THRESHOLD_ABS = 100;
+    // Adaptive ABS configuration for turns   
+    const double LOCK_THRESHOLD_DECEL = 0.25;
+    const double DECEL_STEP_PERCENT = 2.0;
+
     const double EXIT_TOLERANCE_DEGREES = 4;
-      
+
+    
     double averageMotorVoltage = 0;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage}; // Initialize all elements to minimum launch speed
@@ -95,8 +99,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     double voltageRollingAverage = 0;
 
     // Declaration for slip threshold
-    ABSController ABSControllerLeft(SLIP_THRESHOLD_ABS);
-    ABSController ABSControllerRight(SLIP_THRESHOLD_ABS);
+    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
     // Declare arrays of Slip Control instances for each wheel
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
@@ -183,48 +187,55 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
             }
         
         }
-        else if ((std::abs(headingError) <= fabs(breakDistanceInDegrees)) && decelCompleted == false)
-     {
-        if (!decel)
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                motorVoltageLeft[i] = 0;
-                motorVoltageRight[i] = 0;
-            }
-        }
-        Brain.Screen.printAt(10, 20, "Decel Phase");
-        decel = true;
-
-        vex::brakeType leftBrakeMode = ABSControllerLeft.ABSSpeedReduction(leftMotorRPM, leftEncoderRPM);
-        vex::brakeType rightBrakeMode = ABSControllerRight.ABSSpeedReduction(rightMotorRPM, rightEncoderRPM);
-
-        brakeType syncedBrakeMode;
-
-        if (leftBrakeMode == brakeType::coast || rightBrakeMode == brakeType::coast) {
-            syncedBrakeMode = brakeType::coast;
-        } else {
-            syncedBrakeMode = brakeType::brake;
-        }
-
+else if ((std::abs(headingError) <= fabs(breakDistanceInDegrees)) && decelCompleted == false)
+{
+    // Initialize brake mode and ABS on first entry
+    if (!decel)
+    {
         for (int i = 0; i < 3; i++)
         {
-            motorVoltageLeft[i] = 0;
-            motorVoltageRight[i] = 0;
-            leftMotor[i].setBrake(syncedBrakeMode);
-            rightMotor[i].setBrake(syncedBrakeMode);
+            leftMotor[i].setBrake(brake);
+            rightMotor[i].setBrake(brake);
         }
-        leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
-        rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+        
+        adaptiveABSLeft.initialize(motorVoltageLeft[1]);
+        adaptiveABSRight.initialize(motorVoltageRight[1]);
+    }
+    
+    Brain.Screen.printAt(10, 20, "Decel Phase");
+    decel = true;
 
-        // Detect if robot slowed down to target minimum speed
-        if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
-            fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
-        {
-            decelCompleted = true;
-        }
-        }
+    // Get motor and encoder speeds
+    double leftMotorRPM = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
+    double rightMotorRPM = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
+    double leftEncoderRPM = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
+                            (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+    double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
+                             (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
+    // Calculate brake voltages independently for each side
+    double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM);
+    double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM);
+
+    // Synchronize - use HIGHER voltage (less aggressive braking) for both sides
+    double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
+
+    // Apply synchronized voltage to both sides
+    for (int i = 0; i < 3; i++)
+    {
+        motorVoltageLeft[i] = std::copysign(syncedDecelVoltage, motorVoltageLeft[i]);
+        motorVoltageRight[i] = std::copysign(syncedDecelVoltage, motorVoltageRight[i]);
+    }
+
+    leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
+    rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+
+    if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
+        fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
+    {
+        decelCompleted = true;
+    }
+}
         //Final Approach Phase
         else if (decelCompleted == true)
         {
@@ -307,21 +318,46 @@ double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSp
     return motorVoltage;
 }
 
-ABSController::ABSController(double lockThreshold) : ABSLockThreshold(lockThreshold) {}
-
-vex::brakeType ABSController::ABSSpeedReduction(double wheelSpeed, double robotSpeed)
+// Adaptive ABS Constructor - calculates voltage step from percentage of 12V max
+adaptiveABS::adaptiveABS(double decelStepPercent, double lockThreshold)
+    : lockThreshold(lockThreshold), minimumBrakingVoltage(0.0)
 {
-  
-    double slipRatio = calculateSlipRatio(wheelSpeed, robotSpeed); // Formula is in utls.cpp
+    // Convert percentage to absolute voltage (always based on 12V)
+    decelStepVoltage = absoluteMaxVoltage * (decelStepPercent / 100.0);
+}
 
-    if (slipRatio > ABSLockThreshold)
+// Initialize ABS for new movement - sets minimum braking voltage based on starting speed
+void adaptiveABS::initialize(double startingVoltage)
+{
+    // Calculate rollback ceiling (guarantees minimum braking)
+    minimumBrakingVoltage = std::max(0.0, std::fabs(startingVoltage) - decelStepVoltage);
+}
+
+// Adaptive ABS control - adjusts brake voltage based on wheel lockup
+// Higher voltage = less brake, lower voltage = more brake
+// Lockup detected = add voltage (rollback), no lockup = subtract voltage (brake harder)
+double adaptiveABS::decelControlSpeed(double motorVoltage, double wheelSpeed, double robotSpeed)
+{
+    // Calculate lockup ratio
+    double lockupRatio = calculateLockupRatio(wheelSpeed, robotSpeed);
+
+    // Adjust voltage based on lockup
+    if (lockupRatio > lockThreshold)
     {
-        return vex::coast;
+        motorVoltage = motorVoltage + decelStepVoltage;  // Lockup - rollback
     }
     else
     {
-        return vex::brake;
+        motorVoltage = motorVoltage - decelStepVoltage;  // No lockup - brake harder
     }
+
+    // Clamp between 0V and minimumBrakingVoltage
+    motorVoltage = std::copysign(
+        std::max(0.0, std::min(std::fabs(motorVoltage), minimumBrakingVoltage)), 
+        motorVoltage
+    );
+
+    return motorVoltage;
 }
 
 void arcTurn(double targetDistance,
@@ -427,11 +463,14 @@ void straightOdometry(double targetDistance,
     // ========================================
     // CONFIGURATION CONSTANTS
     // ========================================
+    //Adaptive Launch Control Configuration
     const double LAUNCH_VOLTAGE = 6;           // Starting voltage, must be higher than 0 
     const double ACCEL_FACTOR_LAUNCH = 1.25;     // Acceleration rate MUST be > 1.0
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
     const double SLIP_THRESHOLD_TRACTION = 0.3; // Slip threshold 1 is always power, 0 is no power
-    const double SLIP_THRESHOLD_ABS = 0.5;     // ABS threshold 1 is hard brake, 0 is no brake
+    // Adaptive ABS configuration
+    const double DECEL_STEP_PERCENT = 2.0;      // Voltage step as % of 12V (range: 1-10)
+    const double LOCK_THRESHOLD_DECEL = 0.25;   // Lockup sensitivity (range: 0.15-0.40)
     // ========================================
 
     // Add timer for acceleration phase
@@ -486,13 +525,13 @@ void straightOdometry(double targetDistance,
     double maxLeftMotor[3] = {0, 0, 0};   // ← ADD THIS
     double maxRightMotor[3] = {0, 0, 0};  // ← ADD THIS
 
-    // Declaration for slip threshold
-    ABSController ABSControllerLeft(SLIP_THRESHOLD_ABS);
-    ABSController ABSControllerRight(SLIP_THRESHOLD_ABS);
-
     // Declare arrays of Slip Control instances for each wheel
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+
+    // Create ABS instances for left and right sides
+    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
     while (std::fabs(currentDistance) <= fabs(targetDistance) - 7.5)
     {
@@ -623,62 +662,52 @@ Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
             // If declerating then go to ABS routine
         }
         
+// Deceleration phase with adaptive ABS
 else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && decelCompleted == false)
+{
+    // First entry - set brake mode and initialize ABS
+    if (!decel)
+    {
+        for (int i = 0; i < 3; i++)
         {
-           /*
-            if (!decel)
-            {
-                for (int i = 0; i < 3; i++)
-                {
-                    motorVoltageLeft[i] = minSpeedVoltage;
-                    motorVoltageRight[i] = minSpeedVoltage;
-                }
-            }
-            */    
-            decel = true;
-
-            vex::brakeType leftBrakeMode = ABSControllerLeft.ABSSpeedReduction(leftMotorRPM, leftEncoderRPM);
-            vex::brakeType rightBrakeMode = ABSControllerRight.ABSSpeedReduction(rightMotorRPM, rightEncoderRPM);
-
-            // Apply PID correction - FLIP THE SIGNS from acceleration
-            for (int i = 0; i < 3; i++)
-            {
-                // If drifting right, apply power to LEFT wheel (opposite of acceleration)
-                motorVoltageLeft[i] = std::max(0.0, (headingCorrection * decelHeadingScaling));
-                motorVoltageRight[i] = std::max(0.0,-(headingCorrection * decelHeadingScaling));
-                
-                // Handle left side based on lockup
-                if (leftBrakeMode == brakeType::coast)
-                {
-                    leftMotor[i].setBrake(coast);
-                    motorVoltageLeft[i] = 0;
-                }
-                else if (motorVoltageLeft[i] == 0)
-                {
-                    leftMotor[i].setBrake(brake);
-                }
-                
-                // Handle right side based on lockup
-                if (rightBrakeMode == brakeType::coast)
-                {
-                    rightMotor[i].setBrake(coast);
-                    motorVoltageRight[i] = 0;
-                }
-                else if (motorVoltageRight[i] == 0)
-                {
-                    rightMotor[i].setBrake(brake);
-                }
-            }
-
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
-            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
-
-            if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) ||
-                fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
-            {
-                decelCompleted = true;
-            }
+            leftMotor[i].setBrake(brake);
+            rightMotor[i].setBrake(brake);
         }
+        
+        // Initialize ABS with current voltages (sets minimum braking voltage)
+        adaptiveABSLeft.initialize(motorVoltageLeft[1]);
+        adaptiveABSRight.initialize(motorVoltageRight[1]);
+    }
+    decel = true;
+
+    // Get motor and encoder speeds
+    double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+    double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+    double leftEncoderRPM = passiveEncoderLeft.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+    double rightEncoderRPM = passiveEncoderRight.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+    // Calculate brake voltages using adaptive ABS
+    double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM);
+    double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM);
+
+    // Apply voltages with heading correction
+    for (int i = 0; i < 3; i++)
+    {
+        motorVoltageLeft[i] = leftDecelVoltage + (headingCorrection * decelHeadingScaling);
+        motorVoltageRight[i] = rightDecelVoltage - (headingCorrection * decelHeadingScaling);
+    }
+
+    // Update rolling averages for exit detection
+    leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
+    rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
+
+    // Exit when slowed to minimum speed
+    if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) ||
+        fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
+    {
+        decelCompleted = true;
+    }
+}
         
         //Final Approach Phase
         else if (decelCompleted == true)
@@ -1084,61 +1113,54 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
         }
         else if ((std::abs(headingError) <= fabs(breakDistanceInDegrees)) && decelCompleted == false)
         {
-            // break;
+            // Initialize brake mode and ABS on first entry
+            if (!decel)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    leftMotor[i].setBrake(brake);
+                    rightMotor[i].setBrake(brake);
+                }
+                
+                adaptiveABSLeft.initialize(motorVoltageLeft[1]);
+                adaptiveABSRight.initialize(motorVoltageRight[1]);
+            }
+            
             decel = true;
             Brain.Screen.printAt(10, 20, "Decel Phase");
 
+            // Get motor and encoder speeds
+            double leftMotorRPM = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm));
+            double rightMotorRPM = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm));
+            double leftEncoderRPM = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
+                                    (encoderWheelCircumferenceCM / wheelCircumferenceCM) * ENCODER_RADIUS_RATIO;
+            double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
+                                    (encoderWheelCircumferenceCM / wheelCircumferenceCM) * ENCODER_RADIUS_RATIO;
+
+            // Calculate brake voltages independently for each side
+            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM);
+
+            // Synchronize - use HIGHER voltage (less aggressive braking) for both sides
+            double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
+
+            // Apply synchronized voltage to both sides
             for (int i = 0; i < 3; i++)
             {
-                // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = 0;
-                motorVoltageRight[i] = 0;
+                motorVoltageLeft[i] = std::copysign(syncedDecelVoltage, motorVoltageLeft[i]);
+                motorVoltageRight[i] = std::copysign(syncedDecelVoltage, motorVoltageRight[i]);
             }
 
-            for (int i = 0; i < 3; i++)
-            {
-                // Getting brake mode from ABS controller
-                leftBrakeMode[i] = ABSControllerLeft[i].ABSSpeedReduction(leftMotorRPM[i], leftEncoderRPM);
-                rightBrakeMode[i] = ABSControllerRight[i].ABSSpeedReduction(rightMotorRPM[i], rightEncoderRPM);
-            }
-
-            // Pair 1: Leading wheels (left[0] and right[2])
-            brakeType leadingPairMode = (leftBrakeMode[0] == brakeType::coast || rightBrakeMode[2] == brakeType::coast) ? brakeType::coast : brakeType::brake;
-            leftMotor[0].stop(leadingPairMode);
-            rightMotor[2].stop(leadingPairMode);
-
-            // Pair 2: Middle wheels
-            brakeType middlePairMode = (leftBrakeMode[1] == brakeType::coast || rightBrakeMode[1] == brakeType::coast) ? brakeType::coast : brakeType::brake;
-            leftMotor[1].stop(middlePairMode);
-            rightMotor[1].stop(middlePairMode);
-
-            // Pair 3: Trailing wheels
-            brakeType trailingPairMode = (leftBrakeMode[2] == brakeType::coast || rightBrakeMode[0] == brakeType::coast) ? brakeType::coast : brakeType::brake;
-            leftMotor[2].stop(trailingPairMode);
-            rightMotor[0].stop(trailingPairMode);
-
-            /*
-                // Stop the motors
-               for (int i = 0; i < 3; i++) {
-               leftMotor[i].stop(brake);
-               rightMotor[i].stop(brake);
-               }
-           */
-
-            //  decelCompleted = true;
-            // If all drivetrain motors decel to min speed then change DecelCompleted State variable to true to start Approach Phase
             leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
 
-            // Detect if robot slowed down to target minimum speed
             if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
                 fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
             {
                 decelCompleted = true;
             }
-
-            // Final Approach Phase
         }
+         // Final Approach Phase
         else if (decelCompleted == true)
         {
             // break;
