@@ -358,8 +358,10 @@ void soloAWP(){
     driveBackward(20, 15, -315);
 }
 
-void nothing(){
-
+void colourTest(){
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    intakeStart(10000, 50, true, false, Colour::RED);
 }
 
 /*

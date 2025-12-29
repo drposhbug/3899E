@@ -19,7 +19,9 @@ float rollingAverage(float newValue, float currentAverage, int n);
 void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage);
 
 // Color detection
-bool detectColor();
+bool detectColor(Color targetColor);
+bool detectRed(); 
+bool detectBlue();
 void resetColorDetection();
 void initializeOpticalSensor();
 void ringEjection();

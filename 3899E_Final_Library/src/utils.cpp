@@ -57,7 +57,12 @@ void initializeOpticalSensor()
 static int consecutiveDetections = 0;
 static bool lastDetectedColor = false; // false = no color, true = color detected
 
-bool detectColor()
+/**
+ * Detect if a specific color is present
+ * @param targetColor The color to detect (Color::RED or Color::BLUE)
+ * @return true if the target color is detected, false otherwise
+ */
+bool detectColor(Color targetColor)
 {
     double hue = opticalSensor.hue();
     double brightness = opticalSensor.brightness();
@@ -71,12 +76,23 @@ bool detectColor()
         return false;
     }
 
-    // Check for red or blue
-    if (((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
-         (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) ||
-        (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX))
+    // Check for the target color only
+    if (targetColor == Color::RED)
     {
-        colorDetected = true;
+        // Check for red hue ranges
+        if ((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
+            (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2))
+        {
+            colorDetected = true;
+        }
+    }
+    else if (targetColor == Color::BLUE)
+    {
+        // Check for blue hue range
+        if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX)
+        {
+            colorDetected = true;
+        }
     }
 
     // Handle consecutive detections
@@ -93,6 +109,24 @@ bool detectColor()
 
     // Return true if we have enough consecutive detections
     return (consecutiveDetections >= 3); // Require 3 consecutive detections
+}
+
+/**
+ * Detect if red color is present
+ * @return true if red is detected, false otherwise
+ */
+bool detectRed()
+{
+    return detectColor(Color::RED);
+}
+
+/**
+ * Detect if blue color is present
+ * @return true if blue is detected, false otherwise
+ */
+bool detectBlue()
+{
+    return detectColor(Color::BLUE);
 }
 
 // Reset detection state if needed
@@ -508,3 +542,4 @@ void moveArm(ArmPosition position, int adjustment, int delayMs) {
     // Start the task
     vex::task arm_task(simpleArmTask, &simpleArmParams);
 }
+
