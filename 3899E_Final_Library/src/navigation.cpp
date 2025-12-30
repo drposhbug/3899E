@@ -82,9 +82,9 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // may need to go above 25% given built in difference between encoder and wheel spin speed
     const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
     const double SLIP_THRESHOLD_TRACTION = 10; // somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
-    // Adaptive ABS configuration for turns
-    const double LOCK_THRESHOLD_DECEL = 0.25;
-    const double DECEL_STEP_PERCENT = 2.0;
+    // Adaptive ABS configuration
+    const double DECEL_STEP_PERCENT = 100;     // Voltage step as % of 12V
+    const double LOCK_THRESHOLD_DECEL = 1; // Lockup sensitivity
 
     const double EXIT_TOLERANCE_DEGREES = 4;
 
@@ -187,15 +187,9 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         }
         else if ((std::abs(headingError) <= fabs(breakDistanceInDegrees)) && decelCompleted == false)
         {
-            // Initialize brake mode and ABS on first entry
+            // Initialize ABS on first entry
             if (!decel)
             {
-                for (int i = 0; i < 3; i++)
-                {
-                    leftMotor[i].setBrake(brake);
-                    rightMotor[i].setBrake(brake);
-                }
-
                 adaptiveABSLeft.initialize(motorVoltageLeft[1]);
                 adaptiveABSRight.initialize(motorVoltageRight[1]);
             }
@@ -203,29 +197,55 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
             Brain.Screen.printAt(10, 20, "Decel Phase");
             decel = true;
 
-            // Get motor and encoder speeds
-            double leftMotorRPM = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
-            double rightMotorRPM = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
-            double leftEncoderRPM = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
-                                    (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-            double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
-                                     (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            // Get motor and encoder speeds (already declared above in main loop)
+            double leftMotorRPMDecel = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
+            double rightMotorRPMDecel = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
+            double leftEncoderRPMDecel = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
+                                        (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            double rightEncoderRPMDecel = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
+                                        (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
             // Calculate brake voltages independently for each side
-            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
-            // Synchronize - use HIGHER voltage (less aggressive braking) for both sides
-            double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
+            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPMDecel, leftEncoderRPMDecel);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPMDecel, rightEncoderRPMDecel);
 
-            // Apply synchronized voltage to both sides
-            for (int i = 0; i < 3; i++)
-            {
-                motorVoltageLeft[i] = std::copysign(syncedDecelVoltage, motorVoltageLeft[i]);
-                motorVoltageRight[i] = std::copysign(syncedDecelVoltage, motorVoltageRight[i]);
+            // Get brake modes from ABS
+            vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
+            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+
+            // SYNC brake mode: if EITHER side is locking up, BOTH sides coast
+            vex::brakeType syncedBrakeMode;
+            if (leftBrakeMode == vex::coast || rightBrakeMode == vex::coast) {
+                syncedBrakeMode = vex::coast;
+            } else {
+                syncedBrakeMode = vex::brake;
             }
 
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
-            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+            // For turns: use HIGHER voltage (less aggressive braking) to maintain rotation momentum
+            double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
+
+            // Apply synchronized voltage and brake mode to both sides
+            for (int i = 0; i < 3; i++)
+            {
+                leftMotor[i].setBrake(syncedBrakeMode);
+                rightMotor[i].setBrake(syncedBrakeMode);
+
+                if (syncedBrakeMode == vex::brake && syncedDecelVoltage > 0.0)
+                {
+                    // Apply graduated braking voltage with original sign preserved
+                    motorVoltageLeft[i] = std::copysign(syncedDecelVoltage, motorVoltageLeft[i]);
+                    motorVoltageRight[i] = std::copysign(syncedDecelVoltage, motorVoltageRight[i]);
+                }
+                else
+                {
+                    // Coasting to release lockup - zero voltage
+                    motorVoltageLeft[i] = 0.0;
+                    motorVoltageRight[i] = 0.0;
+                }
+            }
+
+            leftEncoderRollingAverage = rollingAverage(leftEncoderRPMDecel, leftEncoderRollingAverage, 3);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPMDecel, rightEncoderRollingAverage, 3);
 
             if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
                 fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
@@ -262,18 +282,15 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
 
         // Power Drive Motors
 
-        // turnDirection = std::copysign(turnDirection, normTargetHeading);
-        if (!decel == true || decelCompleted == true)
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
-                rightMotor[i].spin(forward, -motorVoltageRight[i], voltageUnits::volt);
-            }
-        }
-
-        vex::task::sleep(10);
+    // Power Drive Motors - apply voltages in ALL phases (including decel)
+    for (int i = 0; i < 3; i++)
+    {
+        leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
+        rightMotor[i].spin(forward, -motorVoltageRight[i], voltageUnits::volt);
     }
+
+    vex::task::sleep(10);
+        }
 
     // Stop all motors at end of routine after approach
     for (int i = 0; i < 3; i++)
@@ -858,8 +875,8 @@ void straightOdometry(double targetDistance,
     // Stop all motors at end of routine after approach
     for (int i = 0; i < 3; i++)
     {
-        leftMotor[i].setBrake(coast);
-        rightMotor[i].setBrake(coast);
+        leftMotor[i].setBrake(brake);
+        rightMotor[i].setBrake(brake);
         leftMotor[i].stop();
         rightMotor[i].stop();
     }
