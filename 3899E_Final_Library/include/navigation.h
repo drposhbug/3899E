@@ -97,17 +97,19 @@ private:
 
 // Adaptive ABS for deceleration phase - prevents wheel lockup while guaranteeing minimum braking
 class adaptiveABS {
+private:
+    double lockThreshold;
+    double decelStepVoltage;
+    double lastAttemptedVoltage;
+    bool wasLockedLastCycle;
+    vex::brakeType currentBrakeMode;
+
 public:
     adaptiveABS(double decelStepPercent, double lockThreshold);
     void initialize(double startingVoltage);
-    double decelControlSpeed(double motorVoltage, double wheelSpeed, double robotSpeed);
-
-private:
-    double decelStepVoltage;        // Voltage step size (based on 12V max)
-    double lockThreshold;           // Lockup detection threshold (0-1)
-    double minimumBrakingVoltage;   // Maximum voltage during rollback (guarantees minimum braking)
+    double decelControlSpeed(double wheelSpeed, double robotSpeed);
+    vex::brakeType getBrakeMode() { return currentBrakeMode; }
 };
-
 // Forward/backward wrappers
 void forwardMP(double targetDistance,
             double breakDistance = 35, 

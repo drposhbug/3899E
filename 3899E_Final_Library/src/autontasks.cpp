@@ -1,4 +1,5 @@
-#include "robot-config.h"
+#include "robot_config.h"
+#include <atomic> 
 #include "utils.h"
 #include "vex.h"
 #include "navigation.h"
@@ -38,7 +39,7 @@ static double g_intakeTimeMs = 0;
 static double g_intakePct = 100;
 static bool g_intakePistonState = false;
 static bool g_matchLoadState = false;
-static Colour g_colourDetectionTarget = Colour::RED;  // colour to detect defaults to RED
+static Color g_colourDetectionTarget = Color::RED; // colour to detect defaults to RED
 static bool g_enableColourDetection = false;
 static vex::task g_intakeTaskHandle;
 
@@ -67,7 +68,7 @@ int intakeTaskEntry(void*) {
         intakeMotor2.spin(forward, intakeVoltage, voltageUnits::volt);
 
         // check for colour detection if enabled
-        if (g_enableColourDetection && detectColour(g_colourDetectionTarget)) {
+        if (g_enableColourDetection && detectColor(g_colourDetectionTarget)) {
             // stop intake
             intakeMotor1.stop();
             intakeMotor2.stop();
@@ -91,7 +92,7 @@ int intakeTaskEntry(void*) {
             intakeMotor2.stop();
 
             // Reset colour detection and resume intake
-            resetColourDetection();
+            resetColorDetection();
             vex::task::sleep(50);
 
             if (g_intakePistonState) {
@@ -119,7 +120,7 @@ int intakeTaskEntry(void*) {
 }
 
 //asynchronous intake with colour detection
-void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad, Colour targetColour) {
+void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad, Color targetColor) {
     // if already running, stop previous then start new
     if (g_intakeTaskRunning.load()) {   
         g_intakeTaskRunning.store(false);
@@ -129,9 +130,9 @@ void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLo
     g_intakePistonState = pistonState;
     g_intakePct = intakePct;
     g_matchLoadState = matchLoad;
-    g_colourDetectionTarget = targetColour;
+    g_colourDetectionTarget = targetColor;
     g_enableColourDetection = true;
-    resetColourDetection();
+    resetColorDetection();
     g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
 }
 

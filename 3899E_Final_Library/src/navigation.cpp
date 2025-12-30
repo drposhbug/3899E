@@ -49,20 +49,19 @@ void move(double distanceCM, double maxSpeed, vex::directionType dir)
     }
 }
 
-
 void turnOdometry(double targetHeading, double breakDistanceInDegrees, double minSpeed, double maxSpeed)
 {
     // Reset completion flags
-    
+
     bool decelCompleted = false;
     bool accelCompleted = false;
     bool decel = false;
 
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
-    int completeRotations = (int)(currentHeading / 360.0);  
+    int completeRotations = (int)(currentHeading / 360.0);
     double targetRotationHeading = targetHeading + (completeRotations * 360.0);
     double headingError = targetRotationHeading - currentHeading;
-    //double currentDistanceInDegrees = headingError;
+    // double currentDistanceInDegrees = headingError;
 
     Brain.Screen.printAt(10, 40, "Target Head: %.2f", targetHeading);
     Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
@@ -82,18 +81,17 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // 0.25 = 25% slip tolerance for balanced control
     // may need to go above 25% given built in difference between encoder and wheel spin speed
     const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
-    const double SLIP_THRESHOLD_TRACTION = 10; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
-    // Adaptive ABS configuration for turns   
+    const double SLIP_THRESHOLD_TRACTION = 10; // somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
+    // Adaptive ABS configuration for turns
     const double LOCK_THRESHOLD_DECEL = 0.25;
     const double DECEL_STEP_PERCENT = 2.0;
 
     const double EXIT_TOLERANCE_DEGREES = 4;
 
-    
     double averageMotorVoltage = 0;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage}; // Initialize all elements to minimum launch speed
- 
+
     double leftEncoderRollingAverage = 0;
     double rightEncoderRollingAverage = 0;
     double voltageRollingAverage = 0;
@@ -106,18 +104,18 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
 
-    // Loop to continuously adjust motor power 
-    while ((maxSpeedVoltage > 0 && currentHeading <= targetRotationHeading - EXIT_TOLERANCE_DEGREES) || 
-       (maxSpeedVoltage < 0 && currentHeading >= targetRotationHeading + EXIT_TOLERANCE_DEGREES)) 
-       {
+    // Loop to continuously adjust motor power
+    while ((maxSpeedVoltage > 0 && currentHeading <= targetRotationHeading - EXIT_TOLERANCE_DEGREES) ||
+           (maxSpeedVoltage < 0 && currentHeading >= targetRotationHeading + EXIT_TOLERANCE_DEGREES))
+    {
         currentHeading = InertialSensor.rotation(degrees) - headingOffset;
         headingError = targetRotationHeading - currentHeading;
-        //currentDistanceInDegrees = headingError;
-        
+        // currentDistanceInDegrees = headingError;
+
         Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
-        //Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);
+        // Brain.Screen.printAt(10, 120, "Curr Dist: %.2f", currentDistanceInDegrees);
         Brain.Screen.printAt(10, 140, "Target: %.2f", targetHeading);
-       
+
         // Get motor RPM with adjustment for each side
         double leftMotorRPM = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
         double rightMotorRPM = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
@@ -129,7 +127,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
                                  (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
         // Average the encoder values
-        double averageEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2.0;                         
+        double averageEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2.0;
         // double minSpeedVoltage = std::copysign((minSpeed * 0.01 * 12), normTargetHeading);
 
         // Calculate current distance in degrees
@@ -149,28 +147,29 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         {
 
             // Call traction control class and get adjusted motor voltage
-        double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, averageEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
-        double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, averageEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
+            double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, averageEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
+            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, averageEncoderRPM, TURN_ACCEL_FACTOR_LAUNCH);
 
-        // Find the minimum MAGNITUDE (most conservative)
-        double syncedMotorVoltage = std::min(fabs(leftTractionVoltage), fabs(rightTractionVoltage));
+            // Find the minimum MAGNITUDE (most conservative)
+            double syncedMotorVoltage = std::min(fabs(leftTractionVoltage), fabs(rightTractionVoltage));
 
-        // Apply to all 3 motors on both sides with original signs preserved
-        for (int i = 0; i < 3; i++)
-        {
-            motorVoltageLeft[i] = std::copysign(syncedMotorVoltage, motorVoltageLeft[i]);
-            motorVoltageRight[i] = std::copysign(syncedMotorVoltage, motorVoltageRight[i]);
-        }
+            // Apply to all 3 motors on both sides with original signs preserved
+            for (int i = 0; i < 3; i++)
+            {
+                motorVoltageLeft[i] = std::copysign(syncedMotorVoltage, motorVoltageLeft[i]);
+                motorVoltageRight[i] = std::copysign(syncedMotorVoltage, motorVoltageRight[i]);
+            }
 
             averageMotorVoltage = (fabs(motorVoltageLeft[0]) + fabs(motorVoltageRight[0]) + fabs(motorVoltageLeft[1]) + fabs(motorVoltageRight[1]) + fabs(motorVoltageLeft[2]) + fabs(motorVoltageRight[2])) / numberDriveMotor;
-           
+
             // Update rolling average
             voltageRollingAverage = rollingAverage(averageMotorVoltage, voltageRollingAverage, 5);
 
-            if (fabs(voltageRollingAverage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE)){
-            accelCompleted = true;
-            Brain.Screen.printAt(10, 20, "Launch Phase");}
-            
+            if (fabs(voltageRollingAverage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE))
+            {
+                accelCompleted = true;
+                Brain.Screen.printAt(10, 20, "Launch Phase");
+            }
         }
 
         // Cruise Phase
@@ -185,58 +184,56 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
                 motorVoltageLeft[i] = maxSpeedVoltage;
                 motorVoltageRight[i] = maxSpeedVoltage;
             }
-        
         }
-else if ((std::abs(headingError) <= fabs(breakDistanceInDegrees)) && decelCompleted == false)
-{
-    // Initialize brake mode and ABS on first entry
-    if (!decel)
-    {
-        for (int i = 0; i < 3; i++)
+        else if ((std::abs(headingError) <= fabs(breakDistanceInDegrees)) && decelCompleted == false)
         {
-            leftMotor[i].setBrake(brake);
-            rightMotor[i].setBrake(brake);
+            // Initialize brake mode and ABS on first entry
+            if (!decel)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    leftMotor[i].setBrake(brake);
+                    rightMotor[i].setBrake(brake);
+                }
+
+                adaptiveABSLeft.initialize(motorVoltageLeft[1]);
+                adaptiveABSRight.initialize(motorVoltageRight[1]);
+            }
+
+            Brain.Screen.printAt(10, 20, "Decel Phase");
+            decel = true;
+
+            // Get motor and encoder speeds
+            double leftMotorRPM = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
+            double rightMotorRPM = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
+            double leftEncoderRPM = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
+                                    (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
+                                     (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+            // Calculate brake voltages independently for each side
+            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+            // Synchronize - use HIGHER voltage (less aggressive braking) for both sides
+            double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
+
+            // Apply synchronized voltage to both sides
+            for (int i = 0; i < 3; i++)
+            {
+                motorVoltageLeft[i] = std::copysign(syncedDecelVoltage, motorVoltageLeft[i]);
+                motorVoltageRight[i] = std::copysign(syncedDecelVoltage, motorVoltageRight[i]);
+            }
+
+            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+
+            if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
+                fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
+            {
+                decelCompleted = true;
+            }
         }
-        
-        adaptiveABSLeft.initialize(motorVoltageLeft[1]);
-        adaptiveABSRight.initialize(motorVoltageRight[1]);
-    }
-    
-    Brain.Screen.printAt(10, 20, "Decel Phase");
-    decel = true;
-
-    // Get motor and encoder speeds
-    double leftMotorRPM = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
-    double rightMotorRPM = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
-    double leftEncoderRPM = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
-                            (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-    double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
-                             (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-
-    // Calculate brake voltages independently for each side
-    double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM);
-    double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM);
-
-    // Synchronize - use HIGHER voltage (less aggressive braking) for both sides
-    double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
-
-    // Apply synchronized voltage to both sides
-    for (int i = 0; i < 3; i++)
-    {
-        motorVoltageLeft[i] = std::copysign(syncedDecelVoltage, motorVoltageLeft[i]);
-        motorVoltageRight[i] = std::copysign(syncedDecelVoltage, motorVoltageRight[i]);
-    }
-
-    leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
-    rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
-
-    if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
-        fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
-    {
-        decelCompleted = true;
-    }
-}
-        //Final Approach Phase
+        // Final Approach Phase
         else if (decelCompleted == true)
         {
             // break;
@@ -319,45 +316,56 @@ double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSp
 }
 
 // Adaptive ABS Constructor - calculates voltage step from percentage of 12V max
+// Adaptive ABS Constructor
 adaptiveABS::adaptiveABS(double decelStepPercent, double lockThreshold)
-    : lockThreshold(lockThreshold), minimumBrakingVoltage(0.0)
+    : lockThreshold(lockThreshold), lastAttemptedVoltage(0.0), wasLockedLastCycle(false), 
+      currentBrakeMode(vex::brake)
 {
-    // Convert percentage to absolute voltage (always based on 12V)
     decelStepVoltage = absoluteMaxVoltage * (decelStepPercent / 100.0);
 }
 
-// Initialize ABS for new movement - sets minimum braking voltage based on starting speed
+// Initialize ABS at start of decel phase
 void adaptiveABS::initialize(double startingVoltage)
 {
-    // Calculate rollback ceiling (guarantees minimum braking)
-    minimumBrakingVoltage = std::max(0.0, std::fabs(startingVoltage) - decelStepVoltage);
+    lastAttemptedVoltage = startingVoltage;
+    wasLockedLastCycle = false;
+    currentBrakeMode = vex::brake;
 }
 
 // Adaptive ABS control - adjusts brake voltage based on wheel lockup
-// Higher voltage = less brake, lower voltage = more brake
-// Lockup detected = add voltage (rollback), no lockup = subtract voltage (brake harder)
-double adaptiveABS::decelControlSpeed(double motorVoltage, double wheelSpeed, double robotSpeed)
+double adaptiveABS::decelControlSpeed(double wheelSpeed, double robotSpeed)
 {
     // Calculate lockup ratio
     double lockupRatio = calculateLockupRatio(wheelSpeed, robotSpeed);
-
-    // Adjust voltage based on lockup
+    
+    double outputVoltage;
+    
     if (lockupRatio > lockThreshold)
     {
-        motorVoltage = motorVoltage + decelStepVoltage;  // Lockup - rollback
+        // LOCKED: Return 0V with coast mode
+        outputVoltage = 0.0;
+        currentBrakeMode = vex::coast;
+        wasLockedLastCycle = true;
+    }
+    else if (wasLockedLastCycle)
+    {
+        // PREVIOUSLY LOCKED: Retry same voltage with brake mode
+        outputVoltage = lastAttemptedVoltage;
+        currentBrakeMode = vex::brake;
+        wasLockedLastCycle = false;
     }
     else
     {
-        motorVoltage = motorVoltage - decelStepVoltage;  // No lockup - brake harder
+        // NORMAL: Reduce voltage with brake mode
+        lastAttemptedVoltage = std::copysign(
+            std::max(0.0, std::fabs(lastAttemptedVoltage) - decelStepVoltage),
+            lastAttemptedVoltage
+        );
+        outputVoltage = lastAttemptedVoltage;
+        currentBrakeMode = vex::brake;
     }
-
-    // Clamp between 0V and minimumBrakingVoltage
-    motorVoltage = std::copysign(
-        std::max(0.0, std::min(std::fabs(motorVoltage), minimumBrakingVoltage)), 
-        motorVoltage
-    );
-
-    return motorVoltage;
+    
+    return outputVoltage;
 }
 
 void arcTurn(double targetDistance,
@@ -440,10 +448,10 @@ void arcTurn(double targetDistance,
     // Stop motors at end
     for (int i = 0; i < 3; i++)
     {
-       leftMotor[i].setBrake(coast);
-       rightMotor[i].setBrake(coast);  
-       leftMotor[i].stop();
-       rightMotor[i].stop();
+        leftMotor[i].setBrake(coast);
+        rightMotor[i].setBrake(coast);
+        leftMotor[i].stop();
+        rightMotor[i].stop();
     }
 }
 
@@ -463,14 +471,14 @@ void straightOdometry(double targetDistance,
     // ========================================
     // CONFIGURATION CONSTANTS
     // ========================================
-    //Adaptive Launch Control Configuration
-    const double LAUNCH_VOLTAGE = 6;           // Starting voltage, must be higher than 0 
-    const double ACCEL_FACTOR_LAUNCH = 1.25;     // Acceleration rate MUST be > 1.0
+    // Adaptive Launch Control Configuration
+    const double LAUNCH_VOLTAGE = 6;         // Starting voltage, must be higher than 0
+    const double ACCEL_FACTOR_LAUNCH = 1.25; // Acceleration rate MUST be > 1.0
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
     const double SLIP_THRESHOLD_TRACTION = 0.3; // Slip threshold 1 is always power, 0 is no power
     // Adaptive ABS configuration
-    const double DECEL_STEP_PERCENT = 2.0;      // Voltage step as % of 12V (range: 1-10)
-    const double LOCK_THRESHOLD_DECEL = 0.25;   // Lockup sensitivity (range: 0.15-0.40)
+    const double DECEL_STEP_PERCENT = 2.5;    // Voltage step as % of 12V (range: 1-10)
+    const double LOCK_THRESHOLD_DECEL = 0.45; // Lockup sensitivity (range: 0.15-0.40)
     // ========================================
 
     // Add timer for acceleration phase
@@ -486,15 +494,13 @@ void straightOdometry(double targetDistance,
 
     // Motion Parameters
     double currentDistance = 0;
-    //double headingDirection = (targetDistance > 0) ? 1.0 : -1.0;
+    // double headingDirection = (targetDistance > 0) ? 1.0 : -1.0;
 
     // Target Speeds & Voltages
     double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
     double minSpeedVoltage = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
     double launchVoltage = std::copysign(LAUNCH_VOLTAGE, targetDistance);
     double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), targetDistance);
-
-
 
     // RPM Parameters
     double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM; // Adjusted for frictional losses
@@ -516,14 +522,16 @@ void straightOdometry(double targetDistance,
     bool decel = false;
     bool decelCompleted = false;
     bool accelCompleted = false;
+    int consecutiveAtTarget = 0;
+    const int REQUIRED_CONSECUTIVE = 1;
 
-  // TEMPORARY - Voltage tracking for debugging traction control
+    // TEMPORARY - Voltage tracking for debugging traction control
     double maxLeftVoltageReached = 0;
     double maxRightVoltageReached = 0;
     double maxAvgLeftVoltage = 0;
     double maxAvgRightVoltage = 0;
-    double maxLeftMotor[3] = {0, 0, 0};   // ← ADD THIS
-    double maxRightMotor[3] = {0, 0, 0};  // ← ADD THIS
+    double maxLeftMotor[3] = {0, 0, 0};  // ← ADD THIS
+    double maxRightMotor[3] = {0, 0, 0}; // ← ADD THIS
 
     // Declare arrays of Slip Control instances for each wheel
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
@@ -538,15 +546,14 @@ void straightOdometry(double targetDistance,
 
         currentDistance = ((passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * encoderWheelCircumferenceCM;
         avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2]) / numberDriveMotor;
-     
 
-// Display current encoder distance
-Brain.Screen.clearScreen();
-Brain.Screen.setCursor(1, 1);
-Brain.Screen.print("Current: %.2f cm", std::fabs(currentDistance));
-Brain.Screen.setCursor(2, 1);
-Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
-                        
+        // Display current encoder distance
+        Brain.Screen.clearScreen();
+        Brain.Screen.setCursor(1, 1);
+        Brain.Screen.print("Current: %.2f cm", std::fabs(currentDistance));
+        Brain.Screen.setCursor(2, 1);
+        Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
+
         /*
         // Distance calculation debug
         Brain.Screen.clearScreen();  // Clear previous prints
@@ -568,7 +575,7 @@ Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
         // double headingError = getHeadingError360(targetHeading, InertialSensor.heading());
         // Calculate the heading correction using the PID controller with normalization
         // Calculate the heading correction using normalized error
-       // Use continuous rotation instead of heading()
+        // Use continuous rotation instead of heading()
         double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
         double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
 
@@ -578,7 +585,7 @@ Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
         double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2;
 
         // Get motor RPMs
-  // Get middle motor RPM only (index 1 - traction wheel)
+        // Get middle motor RPM only (index 1 - traction wheel)
         double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
         double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
 
@@ -587,20 +594,22 @@ Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
         { // will keep going until acceleration is complete and not in decel
           //  Brain.Screen.printAt(10, 20, "Launch Phase");
 
-           
+            // Print initial values
+            // Brain.Screen.printAt(10, 80, "Init L: %.2f, R: %.2f", motorVoltageLeft[i], motorVoltageRight[i]);
 
-                // Print initial values
-                // Brain.Screen.printAt(10, 80, "Init L: %.2f, R: %.2f", motorVoltageLeft[i], motorVoltageRight[i]);
+            // Call traction cotrol class and get adjusted motor voltage
+            double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
+            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+            // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
 
-                // Call traction cotrol class and get adjusted motor voltage
-                double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
-                double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
-                // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
+            // Synchronized control - use the lower voltage (more conservative) for BOTH sides
+            // Synchronized control - use the lower MAGNITUDE voltage (more conservative) for BOTH sides
+            // For negative values, std::min picks the MORE negative (higher magnitude), so use fabs comparison
+            double syncedMotorVoltage = (std::fabs(leftTractionVoltage) < std::fabs(rightTractionVoltage)) 
+                ? leftTractionVoltage 
+                : rightTractionVoltage;
 
-                // Synchronized control - use the lower voltage (more conservative) for BOTH sides
-                double syncedMotorVoltage = std::min(leftTractionVoltage, rightTractionVoltage);
-
-                // Apply to all 3 motors on both sides with PID correction
+            // Apply to all 3 motors on both sides with PID correction
             // Apply to all 3 motors on both sides with PID correction - CORRECTED SIGNS
             for (int i = 0; i < 3; i++)
             {
@@ -608,8 +617,7 @@ Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
                 motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
             }
 
-                maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
-            
+            maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
 
             if (fabs(avgMotorVoltage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE))
             {
@@ -634,7 +642,7 @@ Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
         else if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && accelCompleted == true)
         {
             // break;
-           // Brain.Screen.printAt(10, 20, "Cruise Phase"); // Else condition - specify actions here if the if condition is not met
+            // Brain.Screen.printAt(10, 20, "Cruise Phase"); // Else condition - specify actions here if the if condition is not met
 
             for (int i = 0; i < 3; i++)
             {
@@ -661,60 +669,100 @@ Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
             // Decel Phase
             // If declerating then go to ABS routine
         }
-        
-// Deceleration phase with adaptive ABS
-else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && decelCompleted == false)
-{
-    // First entry - set brake mode and initialize ABS
-    if (!decel)
-    {
+
+        // Deceleration phase with adaptive ABS
+        else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && decelCompleted == false)
+        {
+// First entry - initialize ABS
+            if (!decel)
+            {
+                adaptiveABSLeft.initialize(motorVoltageLeft[1]);
+                adaptiveABSRight.initialize(motorVoltageRight[1]);
+            }
+            decel = true;
+
+            // Get motor and encoder speeds
+            double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+            double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+            double leftEncoderRPM = passiveEncoderLeft.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            double rightEncoderRPM = passiveEncoderRight.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+            // Calculate brake voltages using adaptive ABS
+            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+
+            // Get brake modes from ABS
+            vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
+            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+
+            // Calculate steering correction
+            double steeringCorrection = headingCorrection * decelHeadingScaling;
+
+            // Apply voltages with conditional PID
+            // Apply voltages with conditional PID (handles both forward and backward)
         for (int i = 0; i < 3; i++)
         {
-            leftMotor[i].setBrake(brake);
-            rightMotor[i].setBrake(brake);
+            // LEFT SIDE: Apply PID only if brake mode AND voltage non-zero
+            if (leftBrakeMode == vex::brake && std::fabs(leftDecelVoltage) > 0.0)
+            {
+                double correctedLeft = leftDecelVoltage + steeringCorrection;
+                // Clamp toward zero - don't let correction reverse direction
+                if (leftDecelVoltage > 0)
+                    motorVoltageLeft[i] = std::max(0.0, correctedLeft);
+                else
+                    motorVoltageLeft[i] = std::min(0.0, correctedLeft);
+            }
+            else
+            {
+                motorVoltageLeft[i] = 0.0;  // Locked coast or final brake
+            }
+            
+            // RIGHT SIDE: Apply PID only if brake mode AND voltage non-zero
+            if (rightBrakeMode == vex::brake && std::fabs(rightDecelVoltage) > 0.0)
+            {
+                double correctedRight = rightDecelVoltage - steeringCorrection;
+                // Clamp toward zero - don't let correction reverse direction
+                if (rightDecelVoltage > 0)
+                    motorVoltageRight[i] = std::max(0.0, correctedRight);
+                else
+                    motorVoltageRight[i] = std::min(0.0, correctedRight);
+            }
+            else
+            {
+                motorVoltageRight[i] = 0.0;  // Locked coast or final brake
+            }
+            
+            // Set brake modes
+            leftMotor[i].setBrake(leftBrakeMode);
+            rightMotor[i].setBrake(rightBrakeMode);
         }
-        
-        // Initialize ABS with current voltages (sets minimum braking voltage)
-        adaptiveABSLeft.initialize(motorVoltageLeft[1]);
-        adaptiveABSRight.initialize(motorVoltageRight[1]);
-    }
-    decel = true;
 
-    // Get motor and encoder speeds
-    double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-    double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-    double leftEncoderRPM = passiveEncoderLeft.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-    double rightEncoderRPM = passiveEncoderRight.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            // Update rolling averages for exit detection
+            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
 
-    // Calculate brake voltages using adaptive ABS
-    double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM);
-    double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM);
+            // Exit when BOTH sides slowed to minimum speed, confirmed multiple times
+            if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
+                fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
+            {
+                consecutiveAtTarget++;
+                if (consecutiveAtTarget >= REQUIRED_CONSECUTIVE)
+                {
+                    decelCompleted = true;
+                }
+            }
+            else
+            {
+                consecutiveAtTarget = 0;  // Reset if we pop back above target
+            }
+        }
 
-    // Apply voltages with heading correction
-    for (int i = 0; i < 3; i++)
-    {
-        motorVoltageLeft[i] = leftDecelVoltage + (headingCorrection * decelHeadingScaling);
-        motorVoltageRight[i] = rightDecelVoltage - (headingCorrection * decelHeadingScaling);
-    }
-
-    // Update rolling averages for exit detection
-    leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
-    rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
-
-    // Exit when slowed to minimum speed
-    if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) ||
-        fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
-    {
-        decelCompleted = true;
-    }
-}
-        
-        //Final Approach Phase
+        // Final Approach Phase
         else if (decelCompleted == true)
         {
             // break;
-        //    Brain.Screen.printAt(10, 20, "Approach Phase");
-        //    Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted);
+            //    Brain.Screen.printAt(10, 20, "Approach Phase");
+            //    Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted);
 
             for (int i = 0; i < 3; i++)
             {
@@ -725,30 +773,32 @@ else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && dece
             }
         }
 
-// Track maximum voltages - both individual motors AND averages
-for (int i = 0; i < 3; i++)
-{
-    // Track highest voltage for ANY motor on each side
-    maxLeftVoltageReached = std::max(maxLeftVoltageReached, std::fabs(motorVoltageLeft[i]));
-    maxRightVoltageReached = std::max(maxRightVoltageReached, std::fabs(motorVoltageRight[i]));
-    
-    maxLeftMotor[i] = std::max(maxLeftMotor[i], std::fabs(motorVoltageLeft[i]));
-    maxRightMotor[i] = std::max(maxRightMotor[i], std::fabs(motorVoltageRight[i]));
-}
+        // Track maximum voltages - both individual motors AND averages
+        for (int i = 0; i < 3; i++)
+        {
+            // Track highest voltage for ANY motor on each side
+            maxLeftVoltageReached = std::max(maxLeftVoltageReached, std::fabs(motorVoltageLeft[i]));
+            maxRightVoltageReached = std::max(maxRightVoltageReached, std::fabs(motorVoltageRight[i]));
 
-// Calculate and track average voltage across all motors
-double currentAvgLeftVoltage = (std::fabs(motorVoltageLeft[0]) + 
-                                std::fabs(motorVoltageLeft[1]) + 
-                                std::fabs(motorVoltageLeft[2])) / 3.0;
+            maxLeftMotor[i] = std::max(maxLeftMotor[i], std::fabs(motorVoltageLeft[i]));
+            maxRightMotor[i] = std::max(maxRightMotor[i], std::fabs(motorVoltageRight[i]));
+        }
 
-double currentAvgRightVoltage = (std::fabs(motorVoltageRight[0]) + 
-                                 std::fabs(motorVoltageRight[1]) + 
-                                 std::fabs(motorVoltageRight[2])) / 3.0;
+        // Calculate and track average voltage across all motors
+        double currentAvgLeftVoltage = (std::fabs(motorVoltageLeft[0]) +
+                                        std::fabs(motorVoltageLeft[1]) +
+                                        std::fabs(motorVoltageLeft[2])) /
+                                       3.0;
 
-static double maxAvgLeftVoltage = 0;
-static double maxAvgRightVoltage = 0;
-maxAvgLeftVoltage = std::max(maxAvgLeftVoltage, currentAvgLeftVoltage);
-maxAvgRightVoltage = std::max(maxAvgRightVoltage, currentAvgRightVoltage);
+        double currentAvgRightVoltage = (std::fabs(motorVoltageRight[0]) +
+                                         std::fabs(motorVoltageRight[1]) +
+                                         std::fabs(motorVoltageRight[2])) /
+                                        3.0;
+
+        static double maxAvgLeftVoltage = 0;
+        static double maxAvgRightVoltage = 0;
+        maxAvgLeftVoltage = std::max(maxAvgLeftVoltage, currentAvgLeftVoltage);
+        maxAvgRightVoltage = std::max(maxAvgRightVoltage, currentAvgRightVoltage);
 
         // Power Drive Motors
 
@@ -761,45 +811,45 @@ maxAvgRightVoltage = std::max(maxAvgRightVoltage, currentAvgRightVoltage);
             rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
         }
         //}
-/*        
-Brain.Screen.clearScreen();
-Brain.Screen.setCursor(1, 1);
-Brain.Screen.print("=== Movement Complete ===");
+        /*
+        Brain.Screen.clearScreen();
+        Brain.Screen.setCursor(1, 1);
+        Brain.Screen.print("=== Movement Complete ===");
 
-Brain.Screen.setCursor(2, 1);
-Brain.Screen.print("LEFT: %.1f %.1f %.1f", 
-                   maxLeftMotor[0], maxLeftMotor[1], maxLeftMotor[2]);
+        Brain.Screen.setCursor(2, 1);
+        Brain.Screen.print("LEFT: %.1f %.1f %.1f",
+                           maxLeftMotor[0], maxLeftMotor[1], maxLeftMotor[2]);
 
-Brain.Screen.setCursor(3, 1);
-Brain.Screen.print("RIGHT: %.1f %.1f %.1f", 
-                   maxRightMotor[0], maxRightMotor[1], maxRightMotor[2]);
+        Brain.Screen.setCursor(3, 1);
+        Brain.Screen.print("RIGHT: %.1f %.1f %.1f",
+                           maxRightMotor[0], maxRightMotor[1], maxRightMotor[2]);
 
-Brain.Screen.setCursor(4, 1);
-Brain.Screen.print("MaxL: %.2f MaxR: %.2f", 
-                   maxLeftVoltageReached, maxRightVoltageReached);
+        Brain.Screen.setCursor(4, 1);
+        Brain.Screen.print("MaxL: %.2f MaxR: %.2f",
+                           maxLeftVoltageReached, maxRightVoltageReached);
 
-Brain.Screen.setCursor(5, 1);
-Brain.Screen.print("AvgL: %.2f AvgR: %.2f", 
-                   maxAvgLeftVoltage, maxAvgRightVoltage);
+        Brain.Screen.setCursor(5, 1);
+        Brain.Screen.print("AvgL: %.2f AvgR: %.2f",
+                           maxAvgLeftVoltage, maxAvgRightVoltage);
 
-Brain.Screen.setCursor(6, 1);
-Brain.Screen.print("Target: %.2fV", fabs(maxSpeedVoltage));
+        Brain.Screen.setCursor(6, 1);
+        Brain.Screen.print("Target: %.2fV", fabs(maxSpeedVoltage));
 
-Brain.Screen.setCursor(7, 1);
-Brain.Screen.print("Distance: %.1f / %.1f", 
-                   fabs(currentDistance), fabs(targetDistance));
-*/
+        Brain.Screen.setCursor(7, 1);
+        Brain.Screen.print("Distance: %.1f / %.1f",
+                           fabs(currentDistance), fabs(targetDistance));
+        */
         vex::task::sleep(10);
     }
 
     // Stop all motors at end of routine after approach
- // Stop all motors at end of routine after approach
+    // Stop all motors at end of routine after approach
     for (int i = 0; i < 3; i++)
     {
-       leftMotor[i].setBrake(brake);
-       rightMotor[i].setBrake(brake);  
-       leftMotor[i].stop();
-       rightMotor[i].stop();
+        leftMotor[i].setBrake(coast);
+        rightMotor[i].setBrake(coast);
+        leftMotor[i].stop();
+        rightMotor[i].stop();
     }
 
     // Display detailed movement summary with all 6 motors
@@ -808,29 +858,29 @@ Brain.Screen.print("Distance: %.1f / %.1f",
     Brain.Screen.print("=== Movement Complete ===");
 
     Brain.Screen.setCursor(2, 1);
-    Brain.Screen.print("LEFT: %.1f %.1f %.1f", 
+    Brain.Screen.print("LEFT: %.1f %.1f %.1f",
                        maxLeftMotor[0], maxLeftMotor[1], maxLeftMotor[2]);
 
     Brain.Screen.setCursor(3, 1);
-    Brain.Screen.print("RIGHT: %.1f %.1f %.1f", 
+    Brain.Screen.print("RIGHT: %.1f %.1f %.1f",
                        maxRightMotor[0], maxRightMotor[1], maxRightMotor[2]);
 
     Brain.Screen.setCursor(4, 1);
-    Brain.Screen.print("MaxL: %.2f MaxR: %.2f", 
+    Brain.Screen.print("MaxL: %.2f MaxR: %.2f",
                        maxLeftVoltageReached, maxRightVoltageReached);
 
     Brain.Screen.setCursor(5, 1);
-    Brain.Screen.print("AvgL: %.2f AvgR: %.2f", 
+    Brain.Screen.print("AvgL: %.2f AvgR: %.2f",
                        maxAvgLeftVoltage, maxAvgRightVoltage);
 
     Brain.Screen.setCursor(6, 1);
     Brain.Screen.print("Target: %.2fV", fabs(maxSpeedVoltage));
 
     Brain.Screen.setCursor(7, 1);
-    Brain.Screen.print("Distance: %.1f / %.1f", 
+    Brain.Screen.print("Distance: %.1f / %.1f",
                        fabs(currentDistance), fabs(targetDistance));
-                       
-    //wait(10000, msec);
+
+    // wait(10000, msec);
     /*
         currentDistance = (passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees) ) / 2 * (encoderWheelCircumferenceCM / 360.0);
         // Debug print: Stopping motors
@@ -841,75 +891,76 @@ Brain.Screen.print("Distance: %.1f / %.1f",
     */
 }
 
-//Forwards wrapper to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
+// Forwards wrapper to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
 void forwardMP(double targetDistance,
-                     double breakDistance, 
-                     double targetHeading,
-                     double minSpeed,
-                     double kp_heading, 
-                     double ki_heading,
-                     double kd_heading, 
-                     double accelHeadingScaling,
-                     double decelHeadingScaling, 
-                     double approachHeadingScaling,
-                     double maxSpeed) {
+               double breakDistance,
+               double targetHeading,
+               double minSpeed,
+               double kp_heading,
+               double ki_heading,
+               double kd_heading,
+               double accelHeadingScaling,
+               double decelHeadingScaling,
+               double approachHeadingScaling,
+               double maxSpeed)
+{
     // No conversion needed - use rotation directly
     straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed,
-                    kp_heading, ki_heading, kd_heading,
-                    accelHeadingScaling, decelHeadingScaling,
-                    approachHeadingScaling, maxSpeed);
+                     kp_heading, ki_heading, kd_heading,
+                     accelHeadingScaling, decelHeadingScaling,
+                     approachHeadingScaling, maxSpeed);
 }
 
-//Backeward wrapper to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
+// Backeward wrapper to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
 void backwardMP(double targetDistance,
-                      double breakDistance, 
-                      double targetHeading,
-                      double minSpeed,
-                      double kp_heading, 
-                      double ki_heading,
-                      double kd_heading, 
-                      double accelHeadingScaling,
-                      double decelHeadingScaling, 
-                      double approachHeadingScaling,
-                      double maxSpeed) {
+                double breakDistance,
+                double targetHeading,
+                double minSpeed,
+                double kp_heading,
+                double ki_heading,
+                double kd_heading,
+                double accelHeadingScaling,
+                double decelHeadingScaling,
+                double approachHeadingScaling,
+                double maxSpeed)
+{
     // Force negative distance for backward movement
     targetDistance = -std::fabs(targetDistance);
     straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed,
-                    kp_heading, ki_heading, kd_heading,
-                    accelHeadingScaling, decelHeadingScaling,
-                    approachHeadingScaling, maxSpeed);
+                     kp_heading, ki_heading, kd_heading,
+                     accelHeadingScaling, decelHeadingScaling,
+                     approachHeadingScaling, maxSpeed);
 }
 
-//Turn left to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
-void leftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
+// Turn left to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
+void leftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed)
+{
 
     // Get current rotation
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
-    
+
     // CCW = positive turn, so add the turn amount
     double targetRotation = currentHeading - turnAmount;
-    
+
     turnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
-   
 }
 
-//Turn right to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
-void rightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
+// Turn right to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
+void rightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed)
+{
     // Get current rotation
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
-    
+
     // CW = negative turn, so subtract the turn amount
     double targetRotation = currentHeading + turnAmount;
-    
+
     turnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
-
 }
-
 
 void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, double minSpeed, double maxSpeed)
 {
     // Reset completion flags
-    
+
     bool decelCompleted = false;
     bool accelCompleted = false;
     bool decel = false;
@@ -918,7 +969,7 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
     double headingError = targetHeading - currentHeading;
     double currentDistanceInDegrees = headingError;
 
-    //int turnDirection = (headingError > 0) ? -1 : 1;
+    // int turnDirection = (headingError > 0) ? -1 : 1;
 
     Brain.Screen.printAt(10, 40, "Target Rotation: %.2f", targetHeading);
     Brain.Screen.printAt(10, 60, "Curr Rotation: %.2f", currentHeading);
@@ -930,37 +981,34 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
     double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(launchVoltage)), headingError);
 
     double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM;
-    
+
     // Maximum slip threshold for spot turns before reducing power
     // Range: 0-1, where:
     // 0 = No slip allowed (most conservative)
     // 1 = Full slip allowed (most aggressive)
     // 0.25 = 25% slip tolerance for balanced control
     // may need to go above 25% given built in difference between encoder and wheel spin speed
-    const double SLIP_THRESHOLD_TRACTION = 0.35; //somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
-    const double SLIP_THRESHOLD_ABS = 0.35;
-
+    const double SLIP_THRESHOLD_TRACTION = 0.35; // somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
     double accelFactorLaunch = 1.4;
-    
-     // 0.857143
+    // Adaptive ABS configuration for turns
+    const double DECEL_STEP_PERCENT = 2.0;
+    const double LOCK_THRESHOLD_DECEL = 0.25;
+
+    // 0.857143
     // double ABSLockThresholdSpotTurn = 0;
     // double totalMotorRadiansPerSecond = 0.0;
     // double minRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (minSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert minspeed to percentage first
     // double maxRadiansPerSecond = (2 * fabs(absoluteMaxRPM * (maxSpeed * .01) * (wheelCircumferenceCM / 60.0))) / trackWidth; //convert maxspeed to percentage first
     // double turnDirection = 1;
-    
-    
+
     // double targetDriveVoltageLeft = 0;
     // double targetDriveVoltageRight = 0;
     // double motorRadiansPerSecondLeft[3];
     // double motorRadiansPerSecondRight[3];
-    
-    
-    
-    
+
     double leftMotorRPM[3] = {0, 0, 0};
     double rightMotorRPM[3] = {0, 0, 0};
-    
+
     double averageMotorVoltage = 0;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage}; // Initialize all elements to minimum launch speed
@@ -975,14 +1023,8 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
     // MotionPhase currentPhase = READY;
 
     // Declaration for slip threshold
-    ABSController ABSControllerLeft[3] = {
-        ABSController(SLIP_THRESHOLD_ABS),
-        ABSController(SLIP_THRESHOLD_ABS),
-        ABSController(SLIP_THRESHOLD_ABS)};
-    ABSController ABSControllerRight[3] = {
-        ABSController(SLIP_THRESHOLD_ABS),
-        ABSController(SLIP_THRESHOLD_ABS),
-        ABSController(SLIP_THRESHOLD_ABS)};
+    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
     // Declare arrays of Slip Control instances for each wheel
     tractionControl tractionControlLeft[3] = {tractionControl(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION),
@@ -1121,11 +1163,11 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
                     leftMotor[i].setBrake(brake);
                     rightMotor[i].setBrake(brake);
                 }
-                
+
                 adaptiveABSLeft.initialize(motorVoltageLeft[1]);
                 adaptiveABSRight.initialize(motorVoltageRight[1]);
             }
-            
+
             decel = true;
             Brain.Screen.printAt(10, 20, "Decel Phase");
 
@@ -1135,11 +1177,11 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
             double leftEncoderRPM = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
                                     (encoderWheelCircumferenceCM / wheelCircumferenceCM) * ENCODER_RADIUS_RATIO;
             double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
-                                    (encoderWheelCircumferenceCM / wheelCircumferenceCM) * ENCODER_RADIUS_RATIO;
+                                     (encoderWheelCircumferenceCM / wheelCircumferenceCM) * ENCODER_RADIUS_RATIO;
 
             // Calculate brake voltages independently for each side
-            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM);
-            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM);
+            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
 
             // Synchronize - use HIGHER voltage (less aggressive braking) for both sides
             double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
@@ -1160,7 +1202,7 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
                 decelCompleted = true;
             }
         }
-         // Final Approach Phase
+        // Final Approach Phase
         else if (decelCompleted == true)
         {
             // break;
@@ -1206,27 +1248,30 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
 
         // turnDirection = std::copysign(turnDirection, normTargetHeading);
         if (!decel == true || decelCompleted == true)
-{
-    // Determine which side to pivot based on the sign of the voltage
-    // which was already set based on the normalized heading error
-    if (motorVoltageLeft[0] > 0) { // Positive voltage - pivot around right side
-        // Right side stationary, left side moves
-        leftMotor[0].spin(forward, motorVoltageLeft[0], voltageUnits::volt);
-        rightMotor[0].stop(brake);
-        leftMotor[1].spin(forward, motorVoltageLeft[1], voltageUnits::volt);
-        rightMotor[1].stop(hold);
-        leftMotor[2].spin(forward, motorVoltageLeft[2], voltageUnits::volt);
-        rightMotor[2].stop(brake);
-    } else { // Negative voltage - pivot around left side
-        // Left side stationary, right side moves
-        leftMotor[0].stop(brake); 
-        rightMotor[0].spin(forward, fabs(motorVoltageRight[0]), voltageUnits::volt);
-        leftMotor[1].stop(hold);
-        rightMotor[1].spin(forward, fabs(motorVoltageRight[1]), voltageUnits::volt);
-        leftMotor[2].stop(brake);
-        rightMotor[2].spin(forward, fabs(motorVoltageRight[2]), voltageUnits::volt);
-    }
-}
+        {
+            // Determine which side to pivot based on the sign of the voltage
+            // which was already set based on the normalized heading error
+            if (motorVoltageLeft[0] > 0)
+            { // Positive voltage - pivot around right side
+                // Right side stationary, left side moves
+                leftMotor[0].spin(forward, motorVoltageLeft[0], voltageUnits::volt);
+                rightMotor[0].stop(brake);
+                leftMotor[1].spin(forward, motorVoltageLeft[1], voltageUnits::volt);
+                rightMotor[1].stop(hold);
+                leftMotor[2].spin(forward, motorVoltageLeft[2], voltageUnits::volt);
+                rightMotor[2].stop(brake);
+            }
+            else
+            { // Negative voltage - pivot around left side
+                // Left side stationary, right side moves
+                leftMotor[0].stop(brake);
+                rightMotor[0].spin(forward, fabs(motorVoltageRight[0]), voltageUnits::volt);
+                leftMotor[1].stop(hold);
+                rightMotor[1].spin(forward, fabs(motorVoltageRight[1]), voltageUnits::volt);
+                leftMotor[2].stop(brake);
+                rightMotor[2].spin(forward, fabs(motorVoltageRight[2]), voltageUnits::volt);
+            }
+        }
         vex::task::sleep(10);
     }
 
@@ -1240,25 +1285,27 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
     }
 }
 
-//Turn left to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
-void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
+// Turn left to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
+void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed)
+{
     // Get current rotation
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
-    
+
     // CCW = positive turn, so add the turn amount
     double targetRotation = currentHeading + turnAmount;
-    
+
     pivotTurnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
 }
 
-//Turn right to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
-void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
+// Turn right to call TurnOdometry with motion profiling and convert it from Euclidean CCW (Counter clockwise angles) to CW VEX angles
+void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed)
+{
     // Get current rotation
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
-    
+
     // CW = negative turn, so subtract the turn amount
     double targetRotation = currentHeading - turnAmount;
-    
+
     pivotTurnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
 }
 
@@ -1267,91 +1314,98 @@ void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, doub
 // Add these functions to your navigation.cpp file
 //=============================================================================
 
-//Forward wrapper - uses absolute heading with forward as 0°
-//Forward wrapper - uses absolute heading with forward as 0°
+// Forward wrapper - uses absolute heading with forward as 0°
+// Forward wrapper - uses absolute heading with forward as 0°
 void driveForward(double targetDistance,
-             double breakDistance, 
-             double targetHeading,
-             double minSpeed,
-             double kp_heading, 
-             double ki_heading,
-             double kd_heading, 
-             double accelHeadingScaling,
-             double decelHeadingScaling, 
-             double approachHeadingScaling,
-             double maxSpeed) {
+                  double breakDistance,
+                  double targetHeading,
+                  double minSpeed,
+                  double kp_heading,
+                  double ki_heading,
+                  double kd_heading,
+                  double accelHeadingScaling,
+                  double decelHeadingScaling,
+                  double approachHeadingScaling,
+                  double maxSpeed)
+{
     // MATCH the coordinate system used by turnRight/turnLeft
-    double internalHeading = -targetHeading;  // ✅ WITH FLIPPING
-    
+    double internalHeading = -targetHeading; // ✅ WITH FLIPPING
+
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
-                    kp_heading, ki_heading, kd_heading,
-                    accelHeadingScaling, decelHeadingScaling,
-                    approachHeadingScaling, maxSpeed);
+                     kp_heading, ki_heading, kd_heading,
+                     accelHeadingScaling, decelHeadingScaling,
+                     approachHeadingScaling, maxSpeed);
 }
 
 void driveBackward(double targetDistance,
-              double breakDistance, 
-              double targetHeading,
-              double minSpeed,
-              double kp_heading, 
-              double ki_heading,
-              double kd_heading, 
-              double accelHeadingScaling,
-              double decelHeadingScaling, 
-              double approachHeadingScaling,
-              double maxSpeed) {
+                   double breakDistance,
+                   double targetHeading,
+                   double minSpeed,
+                   double kp_heading,
+                   double ki_heading,
+                   double kd_heading,
+                   double accelHeadingScaling,
+                   double decelHeadingScaling,
+                   double approachHeadingScaling,
+                   double maxSpeed)
+{
     targetDistance = -std::fabs(targetDistance);
-    
+
     // SAME coordinate system as forward and turns
-    double internalHeading = -targetHeading;  // ✅ WITH FLIPPING
-    
+    double internalHeading = -targetHeading; // ✅ WITH FLIPPING
+
     straightOdometry(targetDistance, breakDistance, internalHeading, minSpeed,
-                    kp_heading, ki_heading, kd_heading,
-                    accelHeadingScaling, decelHeadingScaling,
-                    approachHeadingScaling, maxSpeed);
+                     kp_heading, ki_heading, kd_heading,
+                     accelHeadingScaling, decelHeadingScaling,
+                     approachHeadingScaling, maxSpeed);
 }
 
-//Turn right to absolute heading - FORCES CLOCKWISE DIRECTION
-void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed) {
+// Turn right to absolute heading - FORCES CLOCKWISE DIRECTION
+void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed)
+{
     // Get current heading in robot coordinate system
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
-    
+
     // Start with the target in robot coordinate system
     double targetHeading = -absoluteTargetHeading;
-    
+
     // FORCE clockwise by making target higher than current (positive error)
     // Keep adding 360° until target > current (this forces CW motion)
-    while (targetHeading <= currentHeading) {
+    while (targetHeading <= currentHeading)
+    {
         targetHeading += 360.0;
     }
-    
+
     turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed);
 }
 
-//Turn left to absolute heading - FORCES COUNTER-CLOCKWISE DIRECTION
-void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed) {
+// Turn left to absolute heading - FORCES COUNTER-CLOCKWISE DIRECTION
+void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed)
+{
     // Get current heading in robot coordinate system
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
-    
+
     // Start with the target in robot coordinate system
     double targetHeading = -absoluteTargetHeading;
-    
+
     // FORCE counter-clockwise by making target lower than current (negative error)
     // Keep subtracting 360° until target < current (this forces CCW motion)
-    while (targetHeading >= currentHeading) {
+    while (targetHeading >= currentHeading)
+    {
         targetHeading -= 360.0;
     }
-    
+
     turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed);
 }
 
-void pidlessForward(double timeMs, double speedPct){
+void pidlessForward(double timeMs, double speedPct)
+{
     vex::timer forwardTime;
     forwardTime.reset();
 
     double voltagePower = (speedPct / 8.34);
     while (forwardTime.time(timeUnits::msec) < timeMs)
-    {  
+    {
         LeftMotor1.spin(forward, voltagePower, voltageUnits::volt);
         LeftMotor2.spin(forward, voltagePower, voltageUnits::volt);
         LeftMotor3.spin(forward, voltagePower, voltageUnits::volt);
@@ -1367,5 +1421,3 @@ void pidlessForward(double timeMs, double speedPct){
     RightMotor2.stop(coast);
     RightMotor3.stop(coast);
 }
-
-
