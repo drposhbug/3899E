@@ -477,8 +477,8 @@ void straightOdometry(double targetDistance,
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
     const double SLIP_THRESHOLD_TRACTION = 0.3; // Slip threshold 1 is always power, 0 is no power
     // Adaptive ABS configuration
-    const double DECEL_STEP_PERCENT = 2.5;    // Voltage step as % of 12V (range: 1-10)
-    const double LOCK_THRESHOLD_DECEL = 0.45; // Lockup sensitivity (range: 0.15-0.40)
+    const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)
+    const double LOCK_THRESHOLD_DECEL = 0.25; // Lockup sensitivity (range: 0.15-0.40)
     // ========================================
 
     // Add timer for acceleration phase
@@ -688,54 +688,66 @@ void straightOdometry(double targetDistance,
             double rightEncoderRPM = passiveEncoderRight.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
             // Calculate brake voltages using adaptive ABS
+            // Each side independently determines how much voltage to apply based on lockup detection
             double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
             double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
 
             // Get brake modes from ABS
+            // Returns coast if wheel is locking up, brake if wheel has traction
             vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
             vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
-            // Calculate steering correction
+            // SYNC brake mode: if EITHER side is locking up (coasting), BOTH sides coast
+            // This keeps the robot straight - prevents one side braking harder than the other
+            vex::brakeType syncedBrakeMode;
+            if (leftBrakeMode == vex::coast || rightBrakeMode == vex::coast) {
+                syncedBrakeMode = vex::coast;
+            } else {
+                syncedBrakeMode = vex::brake;
+            }
+
+            // SYNC voltage: use the MINIMUM magnitude (most conservative) for BOTH sides
+            // Mirrors accel phase pattern - whichever side needs less power dictates both
+            // This ensures both sides decelerate at the same rate to maintain straight tracking
+            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
+                ? leftDecelVoltage
+                : rightDecelVoltage;
+
+            // Calculate steering correction scaled for decel phase
             double steeringCorrection = headingCorrection * decelHeadingScaling;
 
-            // Apply voltages with conditional PID
-            // Apply voltages with conditional PID (handles both forward and backward)
-        for (int i = 0; i < 3; i++)
-        {
-            // LEFT SIDE: Apply PID only if brake mode AND voltage non-zero
-            if (leftBrakeMode == vex::brake && std::fabs(leftDecelVoltage) > 0.0)
+            // Apply synced voltage with heading correction (mirrors accel phase pattern)
+            // Pattern: syncedBase + correction (left) / syncedBase - correction (right)
+            for (int i = 0; i < 3; i++)
             {
-                double correctedLeft = leftDecelVoltage + steeringCorrection;
-                // Clamp toward zero - don't let correction reverse direction
-                if (leftDecelVoltage > 0)
-                    motorVoltageLeft[i] = std::max(0.0, correctedLeft);
+                // Only apply voltage if we're actively braking AND have voltage to apply
+                if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0)
+                {
+                    double correctedLeft = syncedDecelVoltage + steeringCorrection;
+                    double correctedRight = syncedDecelVoltage - steeringCorrection;
+                    
+                    // Clamp toward zero - don't let steering correction reverse motor direction
+                    // Forward (positive voltage): use max(0, x) to prevent negative values
+                    // Backward (negative voltage): use min(0, x) to prevent positive values
+                    if (syncedDecelVoltage > 0) {
+                        motorVoltageLeft[i] = std::max(0.0, correctedLeft);
+                        motorVoltageRight[i] = std::max(0.0, correctedRight);
+                    } else {
+                        motorVoltageLeft[i] = std::min(0.0, correctedLeft);
+                        motorVoltageRight[i] = std::min(0.0, correctedRight);
+                    }
+                }
                 else
-                    motorVoltageLeft[i] = std::min(0.0, correctedLeft);
+                {
+                    // Coasting to release lockup OR fully stopped - zero voltage
+                    motorVoltageLeft[i] = 0.0;
+                    motorVoltageRight[i] = 0.0;
+                }
+                
+                // Set synced brake mode for both sides to maintain symmetry
+                leftMotor[i].setBrake(syncedBrakeMode);
+                rightMotor[i].setBrake(syncedBrakeMode);
             }
-            else
-            {
-                motorVoltageLeft[i] = 0.0;  // Locked coast or final brake
-            }
-            
-            // RIGHT SIDE: Apply PID only if brake mode AND voltage non-zero
-            if (rightBrakeMode == vex::brake && std::fabs(rightDecelVoltage) > 0.0)
-            {
-                double correctedRight = rightDecelVoltage - steeringCorrection;
-                // Clamp toward zero - don't let correction reverse direction
-                if (rightDecelVoltage > 0)
-                    motorVoltageRight[i] = std::max(0.0, correctedRight);
-                else
-                    motorVoltageRight[i] = std::min(0.0, correctedRight);
-            }
-            else
-            {
-                motorVoltageRight[i] = 0.0;  // Locked coast or final brake
-            }
-            
-            // Set brake modes
-            leftMotor[i].setBrake(leftBrakeMode);
-            rightMotor[i].setBrake(rightBrakeMode);
-        }
 
             // Update rolling averages for exit detection
             leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
