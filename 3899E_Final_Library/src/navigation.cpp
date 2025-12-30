@@ -494,8 +494,8 @@ void straightOdometry(double targetDistance,
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
     const double SLIP_THRESHOLD_TRACTION = 0.3; // Slip threshold 1 is always power, 0 is no power
     // Adaptive ABS configuration
-    const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)
-    const double LOCK_THRESHOLD_DECEL = 0.25; // Lockup sensitivity (range: 0.15-0.40)
+    const double DECEL_STEP_PERCENT = 10;    // Voltage step as % of 12V (range: 1-10)
+    const double LOCK_THRESHOLD_DECEL = 0; // Lockup sensitivity (range: 0.15-0.40)
     // ========================================
 
     // Add timer for acceleration phase

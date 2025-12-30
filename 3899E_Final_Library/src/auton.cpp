@@ -140,9 +140,9 @@ void autonRight(){
  
     headingOffset = 0;
     
-    //driveForward(150,80,0,25,0.8,0,0,0.4,0.1,0.0,100);
+    driveForward(200,110,0,25,0.8,0.09,0,0.1,0,0.1,100);
 
-    turnLeft(90,45,20,100);
+    //turnLeft(90,45,20,100);
 
     /*forwardMP(80, 38, 0, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
     wait(200, msec);
