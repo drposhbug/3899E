@@ -142,9 +142,11 @@ void autonRight(){
     
     //driveForward(200,110,0,25,0.8,0.09,0,0.1,0,0.1,100);
 
-    driveForward(200,90,0,24,1.1,0.005,0,0.1,1,0.3,100); //i= 0.00025
+    turnLeft(180,135,22,100);
+
+    //driveForward(100,60,0,22,1.1,0.005,0,0.1,1,0.3,100); //not bad
     
-   //driveForward(200,90,0,24,1.1,0.005,0,0.1,1,0.4,100); Best so far
+   //driveForward(200,90,0,24,1.1,0.005,0,0.1,1,0.3,100); Best so far
 
    //driveForward(200,80,0,25,1.1,0.0,0,0.0,1,0.2,100); //quite good on heading and distance
    //const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)

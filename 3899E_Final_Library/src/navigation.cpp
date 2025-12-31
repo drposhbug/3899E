@@ -83,10 +83,11 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
     const double SLIP_THRESHOLD_TRACTION = 10; // somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
     // Adaptive ABS configuration
-    const double DECEL_STEP_PERCENT = 20;     // Voltage step as % of 12V
-    const double LOCK_THRESHOLD_DECEL = 0.25; // Lockup sensitivity
+    const double DECEL_STEP_PERCENT = 100;     // Voltage step as % of 12V
+    const double LOCK_THRESHOLD_DECEL = 100;// Lockup sensitivity
 
-    const double EXIT_TOLERANCE_DEGREES = 4;
+    const double EXIT_TOLERANCE_DEGREES = 6;
+    //const double EXIT_ROTATION_RATE = 15.0;  // Exit when rotation slows to this (degrees/sec)
 
     double averageMotorVoltage = 0;
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};  // Initialize all elements to minimum launch speed
@@ -95,6 +96,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     double leftEncoderRollingAverage = 0;
     double rightEncoderRollingAverage = 0;
     double voltageRollingAverage = 0;
+    double headingRateRollingAvg = 0;  
 
     // Declaration for slip threshold
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
@@ -540,7 +542,7 @@ void straightOdometry(double targetDistance,
     bool decelCompleted = false;
     bool accelCompleted = false;
     int consecutiveAtTarget = 0;
-    const int REQUIRED_CONSECUTIVE = 2;
+    const int REQUIRED_CONSECUTIVE = 3;
 
     // TEMPORARY - Voltage tracking for debugging traction control
     double maxLeftVoltageReached = 0;
