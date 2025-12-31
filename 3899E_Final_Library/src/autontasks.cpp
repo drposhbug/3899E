@@ -136,7 +136,7 @@ void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchL
     g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
 }
 
-void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
+void intakeStart(double timeMs, double intakePct, bool pistonState) {
     // if already running, stop previous then start new
     if (g_intakeTaskRunning.load()) {   
         g_intakeTaskRunning.store(false);
@@ -145,9 +145,11 @@ void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLo
     g_intakeTimeMs = timeMs;
     g_intakePistonState = pistonState;
     g_intakePct = intakePct;
-    g_matchLoadState = matchLoad;
+    //g_matchLoadState = matchLoad;
     g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
 }
+
+
 
 //stop the async intake task early
 void intakeStop() {

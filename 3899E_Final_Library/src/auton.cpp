@@ -342,9 +342,8 @@ void soloAWP(){
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
     wait(50, msec);
-    matchLoadPneumatics.set(false);
-    intakeStart(1000, 40, false, false);
-    intakeStart(4000, 75, false, false);
+    intakeStart(1000, 40, false);
+    intakeStart(4000, 75, false);
     driveForward(46, 40, -16);
    // wait(300, msec);
     matchLoadPneumatics.set(true);
@@ -354,12 +353,13 @@ void soloAWP(){
     wait(100, msec);
     turnRight(-130,98,22,100);
   //  wait(250, msec);
-    driveForward(79,60,-130,24,0.5,0.002,0,0.1,1,0.3,90);
-    wait(250, msec);
-    turnRight(-175,40,22,60);
+    driveForward(81,60,-130,24,0.5,0.002,0,0.1,1,0.3,90);
+   // wait(250, msec);
+    turnRight(-178,40,22,60);
     //wait(250, msec);
     driveForward(15, 10, -174.5);
-    intakeStart(700, 75, false, true);
+    intakeStart(700, 75, false);
+
     //wait(400, msec);
     //matchLoadPneumatics.set(false);
     //driveBackward(26, 20, -179);

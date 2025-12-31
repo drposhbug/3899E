@@ -4,7 +4,7 @@
 #include "utils.h"
 
 void intake2(double time, bool pistonState);
-void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
+void intakeStart(double timeMs, double intakePct, bool pistonState);
 void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchLoad, Color targetColor);
 void intakeStop();
 void score(double time, double power);
