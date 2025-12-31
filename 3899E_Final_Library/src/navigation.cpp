@@ -83,8 +83,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
     const double SLIP_THRESHOLD_TRACTION = 10; // somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
     // Adaptive ABS configuration
-    const double DECEL_STEP_PERCENT = 100;     // Voltage step as % of 12V
-    const double LOCK_THRESHOLD_DECEL = 1; // Lockup sensitivity
+    const double DECEL_STEP_PERCENT = 20;     // Voltage step as % of 12V
+    const double LOCK_THRESHOLD_DECEL = 0.25; // Lockup sensitivity
 
     const double EXIT_TOLERANCE_DEGREES = 4;
 
@@ -494,8 +494,8 @@ void straightOdometry(double targetDistance,
     // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
     const double SLIP_THRESHOLD_TRACTION = 0.3; // Slip threshold 1 is always power, 0 is no power
     // Adaptive ABS configuration
-    const double DECEL_STEP_PERCENT = 10;    // Voltage step as % of 12V (range: 1-10)
-    const double LOCK_THRESHOLD_DECEL = 0; // Lockup sensitivity (range: 0.15-0.40)
+    const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)
+    const double LOCK_THRESHOLD_DECEL = 0.25; // Lockup sensitivity (range: 0.15-0.40)
     // ========================================
 
     // Add timer for acceleration phase
@@ -540,7 +540,7 @@ void straightOdometry(double targetDistance,
     bool decelCompleted = false;
     bool accelCompleted = false;
     int consecutiveAtTarget = 0;
-    const int REQUIRED_CONSECUTIVE = 1;
+    const int REQUIRED_CONSECUTIVE = 2;
 
     // TEMPORARY - Voltage tracking for debugging traction control
     double maxLeftVoltageReached = 0;
@@ -558,7 +558,7 @@ void straightOdometry(double targetDistance,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    while (std::fabs(currentDistance) <= fabs(targetDistance) - 7.5)
+    while (std::fabs(currentDistance) <= fabs(targetDistance) -6.9)
     {
 
         currentDistance = ((passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * encoderWheelCircumferenceCM;
