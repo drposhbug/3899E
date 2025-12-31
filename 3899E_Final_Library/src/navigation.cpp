@@ -560,7 +560,7 @@ void straightOdometry(double targetDistance,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    while (std::fabs(currentDistance) <= fabs(targetDistance) -6.9)
+    while (std::fabs(currentDistance) <= fabs(targetDistance) -7.5)
     {
 
         currentDistance = ((passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * encoderWheelCircumferenceCM;

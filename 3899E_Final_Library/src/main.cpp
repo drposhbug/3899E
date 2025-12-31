@@ -17,13 +17,13 @@ void runAuton(void) {
   
 //autonTest();    
   //autonLeft(); 
-  autonRight();
+  //autonRight();
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  //soloAWP();
+  soloAWP();
   //calibration();
   //doubleDoinkerBlue();
   //skills();

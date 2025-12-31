@@ -120,7 +120,7 @@ int intakeTaskEntry(void*) {
 }
 
 //asynchronous intake with colour detection
-void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad, Color targetColor) {
+void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchLoad, Color targetColor) {
     // if already running, stop previous then start new
     if (g_intakeTaskRunning.load()) {   
         g_intakeTaskRunning.store(false);
@@ -133,6 +133,19 @@ void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLo
     g_colourDetectionTarget = targetColor;
     g_enableColourDetection = true;
     resetColorDetection();
+    g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
+}
+
+void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
+    // if already running, stop previous then start new
+    if (g_intakeTaskRunning.load()) {   
+        g_intakeTaskRunning.store(false);
+        vex::task::sleep(20);
+    }
+    g_intakeTimeMs = timeMs;
+    g_intakePistonState = pistonState;
+    g_intakePct = intakePct;
+    g_matchLoadState = matchLoad;
     g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
 }
 

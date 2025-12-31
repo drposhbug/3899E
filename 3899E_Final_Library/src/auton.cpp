@@ -4,6 +4,7 @@
 #include "robot_config.h" // Include the robot configuration
 #include "navigation.h"
 #include "odometry.h"
+#include "autontasks.h"
 #include <cmath> // Include math library for M_PI
 
 using namespace vex; // Use the VEX namespace
@@ -142,13 +143,13 @@ void autonRight(){
     
     //driveForward(200,110,0,25,0.8,0.09,0,0.1,0,0.1,100);
 
-    turnLeft(180,135,22,100);
+    //turnLeft(180,135,22,100);
 
-    //driveForward(100,60,0,22,1.1,0.005,0,0.1,1,0.3,100); //not bad
+    //driveForward(100,60,0,24,1.1,0.005,0,0.1,1,0.3,100); //Best for most distances
     
-   //driveForward(200,90,0,24,1.1,0.005,0,0.1,1,0.3,100); Best so far
+    //driveForward(200,90,0,26,1.1,0.005,0,0.1,1,0.3,100); //best for long distance
 
-   //driveForward(200,80,0,25,1.1,0.0,0,0.0,1,0.2,100); //quite good on heading and distance
+    //driveForward(200,80,0,25,1.1,0.0,0,0.0,1,0.2,100); //quite good on heading and distance
    //const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)
    //const double LOCK_THRESHOLD_DECEL = 0.25;
 
@@ -260,29 +261,29 @@ void SevenBallRight(){
     intakeStart(100, 75, true, false);
     wait(200, msec); */
     intakeStart(1000, 40, true, false);
-    intakeStart(5500, 75, true, false);
-    driveForward(40, 30, -16);
+    intakeStart(3500, 75, true, false);
+    driveForward(49, 38, -12);
     wait(300, msec);
-    //matchLoadPneumatics.set(true);
-    driveForward(21, 21, -16);
+    matchLoadPneumatics.set(true);
+    driveForward(30, 24, -12);
+    wait(200, msec);
+    driveBackward(25, 18, -12);
     wait(100, msec);
-    driveBackward(25, 15, -16);
-    wait(100, msec);
-    turnRight(-88,65);
-    driveForward(72, 35, -88);
+    //turnRight(-88,65);
+    //driveForward(72, 35, -88);
     //matchLoadPneumatics.set(false);
-    wait(100, msec);
-    turnLeft(-2,65);
-    pidlessForward(600, 20);
+    //wait(100, msec);
+    //turnLeft(-2,65);
+    //pidlessForward(600, 20);
     //driveForward(19, 18, 0);
 
     //ptoPneumatics.set(true);
     //intakeStart(7500, 75, true, true);
-    score(7500, 75);
-    turnRight(180,80);
-    driveForward(40,30,180);
-    intakeStart(3000,75,true,true);
-    turnRight(180,80);
+    //score(7500, 75);
+    //turnRight(180,80);
+    //driveForward(40,30,180);
+    //intakeStart(3000,75,true,true);
+    //turnRight(180,80);
 
     //driveForward(71.5, 58, -126);
     //wait(250, msec);
@@ -336,39 +337,46 @@ void SevenBallLeft(){
 void soloAWP(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = -16;
+    headingOffset = -12;
     ptoPneumatics.set(true);
     backHoodPneumatics.set(false);
-    frontHoodPneumatics.set(true);
-    intakeStart(2500, 75, true, false);
-    driveForward(51, 40, -16);
+    frontHoodPneumatics.set(false);
+    wait(50, msec);
+    matchLoadPneumatics.set(false);
+    intakeStart(1000, 40, true, false);
+    intakeStart(3500, 75, true, false);
+    driveForward(51, 40, -12);
+    wait(300, msec);
     matchLoadPneumatics.set(true);
-    wait(250, msec);
-    turnRight(-126,75,40,80);
+    driveForward(30, 24, -12);
+    wait(200, msec);
+    driveBackward(25, 18, -12);
+    wait(100, msec);
+    turnRight(-126,95,22,80);
     matchLoadPneumatics.set(false);
     wait(250, msec);
     driveForward(71.5, 58, -126);
-    wait(250, msec);
-    turnRight(-179,48,40,50);
-    matchLoadPneumatics.set(true);
-    wait(250, msec);
-    driveForward(26, 20, -179);
-    intakeStart(700, 75, false, true);
-    wait(400, msec);
-    matchLoadPneumatics.set(false);
-    driveBackward(26, 20, -179);
-    wait(250, msec); 
-    turnRight(1.5,155,15,70);
-    wait(250, msec);
-    driveForward(40, 35, -358.5);
-    outtake(1000);
-    driveBackward(42.5, 28, -360);
-    wait(200, msec);
-    turnLeft(-315, 33, 15, 70);
-    wait(300, msec);
-    driveForward(126, 75, -315);
-    outtake(1000);
-    driveBackward(20, 15, -315);
+    //wait(250, msec);
+    //turnRight(-179,48,40,50);
+    //matchLoadPneumatics.set(true);
+    //wait(250, msec);
+    //driveForward(26, 20, -179);
+    //intakeStart(700, 75, false, true);
+    //wait(400, msec);
+    //matchLoadPneumatics.set(false);
+    //driveBackward(26, 20, -179);
+    //wait(250, msec); 
+    //turnRight(1.5,155,15,70);
+    //wait(250, msec);
+    //driveForward(40, 35, -358.5);
+    //outtake(1000);
+    //driveBackward(42.5, 28, -360);
+    //wait(200, msec);
+    //turnLeft(-315, 33, 15, 70);
+    //wait(300, msec);
+    //driveForward(126, 75, -315);
+    //outtake(1000);
+    //driveBackward(20, 15, -315);
 }
 
 void colourTest(){

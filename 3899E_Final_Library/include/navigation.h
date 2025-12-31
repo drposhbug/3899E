@@ -157,35 +157,35 @@ void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, doub
 void driveForward(double targetDistance,
              double breakDistance = 10, 
              double targetHeading = 0,
-             double minSpeed = 20,
-             double kp_heading = 0.615, 
-             double ki_heading = 0,
+             double minSpeed = 24,
+             double kp_heading = 1.1, 
+             double ki_heading = 0.005,
              double kd_heading = 0, 
-             double accelHeadingScaling = 0.10,
-             double decelHeadingScaling = 0.05, 
-             double approachHeadingScaling = 0.05,
+             double accelHeadingScaling = 0.1,
+             double decelHeadingScaling = 1, 
+             double approachHeadingScaling = 0.3,
              double maxSpeed = 100);
 
 void driveBackward(double targetDistance,
               double breakDistance = 10, 
               double targetHeading = 0,
-              double minSpeed = 20,
-              double kp_heading = 0.615, 
-              double ki_heading = 0,
+              double minSpeed = 24,
+              double kp_heading = 1.1, 
+              double ki_heading = 0.005,
               double kd_heading = 0, 
-              double accelHeadingScaling = 0.10,
-              double decelHeadingScaling = 0.05, 
-              double approachHeadingScaling = 0.05,
+              double accelHeadingScaling = 0.1,
+              double decelHeadingScaling = 1, 
+              double approachHeadingScaling = 0.3,
               double maxSpeed = 100);
 
 void turnRight(double absoluteTargetHeading, 
                double breakDistance = 5, 
-               double minSpeed = 20,
+               double minSpeed = 23,
                double maxSpeed = 100);
 
 void turnLeft(double absoluteTargetHeading, 
               double breakDistance = 5, 
-              double minSpeed = 20, 
+              double minSpeed = 23, 
               double maxSpeed = 100);
               
 void intake(bool state, double speedPct);
