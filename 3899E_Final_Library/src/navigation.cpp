@@ -86,7 +86,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     const double DECEL_STEP_PERCENT = 100;     // Voltage step as % of 12V
     const double LOCK_THRESHOLD_DECEL = 100;// Lockup sensitivity
 
-    const double EXIT_TOLERANCE_DEGREES = 6;
+    const double EXIT_TOLERANCE_DEGREES = 7;
     //const double EXIT_ROTATION_RATE = 15.0;  // Exit when rotation slows to this (degrees/sec)
 
     double averageMotorVoltage = 0;
