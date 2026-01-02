@@ -188,15 +188,7 @@ void turnLeft(double absoluteTargetHeading,
               double minSpeed = 23, 
               double maxSpeed = 100);
               
-void intake(bool state, double speedPct);
-void intake2(double time, bool pistonState);
-void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
-void intakeStop();
-void score(double time, double power);
-void stopScore();
-void stopIntake();
-void outtake(double time);
-void stopOuttake();
 void pidlessForward(double timeMs, double speedPct);
+bool keepPrinting;
 
 #endif // PID_TASKS_H;

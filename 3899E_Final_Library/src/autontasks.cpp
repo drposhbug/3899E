@@ -164,7 +164,7 @@ void score(double time, double power) //skibidi score
 
     frontHoodPneumatics.set(false); //open front hood and close back hood
     backHoodPneumatics.set(true);
-    ptoPneumatics.set(true); //engage pto for scoring
+    ptoPneumatics.set(true); 
 
     double voltagePower = (power / 8.34); //convert power percentage to voltage
 
@@ -209,4 +209,22 @@ void outtake(double time) //skibidi outtake
 void stopOuttake(){
     intakeMotor1.stop();
     intakeMotor2.stop();
+}
+
+void colourDetectTest(Color targetColor){
+    initializeOpticalSensor();
+    resetColorDetection();
+    while (true){
+        if (detectColor(targetColor)){
+            Brain.Screen.printAt(10, 50, targetColor "Detected");
+            intakeMotor1.stop();
+            intakeMotor2.stop();
+        }
+        else {
+            Brain.Screen.printAt(10, 50, "Not Detected");
+            intakeMotor1.spin(forward, 12.0, voltageUnits::volt);
+            intakeMotor2.spin(forward, 12.0, voltageUnits::volt);
+        }
+        vex::task::sleep(100);
+    }
 }

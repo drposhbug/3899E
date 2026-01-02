@@ -507,6 +507,9 @@ void straightOdometry(double targetDistance,
     passiveEncoderLeft.resetPosition();
     passiveEncoderRight.resetPosition();
 
+    //variable for if encoder distacne should be printed
+    bool keepPrinting = false;
+
     // Initialize PID controllers
     PID headingPID(kp_heading, ki_heading, kd_heading);
     headingPID.pidReset(); // Remove extra blank line after this
@@ -560,18 +563,27 @@ void straightOdometry(double targetDistance,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
+    int printEncoderDistance(){
+        while (keepPrinting) {
+            Controller.Screen.clearScreen();
+            Controller.Screen.setCursor(1, 1);
+            Controller.Screen.print("Left Encoder: %.2f cm", (passiveEncoderLeft.position(degrees) / 360.0) * encoderWheelCircumferenceCM);
+            Controller.Screen.setCursor(2, 1);
+            Controller.Screen.print("Right Encoder: %.2f cm", (passiveEncoderRight.position(degrees) / 360.0) * encoderWheelCircumferenceCM);
+        }
+    }
+
     while (std::fabs(currentDistance) <= fabs(targetDistance) -7.5)
     {
-
         currentDistance = ((passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * encoderWheelCircumferenceCM;
         avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2]) / numberDriveMotor;
 
         // Display current encoder distance
-        Brain.Screen.clearScreen();
-        Brain.Screen.setCursor(1, 1);
-        Brain.Screen.print("Current: %.2f cm", std::fabs(currentDistance));
-        Brain.Screen.setCursor(2, 1);
-        Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
+        //Brain.Screen.clearScreen();
+        //Brain.Screen.setCursor(1, 1);
+        //Brain.Screen.print("Current: %.2f cm", std::fabs(currentDistance));
+        //Brain.Screen.setCursor(2, 1);
+        //Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
 
         /*
         // Distance calculation debug

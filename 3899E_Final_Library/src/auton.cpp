@@ -93,7 +93,7 @@ void odomTest(){
     
 
 
-    //george this is MY stuffnegnagaffgafgniafa
+    
     forwardMP(79, 38, 180, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
     wait(200, msec);
     leftMP(90,60,12.5);
@@ -335,6 +335,7 @@ void SevenBallLeft(){
 }
 
 void soloAWP(){
+    keepPrinting = true;
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     headingOffset = -16;
