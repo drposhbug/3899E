@@ -19,7 +19,12 @@ void autonTest(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     headingOffset = 0;
-   driveBackward(40, 20, 0);
+    matchloadStart(800,100,0,true);
+    wait(200, msec);
+    smartMove(100, 30, forward, 150); //for matchload smart wall stop, no pid
+    wait(950, msec);
+    //driveBackward(20, 15, 0);
+   /*driveBackward(40, 20, 0);
    turnLeft(90, 80); 
    driveBackward(40, 20, 90);
    turnLeft(180,80); 
@@ -27,7 +32,7 @@ void autonTest(){
    turnLeft(270, 80); 
    driveBackward(40, 20, 270);
    turnLeft(360, 80); 
-   driveBackward(40, 20, 360);
+   driveBackward(40, 20, 360);*/
 }
 
 /*/void Calibration
@@ -144,7 +149,7 @@ void autonRight(){
     //driveForward(200,110,0,25,0.8,0.09,0,0.1,0,0.1,100);
 
     //turnLeft(180,135,22,100);
-      //intakeHopperStart(3000, 100, 500);  
+      intakeHopperStart(3000, 100, 500);  
     //smartMove(100, 40, forward, 150); //for matchload smart wall stop, no pid
 
     //driveForward(100,60,0,24,0.6,0.005,0,0.1,1,0.3,100); //Best for most distances
@@ -184,6 +189,8 @@ void SpeedwayAutonLeft(){
     ptoPneumatics.set(true);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(true);
+
+
 
     leftMP(16,10,20,50);
     wait(400, msec);
@@ -346,23 +353,18 @@ void soloAWP(){
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
     wait(50, msec);
-    intakeStart(1000, 40, false);
-    intakeStart(4000, 75, false);
-    driveForward(46, 40, -16);
-   // wait(300, msec);
-    matchLoadPneumatics.set(true);
-    driveForward(41, 30, -16);
-    wait(100, msec);
-    driveBackward(20, 18, -16);
-    wait(100, msec);
-    turnRight(-130,98,22,100);
-  //  wait(250, msec);
-    driveForward(81,60,-130,24,0.5,0.002,0,0.1,1,0.3,90);
-   // wait(250, msec);
-    turnRight(-178,40,22,60);
+    intakeStart(470, 100, false);
+    matchloadStart(4000,100,475,true);
+    driveForward(80, 40, -16);
+    wait(50, msec);
+    turnRight(-145,100,22,100);
     //wait(250, msec);
-    driveForward(15, 10, -174.5);
-    intakeStart(700, 75, false);
+    //driveForward(81,60,-130,24,0.5,0.002,0,0.1,1,0.3,90);
+   // wait(250, msec);
+    //turnRight(-178,40,22,60);
+    //wait(250, msec);
+    //driveForward(15, 10, -174.5);
+    //intakeStart(700, 75, false);
 
     //wait(400, msec);
     //matchLoadPneumatics.set(false);
