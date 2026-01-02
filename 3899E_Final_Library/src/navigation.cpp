@@ -507,8 +507,7 @@ void straightOdometry(double targetDistance,
     passiveEncoderLeft.resetPosition();
     passiveEncoderRight.resetPosition();
 
-    //variable for if encoder distacne should be printed
-    bool keepPrinting = false;
+
 
     // Initialize PID controllers
     PID headingPID(kp_heading, ki_heading, kd_heading);
@@ -563,15 +562,6 @@ void straightOdometry(double targetDistance,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    int printEncoderDistance(){
-        while (keepPrinting) {
-            Controller.Screen.clearScreen();
-            Controller.Screen.setCursor(1, 1);
-            Controller.Screen.print("Left Encoder: %.2f cm", (passiveEncoderLeft.position(degrees) / 360.0) * encoderWheelCircumferenceCM);
-            Controller.Screen.setCursor(2, 1);
-            Controller.Screen.print("Right Encoder: %.2f cm", (passiveEncoderRight.position(degrees) / 360.0) * encoderWheelCircumferenceCM);
-        }
-    }
 
     while (std::fabs(currentDistance) <= fabs(targetDistance) -7.5)
     {

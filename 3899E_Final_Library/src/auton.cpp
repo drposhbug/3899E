@@ -15,6 +15,19 @@ using namespace vex; // Use the VEX namespace
                     approachHeadingScaling, maxSpeed);
 */                    
 
+//variable for if encoder distacne should be printed
+bool keepPrinting = false;
+
+int printEncoderDistance(){
+        while (keepPrinting) {
+            Controller.Screen.clearScreen();
+            Controller.Screen.setCursor(1, 1);
+            Controller.Screen.print("Left Encoder: %.2f cm", (passiveEncoderLeft.position(degrees) / 360.0) * encoderWheelCircumferenceCM);
+            Controller.Screen.setCursor(2, 1);
+            Controller.Screen.print("Right Encoder: %.2f cm", (passiveEncoderRight.position(degrees) / 360.0) * encoderWheelCircumferenceCM);
+        }
+    }
+
 void autonTest(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
@@ -260,8 +273,8 @@ void SevenBallRight(){
     wait(200, msec);
     intakeStart(100, 75, true, false);
     wait(200, msec); */
-    intakeStart(1000, 40, true, false);
-    intakeStart(3500, 75, true, false);
+    intakeStart(1000, 40, true);
+    intakeStart(3500, 75, true);
     driveForward(49, 38, -12);
     wait(300, msec);
     matchLoadPneumatics.set(true);
@@ -312,8 +325,8 @@ void SevenBallLeft(){
     frontHoodPneumatics.set(false);
     wait(50, msec);//necessary in order for matchload pneumatics to engage properly epstein fn
     matchLoadPneumatics.set(false);
-    intakeStart(1000, 35, true, false);
-    intakeStart(5500, 75, true, false);
+    intakeStart(1000, 35, true);
+    intakeStart(5500, 75, true);
     driveForward(40, 30, 16);
     wait(300, msec);
     //matchLoadPneumatics.set(true);
@@ -381,7 +394,7 @@ void soloAWP(){
 void colourTest(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    intakeStart(10000, 50, true, false);
+    intakeStart(10000, 50, true);
 }
 
 /*
