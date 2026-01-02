@@ -4,6 +4,7 @@
 #define PID_TASKS_H
 
 void move(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward);
+void smartMove(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward, double wallStalledTimeMs = -1);
 void pidStraight(double targetHeading, double targetDistanceCM, double speed, double kp_heading = 0.6, double ki_heading = 0, double kd_heading = 0, double distanceOffset = 5.0, vex::brakeType brakeMode = vex::brakeType::brake);
 void turn(double targetHeading, 
         double breakDistanceInDegrees, 
@@ -32,7 +33,20 @@ void straightOdometry(double targetDistance,
     double accelHeadingScaling = 0.2, 
     double decelHeadingScaling = 0.2, 
     double approachHeadingScaling = 0.2, 
-    double maxSpeed = 100);        
+    double maxSpeed = 100);   
+    
+void smartStraight(double targetDistance, 
+    double breakDistance, 
+    double targetHeading = 0, 
+    double minSpeed = 16,
+    double wallStalledTimeMs = 100,  // Wall detect: -1 = disabled, >0 = exit if stalled for this many ms
+    double kp_heading = 0.4, 
+    double ki_heading = 0.01, 
+    double kd_heading = 0.05, 
+    double accelHeadingScaling = 0.2, 
+    double decelHeadingScaling = 0.2, 
+    double approachHeadingScaling = 0.2, 
+    double maxSpeed = 100);
             
 void backward(double targetDistance, 
             double breakDistance, 
@@ -188,15 +202,6 @@ void turnLeft(double absoluteTargetHeading,
               double minSpeed = 23, 
               double maxSpeed = 100);
               
-void intake(bool state, double speedPct);
-void intake2(double time, bool pistonState);
-void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
-void intakeStop();
-void score(double time, double power);
-void stopScore();
-void stopIntake();
-void outtake(double time);
-void stopOuttake();
 void pidlessForward(double timeMs, double speedPct);
 
 #endif // PID_TASKS_H;

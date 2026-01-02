@@ -144,10 +144,14 @@ void autonRight(){
     //driveForward(200,110,0,25,0.8,0.09,0,0.1,0,0.1,100);
 
     //turnLeft(180,135,22,100);
+      //intakeHopperStart(3000, 100, 500);  
+    //smartMove(100, 40, forward, 150); //for matchload smart wall stop, no pid
 
-    //driveForward(100,60,0,24,1.1,0.005,0,0.1,1,0.3,100); //Best for most distances
-    
-    //driveForward(200,90,0,26,1.1,0.005,0,0.1,1,0.3,100); //best for long distance
+    //driveForward(100,60,0,24,0.6,0.005,0,0.1,1,0.3,100); //Best for most distances
+    driveForward(200,90,0,26,1.1,0.005,0,0.1,1,0.3,100); //best for long distance
+
+    //driveForward(100,60,0,20,1.1,0.005,0,0.1,1,0.3,100); // testing hold
+    //driveForward(200,90,0,25,1.1,0.005,0,0.1,1,0.3,100); //testing hold
 
     //driveForward(200,80,0,25,1.1,0.0,0,0.0,1,0.2,100); //quite good on heading and distance
    //const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)
@@ -260,8 +264,8 @@ void SevenBallRight(){
     wait(200, msec);
     intakeStart(100, 75, true, false);
     wait(200, msec); */
-    intakeStart(1000, 40, true, false);
-    intakeStart(3500, 75, true, false);
+    intakeStart(1000, 40, true);
+    intakeStart(3500, 75, true);
     driveForward(49, 38, -12);
     wait(300, msec);
     matchLoadPneumatics.set(true);
@@ -312,8 +316,8 @@ void SevenBallLeft(){
     frontHoodPneumatics.set(false);
     wait(50, msec);//necessary in order for matchload pneumatics to engage properly epstein fn
     matchLoadPneumatics.set(false);
-    intakeStart(1000, 35, true, false);
-    intakeStart(5500, 75, true, false);
+    intakeStart(1000, 35, true);
+    intakeStart(5500, 75, true);
     driveForward(40, 30, 16);
     wait(300, msec);
     //matchLoadPneumatics.set(true);
@@ -380,7 +384,7 @@ void soloAWP(){
 void colourTest(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    intakeStart(10000, 50, true, false);
+    intakeStart(10000, 50, true);
 }
 
 /*

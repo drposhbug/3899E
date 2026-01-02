@@ -8,6 +8,119 @@
 
 using namespace vex;
 
+// ===== SHARED TASK STRUCTURE =====
+struct AsyncTaskParams {
+    std::atomic<bool> running{false};
+    double timeMs = 0;
+    double delayMs = 0;
+    double power = 100;
+    vex::task handle;
+};
+
+// ===== INTAKE HOPPER TASK (motors + hood) =====
+static AsyncTaskParams intakeHopperParams;
+
+int intakeHopperTask(void*) {
+    intakeHopperParams.running.store(true);
+
+    if (intakeHopperParams.delayMs > 0) {
+        vex::task::sleep(intakeHopperParams.delayMs);
+    }
+
+    // Set hood positions for intake
+    frontHoodPneumatics.set(true);   // Close front hood
+    backHoodPneumatics.set(false);   // Open back hood
+
+    vex::timer t;
+    double voltage = intakeHopperParams.power / 8.34;
+
+    while (intakeHopperParams.running.load() && t.time(msec) < intakeHopperParams.timeMs) {
+        intakeMotor1.spin(forward, voltage, voltageUnits::volt);
+        intakeMotor2.spin(forward, voltage, voltageUnits::volt);
+        vex::task::sleep(10);
+    }
+
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+    intakeHopperParams.running.store(false);
+    return 0;
+}
+
+void intakeHopperStart(double timeMs, double power, double delayMs, bool async) {
+    if (intakeHopperParams.running.load()) {
+        intakeHopperParams.running.store(false);
+        vex::task::sleep(20);
+    }
+    intakeHopperParams.timeMs = timeMs;
+    intakeHopperParams.power = power;
+    intakeHopperParams.delayMs = delayMs;
+    
+    if (async) {
+        intakeHopperParams.handle = vex::task(intakeHopperTask, nullptr);
+    } else {
+        intakeHopperTask(nullptr);
+    }
+}
+
+
+// ===== MATCHLOAD TASK (motors + hood + matchload pneumatic) =====
+static AsyncTaskParams matchloadParams;
+static double matchloadRetractDelay = 200;  // ms delay before retracting pneumatic
+
+int matchloadTask(void*) {
+    matchloadParams.running.store(true);
+
+    if (matchloadParams.delayMs > 0) {
+        vex::task::sleep(matchloadParams.delayMs);
+    }
+
+    // Set hood positions for intake
+    frontHoodPneumatics.set(true);   // Close front hood
+    backHoodPneumatics.set(false);   // Open back hood
+
+    // Start intake
+    vex::timer t;
+    double voltage = matchloadParams.power / 8.34;
+    intakeMotor1.spin(forward, voltage, voltageUnits::volt);
+    intakeMotor2.spin(forward, voltage, voltageUnits::volt);
+
+    // Then extend matchload pneumatic
+    matchLoadPneumatics.set(true);
+
+    while (matchloadParams.running.load() && t.time(msec) < matchloadParams.timeMs) {
+        vex::task::sleep(10);
+    }
+
+    // Stop intake first
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+
+    // Delay then retract pneumatic
+    vex::task::sleep(matchloadRetractDelay);
+    matchLoadPneumatics.set(false);
+
+    matchloadParams.running.store(false);
+    return 0;
+}
+
+void matchloadStart(double timeMs, double power, double delayMs, bool async) {
+    if (matchloadParams.running.load()) {
+        matchloadParams.running.store(false);
+        vex::task::sleep(20);
+    }
+    matchloadParams.timeMs = timeMs;
+    matchloadParams.power = power;
+    matchloadParams.delayMs = delayMs;
+    
+    if (async) {
+        matchloadParams.handle = vex::task(matchloadTask, nullptr);
+    } else {
+        matchloadTask(nullptr);
+    }
+}
+
+
+
 //intake only
 void intake(double time, bool pistonState) //time in milliseconds, true for pistons, false for no pistons
 {
