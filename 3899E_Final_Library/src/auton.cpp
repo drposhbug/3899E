@@ -354,17 +354,22 @@ void soloAWP(){
     frontHoodPneumatics.set(false);
     wait(50, msec);
     intakeStart(470, 100, false);
-    matchloadStart(5800,100,475,true);
+    matchloadStart(5900,100,475,true);
     driveForward(91, 55, -16);
     wait(250, msec);
-    turnRight(-140,95,22,80);
+    turnRight(-140,95,20,80);
     wait(100, msec);
-    driveForward(82,63,-140,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(82,70,-140,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(100, msec);
-    turnRight(-173,22,22,60);
-    wait(200, msec);
-    smartMove(100, 25, forward, 250); //for matchload smart wall stop, no pid
-    wait(950, msec);
+    turnRight(-176,28,22,60); 
+    wait(200, msec);   
+    smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
+    wait(700, msec);
+    driveBackward(26, 14, -176);
+    //turnRight(0,160,20,60);
+    //driveForward(30,20,1,24,0.3,0.002,0,0.1,1,0.3,90);
+
+
     //wait(250, msec);
     //driveForward(15, 10, -174.5);
     //intakeStart(700, 75, false);

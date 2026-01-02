@@ -124,10 +124,11 @@ void smartMove(double distanceCM, double maxSpeed, vex::directionType dir, doubl
     }
 
     // Stop all motors
+    //vex::task::sleep(800);
     for (int i = 0; i < 3; i++)
     {
-        leftMotor[i].stop(hold);
-        rightMotor[i].stop(hold);
+        leftMotor[i].stop(brake);
+        rightMotor[i].stop(brake);
     }
 }
 
