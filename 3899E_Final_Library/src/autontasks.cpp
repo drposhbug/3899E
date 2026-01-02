@@ -216,7 +216,7 @@ void colourDetectTest(Color targetColor){
     resetColorDetection();
     while (true){
         if (detectColor(targetColor)){
-            Brain.Screen.printAt(10, 50, targetColor "Detected");
+            Brain.Screen.printAt(10, 50, "Detected");
             intakeMotor1.stop();
             intakeMotor2.stop();
         }

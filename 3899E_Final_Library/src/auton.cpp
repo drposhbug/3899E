@@ -13,12 +13,9 @@ using namespace vex; // Use the VEX namespace
                     kp_heading, ki_heading, kd_heading,
                     accelHeadingScaling, decelHeadingScaling,
                     approachHeadingScaling, maxSpeed);
-*/                    
+*/
 
-//variable for if encoder distacne should be printed
-bool keepPrinting = false;
-
-int printEncoderDistance(){
+void printEncoderDistance(){
         while (keepPrinting) {
             Controller.Screen.clearScreen();
             Controller.Screen.setCursor(1, 1);

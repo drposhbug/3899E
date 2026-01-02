@@ -189,6 +189,6 @@ void turnLeft(double absoluteTargetHeading,
               double maxSpeed = 100);
               
 void pidlessForward(double timeMs, double speedPct);
-bool keepPrinting;
+extern bool keepPrinting;
 
 #endif // PID_TASKS_H;

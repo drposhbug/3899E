@@ -1,4 +1,7 @@
-#include "vex.h" // Include the VEX library
+#include "vex.h"
+
+// Global variable definition
+bool keepPrinting = false; // Include the VEX library
 #include "robot_config.h" // Include the robot configuration
 #include "driver.h" // Include the driver control functions
 #include "auton.h" // Include the autonomous functions
