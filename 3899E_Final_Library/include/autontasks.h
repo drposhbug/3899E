@@ -14,7 +14,7 @@ void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchL
 void intakeStop();
 void score(double time, double power);
 void stopScore();
-void outtake(double time);
+void outtake(double time, double power);
 void stopOuttake();
 
 struct HeadingDisplayParams {

@@ -319,7 +319,7 @@ void outtake(double time, double power) //skibidi outtake
 
     while (outtakeTime.time(timeUnits::msec) < time)
     {
-        outtakePower = (power / 8.34);
+        double outtakePower = (power / 8.34);
         intakeMotor1.spin(reverse, outtakePower, voltageUnits::volt);
         intakeMotor2.spin(reverse, outtakePower, voltageUnits::volt);
         vex::task::sleep(10);
