@@ -16,6 +16,7 @@ void odomTest();
 void calibration();
 void soloAWP();
 void SevenBallLeft();
+void rightMiddleAuto();
 
 
 #endif // AUTON_H

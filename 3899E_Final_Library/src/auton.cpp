@@ -361,7 +361,113 @@ void SevenBallLeft(){
     //ptoPneumatics.set(true);
     //intakeStart(7500, 75, true, true);
 }
+void rightMiddleAuto(){
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = -16;
+    ptoPneumatics.set(false);
+    backHoodPneumatics.set(false);
+    frontHoodPneumatics.set(false);
+       wingPneumatics.set(false);
 
+    wait(50, msec);
+    intakeStart(470, 100, false);
+    matchloadStart(2000,40,550,true);
+    driveForward(91, 58, -16);
+     wait(200, msec);
+    driveBackward(19, 12, -16);
+        wait(100, msec);
+     turnLeft(45,50,25,90,16);
+
+    
+  //  turnRight(-148,114,26,80,14);
+    wait(200, msec);
+   smartStraight(70, 50, 45, 15, 150);
+outtake(500);
+        wait(100, msec);
+
+    driveBackward(130, 110, 45);
+        wait(100, msec);
+     turnLeft(180,110,25,90,16);
+   smartStraight(30, 21, 180, 15, 150);
+       wait(270, msec);
+
+    //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
+    driveBackward(26, 14, 176);
+        wait(200, msec);
+    turnLeft(10,145,25,90,16);
+        wait(200, msec);
+   smartStraight(40, 19, 10, 24, 150);
+
+    score(3200, 100);
+    driveBackward(20, 14, 10);
+            wait(200, msec);
+    turnLeft(40,18,25,90,16);
+                wait(100, msec);
+
+    driveForward(35,25,40,24,0.3,0.002,0,0.1,1,0.3,90);
+                    wait(100, msec);
+
+    turnRight(4,30,26,80); 
+                    wait(100, msec);
+     driveForward(12,0,4,24,0.3,0.002,0,0.1,1,0.3,90);
+   wingPneumatics.set(true);
+
+    driveForward(40,0,4,24,0.3,0.002,0,0.1,1,0.3,40);
+
+     /*
+    driveForward(99,78,-148,24,0.3,0.002,0,0.1,1,0.3,90);
+    wait(200, msec);
+    turnRight(-176,20,26,80); 
+    wait(200, msec);
+   smartStraight(30, 21, -180, 15, 150);
+       wait(270, msec);
+
+    //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
+    driveBackward(26, 14, -176);
+        wait(200, msec);
+    turnLeft(10,145,25,90,16);
+        wait(200, msec);
+   smartStraight(40, 19, 10, 24, 150);
+
+    score(3200, 100);
+    driveBackward(20, 14, 10);
+            wait(200, msec);
+    turnLeft(40,18,25,90,16);
+                wait(100, msec);
+
+    driveForward(35,25,40,24,0.3,0.002,0,0.1,1,0.3,90);
+                    wait(100, msec);
+
+    turnRight(4,30,26,80); 
+                    wait(100, msec);
+     driveForward(12,0,4,24,0.3,0.002,0,0.1,1,0.3,90);
+   wingPneumatics.set(true);
+
+    driveForward(40,0,4,24,0.3,0.002,0,0.1,1,0.3,40);
+
+
+    //wait(250, msec);
+    //driveForward(15, 10, -174.5);
+    //intakeStart(700, 75, false);
+
+    //wait(400, msec);
+    //matchLoadPneumatics.set(false);
+    //driveBackward(26, 20, -179);
+    //wait(250, msec); 
+    //turnRight(1.5,155,15,70);
+    //wait(250, msec);
+    //driveForward(40, 35, -358.5);
+    //outtake(1000);
+    //driveBackward(42.5, 28, -360);
+    //wait(200, msec);
+    //turnLeft(-315, 33, 15, 70);
+    //wait(300, msec);
+    //driveForward(126, 75, -315);
+    //outtake(1000);
+    //driveBackward(20, 15, -315);
+    */
+}
 void soloAWP(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);

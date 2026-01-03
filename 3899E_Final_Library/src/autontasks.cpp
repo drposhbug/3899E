@@ -319,8 +319,8 @@ void outtake(double time) //skibidi outtake
 
     while (outtakeTime.time(timeUnits::msec) < time)
     {
-        intakeMotor1.spin(forward, 12.0, voltageUnits::volt);
-        intakeMotor2.spin(forward, 12.0, voltageUnits::volt);
+        intakeMotor1.spin(reverse, 6.0, voltageUnits::volt);
+        intakeMotor2.spin(reverse, 6.0, voltageUnits::volt);
         vex::task::sleep(10);
     }
     ptoPneumatics.set(false); //disengage pto after outtake
