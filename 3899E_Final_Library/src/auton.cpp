@@ -212,13 +212,13 @@ void leftSideLong(){
     matchloadStart(6700,100,525,true);
     driveForward(91, 59, 16);
     wait(250, msec);
-    turnLeft(148,118,26,80,14);
-    wait(20000, msec);
+    turnLeft(144,118,26,80,16);
+    wait(200, msec);
        
-    driveForward(99,78,148,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(99,78,144,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnLeft(176,20,26,80);
-    wait(200, msec);
+    wait(20000, msec);
     smartStraight(30, 21, 180, 15, 150);
     wait(270, msec);
 
