@@ -217,7 +217,7 @@ void leftSideLong(){
        
     driveForward(98,78,145.5,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
-    turnLeft(174,20,26,80);
+    turnLeft(175,24,26,80,11);
     wait(20000, msec);
     smartStraight(30, 21, 180, 15, 150);
     wait(270, msec);
