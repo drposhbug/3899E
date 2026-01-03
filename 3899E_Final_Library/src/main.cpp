@@ -25,13 +25,13 @@ void runAuton(void) {
   // Start heading display task
   //autonTest();    
   //autonLeft(); 
-  autonRight();
+  //autonRight();
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  //soloAWP();
+  soloAWP();
   //calibration();
   //doubleDoinkerBlue();
   //skills();

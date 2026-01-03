@@ -372,19 +372,19 @@ void soloAWP(){
     wait(50, msec);
     intakeStart(470, 100, false);
     matchloadStart(5900,100,475,true);
-    driveForward(91, 55, -16);
+    driveForward(91, 58, -16);
     wait(250, msec);
-    turnRight(-140,95,20,80);
+    turnRight(-150,95,20,80);
     wait(100, msec);
-    driveForward(82,70,-140,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(107,70,-150,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(100, msec);
     turnRight(-176,28,22,60); 
-    wait(200, msec);   
-    smartStraight(34, 19, -180, 24, 150);
+   // wait(200, msec);   
+   // smartStraight(34, 19, -180, 24, 150);
     //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
-    wait(700, msec);
-    driveBackward(26, 14, -176);
-    turnLeft(0,120,20,60);
+    //wait(700, msec);
+    //driveBackward(26, 14, -176);
+   // turnLeft(0,145,25,90,16);
     //driveForward(30,20,1,24,0.3,0.002,0,0.1,1,0.3,90);
 
 

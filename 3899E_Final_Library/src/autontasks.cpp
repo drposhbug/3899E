@@ -13,6 +13,10 @@ using namespace vex;
 
 HeadingDisplayParams headingDisplayParams = {false};
 
+// Global variables for display - navigation functions update these
+double g_targetDistance = 0.0;  // tgtD - target distance in cm
+double g_targetHeading = 0.0;   // tgtH - target heading in degrees
+
 // ===== SHARED TASK STRUCTURE =====
 struct AsyncTaskParams {
     std::atomic<bool> running{false};
@@ -333,6 +337,7 @@ int headingDisplayTask(void *params) {
     HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
     
     while (p->isRunning) {
+        // Get cartesian heading (gyro rotation + headingOffset)
         double heading = getAdjustedRotation();
         double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
         double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
@@ -346,9 +351,13 @@ int headingDisplayTask(void *params) {
         Controller.Screen.setCursor(1, 1);
         Controller.Screen.print("L:%.0f R:%.0f   ", leftCM, rightCM);
         
-        // Line 2: Average and Heading
+        // Line 2: Average distance and current cartesian heading
         Controller.Screen.setCursor(2, 1);
         Controller.Screen.print("A:%.0f H:%.1f   ", avgCM, heading);
+        
+        // Line 3: Target distance and target heading
+        Controller.Screen.setCursor(3, 1);
+        Controller.Screen.print("tgtD:%.0f tgtH:%.0f", g_targetDistance, g_targetHeading);
         
         wait(50, msec);
     }
