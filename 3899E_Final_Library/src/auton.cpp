@@ -383,8 +383,8 @@ void soloAWP(){
     wait(200, msec);
     turnRight(-176,20,26,80); 
     wait(200, msec);
-   smartStraight(30, 21, -180, 20, 150);
-       wait(450, msec);
+   smartStraight(30, 21, -180, 15, 150);
+       wait(270, msec);
 
     //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
     driveBackward(26, 14, -176);
@@ -404,10 +404,10 @@ void soloAWP(){
 
     turnRight(4,30,26,80); 
                     wait(100, msec);
-     driveForward(15,30,4,24,0.3,0.002,0,0.1,1,0.3,90);
+     driveForward(12,0,4,24,0.3,0.002,0,0.1,1,0.3,90);
    wingPneumatics.set(true);
 
-    driveForward(35,30,4,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(40,0,4,24,0.3,0.002,0,0.1,1,0.3,40);
 
 
     //wait(250, msec);
