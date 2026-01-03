@@ -308,7 +308,7 @@ void stopScore(){
     intakeMotor2.stop();
 }
 
-void outtake(double time) //skibidi outtake
+void outtake(double time, double power) //skibidi outtake
 {
     vex::timer outtakeTime;
     outtakeTime.reset();
@@ -319,8 +319,9 @@ void outtake(double time) //skibidi outtake
 
     while (outtakeTime.time(timeUnits::msec) < time)
     {
-        intakeMotor1.spin(reverse, 6.0, voltageUnits::volt);
-        intakeMotor2.spin(reverse, 6.0, voltageUnits::volt);
+        outtakePower = (power / 8.34);
+        intakeMotor1.spin(reverse, outtakePower, voltageUnits::volt);
+        intakeMotor2.spin(reverse, outtakePower, voltageUnits::volt);
         vex::task::sleep(10);
     }
     ptoPneumatics.set(false); //disengage pto after outtake

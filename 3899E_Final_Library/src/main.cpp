@@ -31,8 +31,8 @@ void runAuton(void) {
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  //soloAWP();
-  leftSideLong();
+  soloAWP();
+  //leftSideLong();
   //rightMiddleAuto();
   //calibration();
   //doubleDoinkerBlue();
