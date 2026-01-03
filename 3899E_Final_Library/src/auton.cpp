@@ -369,26 +369,45 @@ void soloAWP(){
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
+       wingPneumatics.set(false);
+
     wait(50, msec);
     intakeStart(470, 100, false);
-    matchloadStart(6700,100,475,true);
+    matchloadStart(6700,100,525,true);
     driveForward(91, 58, -16);
     wait(250, msec);
     turnRight(-148,114,26,80,14);
-    wait(100, msec);
+    wait(200, msec);
        
-    driveForward(105,80,-148,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(99,78,-148,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnRight(-176,20,26,80); 
-   smartStraight(30, 19, -180, 24, 150);
+    wait(200, msec);
+   smartStraight(30, 21, -180, 20, 150);
+       wait(450, msec);
+
     //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
     driveBackward(26, 14, -176);
         wait(200, msec);
-    turnLeft(5,145,25,90,16);
+    turnLeft(10,145,25,90,16);
         wait(200, msec);
-   smartStraight(30, 19, 5, 24, 150);
+   smartStraight(40, 19, 10, 24, 150);
 
-    score(3000, 100);
+    score(3200, 100);
+    driveBackward(20, 14, 10);
+            wait(200, msec);
+    turnLeft(40,18,25,90,16);
+                wait(100, msec);
+
+    driveForward(35,25,40,24,0.3,0.002,0,0.1,1,0.3,90);
+                    wait(100, msec);
+
+    turnRight(4,30,26,80); 
+                    wait(100, msec);
+     driveForward(15,30,4,24,0.3,0.002,0,0.1,1,0.3,90);
+   wingPneumatics.set(true);
+
+    driveForward(35,30,4,24,0.3,0.002,0,0.1,1,0.3,90);
 
 
     //wait(250, msec);
