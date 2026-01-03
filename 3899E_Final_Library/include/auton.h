@@ -17,6 +17,7 @@ void calibration();
 void soloAWP();
 void SevenBallLeft();
 void rightMiddleAuto();
+void leftSideLong();
 
 
 #endif // AUTON_H

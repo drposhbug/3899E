@@ -32,7 +32,8 @@ void runAuton(void) {
   //SevenBallRight();
   //SevenBallLeft();
   //soloAWP();
-  rightMiddleAuto();
+  leftSideLong();
+  //rightMiddleAuto();
   //calibration();
   //doubleDoinkerBlue();
   //skills();
