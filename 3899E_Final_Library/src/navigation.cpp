@@ -132,7 +132,7 @@ void smartMove(double distanceCM, double maxSpeed, vex::directionType dir, doubl
     }
 }
 
-void turnOdometry(double targetHeading, double breakDistanceInDegrees, double minSpeed, double maxSpeed)
+void turnOdometry(double targetHeading, double breakDistanceInDegrees, double minSpeed, double maxSpeed, double exitTolerance)
 {
     // Reset completion flags
 
@@ -163,13 +163,12 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // 1 = Full slip allowed (most aggressive)
     // 0.25 = 25% slip tolerance for balanced control
     // may need to go above 25% given built in difference between encoder and wheel spin speed
-    const double TURN_ACCEL_FACTOR_LAUNCH = 1.2;
+    const double TURN_ACCEL_FACTOR_LAUNCH = 1.5;
     const double SLIP_THRESHOLD_TRACTION = 10; // somwewhere between 40 to 60 seems good, at least for 180 turns. 45 seems pretty good.
     // Adaptive ABS configuration
-    const double DECEL_STEP_PERCENT = 5;     // Voltage step as % of 12V
+    const double DECEL_STEP_PERCENT = 20;     // Voltage step as % of 12V
     const double LOCK_THRESHOLD_DECEL = 10;// Lockup sensitivity
 
-    const double EXIT_TOLERANCE_DEGREES = 7;
     //const double EXIT_ROTATION_RATE = 15.0;  // Exit when rotation slows to this (degrees/sec)
 
     double averageMotorVoltage = 0;
@@ -190,8 +189,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
 
     // Loop to continuously adjust motor power
-    while ((maxSpeedVoltage > 0 && currentHeading <= targetRotationHeading - EXIT_TOLERANCE_DEGREES) ||
-           (maxSpeedVoltage < 0 && currentHeading >= targetRotationHeading + EXIT_TOLERANCE_DEGREES))
+  while ((maxSpeedVoltage > 0 && currentHeading <= targetRotationHeading - exitTolerance) ||
+               (maxSpeedVoltage < 0 && currentHeading >= targetRotationHeading + exitTolerance))
     {
         currentHeading = InertialSensor.rotation(degrees) - headingOffset;
         headingError = targetRotationHeading - currentHeading;
@@ -380,11 +379,22 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
     // Stop all motors at end of routine after approach
     for (int i = 0; i < 3; i++)
     {
+        leftMotor[i].setBrake(brake);
+        rightMotor[i].setBrake(brake);
+        leftMotor[i].stop();
+        rightMotor[i].stop();
+    }
+/*
+    vex::task::sleep(20);
+        // Stop all motors at end of routine after approach
+    for (int i = 0; i < 3; i++)
+    {
         leftMotor[i].setBrake(hold);
         rightMotor[i].setBrake(hold);
         leftMotor[i].stop();
         rightMotor[i].stop();
     }
+    */
 }
 
 // Traction Control Constructor implementation
@@ -1059,6 +1069,7 @@ void smartStraight(double targetDistance,
     // Initialize PID controllers
     PID headingPID(kp_heading, ki_heading, kd_heading);
     headingPID.pidReset();
+    targetHeading = -targetHeading;
 
     // Motion Parameters
     double currentDistance = 0;
@@ -1842,7 +1853,7 @@ void driveBackward(double targetDistance,
 }
 
 // Turn right to absolute heading - FORCES CLOCKWISE DIRECTION
-void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed)
+void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed, double exitTolerance)
 {
     // Get current heading in robot coordinate system
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
@@ -1857,11 +1868,11 @@ void turnRight(double absoluteTargetHeading, double breakDistance, double minSpe
         targetHeading += 360.0;
     }
 
-    turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed);
+    turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed, exitTolerance);
 }
 
 // Turn left to absolute heading - FORCES COUNTER-CLOCKWISE DIRECTION
-void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed)
+void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed, double exitTolerance)
 {
     // Get current heading in robot coordinate system
     double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
@@ -1876,7 +1887,7 @@ void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpee
         targetHeading -= 360.0;
     }
 
-    turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed);
+    turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed, exitTolerance);
 }
 
 void pidlessForward(double timeMs, double speedPct)

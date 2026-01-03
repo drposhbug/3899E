@@ -17,4 +17,11 @@ void stopScore();
 void outtake(double time);
 void stopOuttake();
 
+struct HeadingDisplayParams {
+    bool isRunning;
+};
+
+extern HeadingDisplayParams headingDisplayParams;  // extern = declaration only
+int headingDisplayTask(void *params);
+
 #endif // AUTONTASKS_H

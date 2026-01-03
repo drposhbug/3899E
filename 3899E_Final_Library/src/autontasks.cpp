@@ -4,9 +4,14 @@
 #include "vex.h"
 #include "navigation.h"
 #include "odometry.h"
+#include "autontasks.h"
 #include <cmath>
 
 using namespace vex;
+
+// Heading display task for controller
+
+HeadingDisplayParams headingDisplayParams = {false};
 
 // ===== SHARED TASK STRUCTURE =====
 struct AsyncTaskParams {
@@ -322,4 +327,30 @@ void outtake(double time) //skibidi outtake
 void stopOuttake(){
     intakeMotor1.stop();
     intakeMotor2.stop();
+}
+
+int headingDisplayTask(void *params) {
+    HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
+    
+    while (p->isRunning) {
+        double heading = getAdjustedRotation();
+        double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
+        double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
+        
+        // Convert degrees to cm
+        double leftCM = leftEnc * encoderWheelCircumferenceCM / 360.0;
+        double rightCM = rightEnc * encoderWheelCircumferenceCM / 360.0;
+        double avgCM = (leftCM + rightCM) / 2.0;
+        
+        // Line 1: Left and Right encoders in cm
+        Controller.Screen.setCursor(1, 1);
+        Controller.Screen.print("L:%.0f R:%.0f   ", leftCM, rightCM);
+        
+        // Line 2: Average and Heading
+        Controller.Screen.setCursor(2, 1);
+        Controller.Screen.print("A:%.0f H:%.1f   ", avgCM, heading);
+        
+        wait(50, msec);
+    }
+    return 0;
 }

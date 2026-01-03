@@ -73,7 +73,8 @@ void arcTurn(double targetDistance,
 void turnOdometry(double targetHeading, 
             double breakDistanceInDegrees, 
             double minSpeed = 17, 
-            double maxSpeed = 100);
+            double maxSpeed = 100,
+            double exitTolerance = 7.0);
 
 double launchControl(double targetDriverSpeed, vex::motor& motor, vex::rotation& encoder);
 
@@ -195,12 +196,14 @@ void driveBackward(double targetDistance,
 void turnRight(double absoluteTargetHeading, 
                double breakDistance = 5, 
                double minSpeed = 23,
-               double maxSpeed = 100);
+               double maxSpeed = 100,   
+               double exitTolerance =7);
 
-void turnLeft(double absoluteTargetHeading, 
+void turnLeft(double absoluteTargtHeading, 
               double breakDistance = 5, 
               double minSpeed = 23, 
-              double maxSpeed = 100);
+              double maxSpeed = 100,
+              double exitTolerance =7);
               
 void pidlessForward(double timeMs, double speedPct);
 

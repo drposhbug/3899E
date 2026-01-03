@@ -4,6 +4,7 @@
 #include "auton.h" // Include the autonomous functions
 #include "utils.h"
 #include "navigation.h"
+#include "autontasks.h"
 
 #define COMPETITION_PROGRAM_NAME "Test"
 
@@ -14,16 +15,23 @@ vex::competition Competition;
 void runAuton(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Autonomous Mode...");
+
+    Brain.Screen.clearScreen();
+  Brain.Screen.print("Running Driver Control Mode...");
+    // Start heading display task
+  headingDisplayParams.isRunning = true;
+  vex::task heading_task(headingDisplayTask, &headingDisplayParams);
   
+  // Start heading display task
   //autonTest();    
   //autonLeft(); 
-  //autonRight();
+  autonRight();
   //autonFwdRight();
   //autonFwdLeft();
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  soloAWP();
+  //soloAWP();
   //calibration();
   //doubleDoinkerBlue();
   //skills();
@@ -34,6 +42,7 @@ void runAuton(void) {
 void runDriver(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Driver Control Mode...");
+  
   driverControl(); // Start driver control function
 }
 

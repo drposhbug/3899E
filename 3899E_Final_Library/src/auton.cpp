@@ -148,12 +148,29 @@ void autonRight(){
     
     //driveForward(200,110,0,25,0.8,0.09,0,0.1,0,0.1,100);
 
-    //turnLeft(180,135,22,100);
-      intakeHopperStart(3000, 100, 500);  
+    //turnLeft(180,145,25,90,16); //bestoverall speed and lateral shift - Use this for speed
+    
+    
+    //turnLeft(180,155,25,70, 16);// nest so far for 180, no lateral shift but some forward shift
+    //turnLeft(180,160,25,70, 12);//good 180
+    //turnOdometry(180,180,25,70, 90);
+    //  intakeHopperStart(3000, 100, 500);  
     //smartMove(100, 40, forward, 150); //for matchload smart wall stop, no pid
 
     //driveForward(100,60,0,24,0.6,0.005,0,0.1,1,0.3,100); //Best for most distances
-    driveForward(200,90,0,26,1.1,0.005,0,0.1,1,0.3,100); //best for long distance
+    //driveForward(200,60,0,18,1.1,0.005,0,0.1,1,0.3,81); //best for long distance
+
+    //  wait(1000, msec); // brief pause to allow motors to settle
+    /*  
+       for (int i = 0; i < 3; i++)
+    {
+        leftMotor[i].setBrake(hold);
+        rightMotor[i].setBrake(hold);
+        leftMotor[i].stop();
+        rightMotor[i].stop();
+    }
+*/
+    
 
     //driveForward(100,60,0,20,1.1,0.005,0,0.1,1,0.3,100); // testing hold
     //driveForward(200,90,0,25,1.1,0.005,0,0.1,1,0.3,100); //testing hold
@@ -363,7 +380,8 @@ void soloAWP(){
     wait(100, msec);
     turnRight(-176,28,22,60); 
     wait(200, msec);   
-    smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
+    smartStraight(34, 19, -180, 24, 150);
+    //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
     wait(700, msec);
     driveBackward(26, 14, -176);
     turnLeft(0,120,20,60);
