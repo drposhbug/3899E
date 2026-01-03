@@ -1344,8 +1344,8 @@ void smartStraight(double targetDistance,
     // Stop all motors at end of routine after approach
     for (int i = 0; i < 3; i++)
     {
-        leftMotor[i].setBrake(hold);
-        rightMotor[i].setBrake(hold);
+        leftMotor[i].setBrake(brake);
+        rightMotor[i].setBrake(brake);
         leftMotor[i].stop();
         rightMotor[i].stop();
     }

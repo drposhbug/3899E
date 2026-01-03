@@ -74,7 +74,7 @@ void turnOdometry(double targetHeading,
             double breakDistanceInDegrees, 
             double minSpeed = 25, 
             double maxSpeed = 100,
-            double exitTolerance = 6.0);
+            double exitTolerance = 16.0);
 
 double launchControl(double targetDriverSpeed, vex::motor& motor, vex::rotation& encoder);
 
@@ -197,13 +197,13 @@ void turnRight(double absoluteTargetHeading,
                double breakDistance, 
                double minSpeed = 25,
                double maxSpeed = 100,   
-               double exitTolerance =6);
+               double exitTolerance =16);
 
 void turnLeft(double absoluteTargtHeading, 
               double breakDistance, 
               double minSpeed = 25, 
               double maxSpeed = 100,
-              double exitTolerance =6);
+              double exitTolerance =16);
               
 void pidlessForward(double timeMs, double speedPct);
 

@@ -338,7 +338,7 @@ int headingDisplayTask(void *params) {
     
     while (p->isRunning) {
         // Get cartesian heading (gyro rotation + headingOffset)
-        double heading = getAdjustedRotation();
+        double heading = headingOffset - InertialSensor.rotation(degrees);
         double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
         double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
         
