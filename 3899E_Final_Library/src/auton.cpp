@@ -245,6 +245,70 @@ void leftSideLong(){
     driveForward(40,0,-4,24,0.3,0.002,0,0.1,1,0.3,40);
 }
 
+void leftSidemiddle(){
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = 16;
+    ptoPneumatics.set(false);
+    backHoodPneumatics.set(false);
+    frontHoodPneumatics.set(false);
+    wingPneumatics.set(false);
+
+    wait(50, msec);
+    intakeStart(300, 100, false);
+    matchloadStart(1200,100,750,true);
+    matchLoadPneumatics.set(true);
+    driveForward(70, 60, 16,26);
+        wait(200, msec);
+
+        //driveBackward(8, 4, 16);
+        move(8, 50, vex::reverse);
+    wait(250, msec);
+
+     turnRight(-46,50,25,90,16);
+
+      //   wait(100, msec);
+    //scoreStart(1200, 70);
+     //driveForward(25,13,-45,24,0.3,0.002,0,0.1,1,0.3,90);
+     //        wait(200, msec);
+    //driveBackward(105, 82, -45);
+     //turnRight(-180,190,25,90,16);
+
+
+    /*
+    turnLeft(145.5,118,26,80,16);
+    wait(200, msec);
+       
+    driveForward(98,78,145.5,24,0.3,0.002,0,0.1,1,0.3,90);
+    wait(200, msec);
+    turnLeft(175,25,26,80,13);
+    wait(200, msec);
+    smartStraight(30, 21, 180, 15, 150);
+    wait(27000, msec);
+
+    driveBackward(26, 14, 176);
+    wait(200, msec);
+    turnRight(-10,145,25,90,16);
+    wait(200, msec);
+    smartStraight(40, 19, -10, 24, 150);
+
+    score(3200, 100);
+    driveBackward(20, 14, -10);
+    wait(200, msec);
+    turnRight(-40,18,25,90,16);
+    wait(100, msec);
+
+    driveForward(35,25,-40,24,0.3,0.002,0,0.1,1,0.3,90);
+    wait(100, msec);
+
+    turnLeft(-4,30,26,80);
+    wait(100, msec);
+    driveForward(12,0,-4,24,0.3,0.002,0,0.1,1,0.3,90);
+    wingPneumatics.set(true);
+
+    driveForward(40,0,-4,24,0.3,0.002,0,0.1,1,0.3,40);
+    */
+}
 void SpeedwayAutonLeft(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);

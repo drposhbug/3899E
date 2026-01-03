@@ -16,6 +16,7 @@ void score(double time, double power);
 void stopScore();
 void outtake(double time, double power);
 void stopOuttake();
+void scoreStart(double timeMs, double power);
 
 struct HeadingDisplayParams {
     bool isRunning;

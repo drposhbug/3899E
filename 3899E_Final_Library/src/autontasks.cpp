@@ -364,3 +364,44 @@ int headingDisplayTask(void *params) {
     }
     return 0;
 }
+
+//asynchronous scoring
+static std::atomic<bool> g_scoringTaskRunning(false);
+static double g_scoringTimeMs = 0;
+static double g_scoringPower = 100;
+static vex::task g_scoringTaskHandle;
+int scoringTaskEntry(void*) {
+    g_scoringTaskRunning.store(true);
+
+    frontHoodPneumatics.set(false); //open front hood and close back hood
+    backHoodPneumatics.set(true);
+    ptoPneumatics.set(true); //engage pto for scoring
+
+    vex::timer t;
+    t.reset();
+    double voltagePower = g_scoringPower / 8.34;
+
+    while (g_scoringTaskRunning.load() && t.time(timeUnits::msec) < g_scoringTimeMs) {
+        intakeMotor1.spin(forward, voltagePower, voltageUnits::volt);
+        intakeMotor2.spin(forward, voltagePower, voltageUnits::volt);
+        vex::task::sleep(10);
+    }
+
+    frontHoodPneumatics.set(false); //close back hood after scoring
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+    ptoPneumatics.set(false);
+    g_scoringTaskRunning.store(false);
+
+    return 0;
+}
+
+void scoreStart(double timeMs, double power) {
+    if (g_scoringTaskRunning.load()) {   
+        g_scoringTaskRunning.store(false);
+        vex::task::sleep(20);
+    }
+    g_scoringTimeMs = timeMs;
+    g_scoringPower = power;
+    g_scoringTaskHandle = vex::task(scoringTaskEntry, nullptr);
+}
