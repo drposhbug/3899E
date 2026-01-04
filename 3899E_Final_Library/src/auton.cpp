@@ -262,14 +262,14 @@ void leftSidemiddle(){
         wait(200, msec);
 
         //driveBackward(8, 4, 16);
-        move(8, 50, vex::reverse);
+       // move(3, 50, vex::reverse);
     wait(250, msec);
 
-     turnRight(-46,50,25,90,16);
+     turnRight(-50,50,25,90,16);
 
       //   wait(100, msec);
     //scoreStart(1200, 70);
-     //driveForward(25,13,-45,24,0.3,0.002,0,0.1,1,0.3,90);
+     driveForward(25,13,-50,24,0.3,0.002,0,0.1,1,0.3,90);
      //        wait(200, msec);
     //driveBackward(105, 82, -45);
      //turnRight(-180,190,25,90,16);
