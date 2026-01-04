@@ -44,6 +44,7 @@ void runAuton(void) {
 }
 
 void runDriver(void) {
+  headingDisplayParams.isRunning = false;
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Driver Control Mode...");
   

@@ -208,19 +208,19 @@ void leftSideLong(){
     wingPneumatics.set(false);
 
     wait(50, msec);
-    intakeStart(620, 100, false);
-    matchloadStart(6700,100,625,true);
-    driveForward(91, 59, 16);
+    intakeStart(700, 100, false);
+    matchloadStart(6700,100,725,true);
+    driveForward(83, 60, 16);
     wait(250, msec);
-    turnLeft(145.5,118,26,80,16);
+    turnLeft(150,118,26,80,16);
     wait(200, msec);
        
-    driveForward(98,78,145.5,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(85,70,150,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnLeft(175,25,26,80,13);
     wait(200, msec);
-    smartStraight(30, 21, 180, 15, 150);
-    wait(27000, msec);
+    smartStraight(43, 21, 180, 15, 150);
+    wait(270, msec);
 
     driveBackward(26, 14, 176);
     wait(200, msec);
@@ -230,7 +230,7 @@ void leftSideLong(){
 
     score(3200, 100);
     driveBackward(20, 14, -10);
-    wait(200, msec);
+    wait(100, msec);
     turnRight(-40,18,25,90,16);
     wait(100, msec);
 
