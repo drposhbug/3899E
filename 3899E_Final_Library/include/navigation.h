@@ -34,6 +34,19 @@ void straightOdometry(double targetDistance,
     double decelHeadingScaling = 0.2, 
     double approachHeadingScaling = 0.2, 
     double maxSpeed = 100);   
+
+    void straightOdometryV2(double targetDistance, 
+    double breakDistance, 
+    double targetHeading = 0, 
+    double minSpeed = 16, 
+    double distanceTolerance = 6.0,
+    double kp_heading = 0.4, 
+    double ki_heading = 0.01, 
+    double kd_heading = 0.05, 
+    double accelHeadingScaling = 0.2, 
+    double decelHeadingScaling = 0.2, 
+    double approachHeadingScaling = 0.2, 
+    double maxSpeed = 100);
     
 void smartStraight(double targetDistance, 
     double breakDistance, 
@@ -206,5 +219,31 @@ void turnLeft(double absoluteTargtHeading,
               double exitTolerance =16);
               
 void pidlessForward(double timeMs, double speedPct);
+
+void driveForwardV2(double targetDistance,
+             double breakDistance, 
+             double targetHeading,
+             double minSpeed,
+             double distanceTolerance,
+             double kp_heading, 
+             double ki_heading,
+             double kd_heading, 
+             double accelHeadingScaling,
+             double decelHeadingScaling, 
+             double approachHeadingScaling,
+             double maxSpeed);
+
+void driveBackwardV2(double targetDistance,
+              double breakDistance, 
+              double targetHeading,
+              double minSpeed,
+              double distanceTolerance,
+              double kp_heading, 
+              double ki_heading,
+              double kd_heading, 
+              double accelHeadingScaling,
+              double decelHeadingScaling, 
+              double approachHeadingScaling,
+              double maxSpeed);
 
 #endif // PID_TASKS_H;

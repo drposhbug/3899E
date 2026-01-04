@@ -1026,6 +1026,257 @@ void straightOdometry(double targetDistance,
     */
 }
 
+void straightOdometryV2(double targetDistance,
+                      double breakDistance,
+                      double targetHeading,
+                      double minSpeed,
+                      double distanceTolerance,
+                      double kp_heading,
+                      double ki_heading,
+                      double kd_heading,
+                      double accelHeadingScaling,
+                      double decelHeadingScaling,
+                      double approachHeadingScaling,
+                      double maxSpeed)
+{
+    // ========================================
+    // CONFIGURATION CONSTANTS
+    // ========================================
+    const double LAUNCH_VOLTAGE = 6;
+    const double ACCEL_FACTOR_LAUNCH = 1.25;
+    const double SLIP_THRESHOLD_TRACTION = 0.3;
+    const double DECEL_STEP_PERCENT = 20;
+    const double LOCK_THRESHOLD_DECEL = 0.25;
+    // ========================================
+
+    vex::timer accelTimer;
+
+    passiveEncoderLeft.resetPosition();
+    passiveEncoderRight.resetPosition();
+
+    PID headingPID(kp_heading, ki_heading, kd_heading);
+    headingPID.pidReset();
+
+    double currentDistance = 0;
+
+    double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
+    double minSpeedVoltage = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
+    double launchVoltage = std::copysign(LAUNCH_VOLTAGE, targetDistance);
+    double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), targetDistance);
+
+    double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM;
+    double maxEncoderRPM = 0;
+
+    double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
+    double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
+    double leftMotorRPM = 0;
+    double rightMotorRPM = 0;
+
+    double avgMotorVoltage = 0;
+    double leftEncoderRollingAverage = 0;
+    double rightEncoderRollingAverage = 0;
+    double voltageRollingAverage = 0;
+
+    bool decel = false;
+    bool decelCompleted = false;
+    bool accelCompleted = false;
+    int consecutiveAtTarget = 0;
+    const int REQUIRED_CONSECUTIVE = 3;
+
+    double maxLeftVoltageReached = 0;
+    double maxRightVoltageReached = 0;
+    double maxAvgLeftVoltage = 0;
+    double maxAvgRightVoltage = 0;
+    double maxLeftMotor[3] = {0, 0, 0};
+    double maxRightMotor[3] = {0, 0, 0};
+
+    tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+    tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+
+    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+
+    while (std::fabs(currentDistance) <= fabs(targetDistance) - distanceTolerance)
+    {
+        currentDistance = ((passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * encoderWheelCircumferenceCM;
+        avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2]) / numberDriveMotor;
+
+        Brain.Screen.clearScreen();
+        Brain.Screen.setCursor(1, 1);
+        Brain.Screen.print("Current: %.2f cm", std::fabs(currentDistance));
+        Brain.Screen.setCursor(2, 1);
+        Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
+
+        double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
+        double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
+
+        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2;
+
+        double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+
+        // Launch Phase
+        if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && !accelCompleted && !decel)
+        {
+            double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
+            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+
+            double syncedMotorVoltage = (std::fabs(leftTractionVoltage) < std::fabs(rightTractionVoltage)) 
+                ? leftTractionVoltage 
+                : rightTractionVoltage;
+
+            for (int i = 0; i < 3; i++)
+            {
+                motorVoltageLeft[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
+                motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
+            }
+
+            maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
+
+            if (fabs(avgMotorVoltage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE))
+            {
+                accelCompleted = true;
+            }
+        }
+        // Cruise Phase
+        else if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && accelCompleted == true)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection);
+                motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection);
+            }
+        }
+        // Deceleration phase with adaptive ABS
+        else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && decelCompleted == false)
+        {
+            if (!decel)
+            {
+                adaptiveABSLeft.initialize(motorVoltageLeft[1]);
+                adaptiveABSRight.initialize(motorVoltageRight[1]);
+            }
+            decel = true;
+
+            double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+            double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+            double leftEncoderRPM = passiveEncoderLeft.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            double rightEncoderRPM = passiveEncoderRight.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+
+            vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
+            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+
+            vex::brakeType syncedBrakeMode;
+            if (leftBrakeMode == vex::coast || rightBrakeMode == vex::coast) {
+                syncedBrakeMode = vex::coast;
+            } else {
+                syncedBrakeMode = vex::brake;
+            }
+
+            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
+                ? leftDecelVoltage
+                : rightDecelVoltage;
+
+            double steeringCorrection = headingCorrection * decelHeadingScaling;
+
+            for (int i = 0; i < 3; i++)
+            {
+                if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0)
+                {
+                    double correctedLeft = syncedDecelVoltage + steeringCorrection;
+                    double correctedRight = syncedDecelVoltage - steeringCorrection;
+                    
+                    if (syncedDecelVoltage > 0) {
+                        motorVoltageLeft[i] = std::max(0.0, correctedLeft);
+                        motorVoltageRight[i] = std::max(0.0, correctedRight);
+                    } else {
+                        motorVoltageLeft[i] = std::min(0.0, correctedLeft);
+                        motorVoltageRight[i] = std::min(0.0, correctedRight);
+                    }
+                }
+                else
+                {
+                    motorVoltageLeft[i] = 0.0;
+                    motorVoltageRight[i] = 0.0;
+                }
+                
+                leftMotor[i].setBrake(syncedBrakeMode);
+                rightMotor[i].setBrake(syncedBrakeMode);
+            }
+
+            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
+
+            if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
+                fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
+            {
+                consecutiveAtTarget++;
+                if (consecutiveAtTarget >= REQUIRED_CONSECUTIVE)
+                {
+                    decelCompleted = true;
+                }
+            }
+            else
+            {
+                consecutiveAtTarget = 0;
+            }
+        }
+        // Final Approach Phase
+        else if (decelCompleted == true)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
+                motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+            }
+        }
+
+        for (int i = 0; i < 3; i++)
+        {
+            maxLeftVoltageReached = std::max(maxLeftVoltageReached, std::fabs(motorVoltageLeft[i]));
+            maxRightVoltageReached = std::max(maxRightVoltageReached, std::fabs(motorVoltageRight[i]));
+
+            maxLeftMotor[i] = std::max(maxLeftMotor[i], std::fabs(motorVoltageLeft[i]));
+            maxRightMotor[i] = std::max(maxRightMotor[i], std::fabs(motorVoltageRight[i]));
+        }
+
+        double currentAvgLeftVoltage = (std::fabs(motorVoltageLeft[0]) +
+                                        std::fabs(motorVoltageLeft[1]) +
+                                        std::fabs(motorVoltageLeft[2])) /
+                                       3.0;
+
+        double currentAvgRightVoltage = (std::fabs(motorVoltageRight[0]) +
+                                         std::fabs(motorVoltageRight[1]) +
+                                         std::fabs(motorVoltageRight[2])) /
+                                        3.0;
+
+        static double maxAvgLeftVoltage = 0;
+        static double maxAvgRightVoltage = 0;
+        maxAvgLeftVoltage = std::max(maxAvgLeftVoltage, currentAvgLeftVoltage);
+        maxAvgRightVoltage = std::max(maxAvgRightVoltage, currentAvgRightVoltage);
+
+        for (int i = 0; i < 3; i++)
+        {
+            leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
+            rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
+        }
+
+        vex::task::sleep(10);
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        leftMotor[i].setBrake(brake);
+        rightMotor[i].setBrake(brake);
+        leftMotor[i].stop();
+        rightMotor[i].stop();
+    }
+}
+
 void smartStraight(double targetDistance,
                       double breakDistance,
                       double targetHeading,
@@ -1888,6 +2139,50 @@ void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpee
     }
 
     turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed, exitTolerance);
+}
+
+void driveForwardV2(double targetDistance,
+                  double breakDistance,
+                  double targetHeading,
+                  double minSpeed,
+                  double distanceTolerance,
+                  double kp_heading,
+                  double ki_heading,
+                  double kd_heading,
+                  double accelHeadingScaling,
+                  double decelHeadingScaling,
+                  double approachHeadingScaling,
+                  double maxSpeed)
+{
+    double internalHeading = -targetHeading;
+
+    straightOdometryV2(targetDistance, breakDistance, internalHeading, minSpeed,
+                     distanceTolerance, kp_heading, ki_heading, kd_heading,
+                     accelHeadingScaling, decelHeadingScaling,
+                     approachHeadingScaling, maxSpeed);
+}
+
+void driveBackwardV2(double targetDistance,
+                   double breakDistance,
+                   double targetHeading,
+                   double minSpeed,
+                   double distanceTolerance,
+                   double kp_heading,
+                   double ki_heading,
+                   double kd_heading,
+                   double accelHeadingScaling,
+                   double decelHeadingScaling,
+                   double approachHeadingScaling,
+                   double maxSpeed)
+{
+    targetDistance = -std::fabs(targetDistance);
+
+    double internalHeading = -targetHeading;
+
+    straightOdometryV2(targetDistance, breakDistance, internalHeading, minSpeed,
+                     distanceTolerance, kp_heading, ki_heading, kd_heading,
+                     accelHeadingScaling, decelHeadingScaling,
+                     approachHeadingScaling, maxSpeed);
 }
 
 void pidlessForward(double timeMs, double speedPct)
