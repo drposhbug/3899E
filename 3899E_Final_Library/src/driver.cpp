@@ -3,6 +3,7 @@
 #include <cmath>          // Include the cmath library for pow()
 #include "utils.h"
 #include "navigation.h"
+#include "autontasks.h"
 
 using namespace vex;
 
@@ -31,6 +32,7 @@ int applyDeadzone(int value)
 void driverControl()
 {
     initializeOpticalSensor();
+    headingDisplayParams.isRunning = false;
 
     // Motor power arrays for 3 motors per side
     double motorPowerLeft[3] = {0};

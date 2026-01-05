@@ -215,7 +215,7 @@ void leftSideLong(){
     turnLeft(150,118,26,80,16);
     wait(200, msec);
        
-    driveForward(85,70,150,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(90,70,150,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnLeft(175,25,26,80,13);
     wait(200, msec);
@@ -224,11 +224,11 @@ void leftSideLong(){
 
     driveBackward(26, 14, 176);
     wait(200, msec);
-    turnRight(-10,145,25,90,16);
+    turnRight(-13,145,25,90,16);
     wait(200, msec);
-    smartStraight(40, 19, -10, 24, 150);
+    smartStraight(40, 19, -13, 24, 200);
 
-    score(3200, 100);
+    score(7000, 100);
     driveBackward(20, 14, -10);
     wait(100, msec);
     turnRight(-40,18,25,90,16);
@@ -590,29 +590,28 @@ void soloAWP(){
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
-       wingPneumatics.set(false);
+       wingPneumatics.set(true);
 
-    wait(50, msec);
     intakeStart(470, 100, false);
-    matchloadStart(6700,100,850,true);
-    driveForward(91, 65, -16, 30);
+    matchloadStart(6400,100,1150,true);
+    driveForward(85, 60, -16, 30);
     wait(250, msec);
     turnRight(-148,118,26,80,14);
     wait(200, msec);
        
-    driveForward(97,78,-148,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(105,70,-148,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnRight(-176,20,26,80); 
     wait(200, msec);
-       smartStraight(40, 28, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 65);
+       smartStraight(45, 40, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
        wait(80, msec);
 
     //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
     driveBackward(26, 14, -176);
         wait(200, msec);
-    turnLeft(12,160,25,90,16);
+    turnLeft(5,160,25,90,16);
         wait(200, msec);
-   smartStraight(40, 20, 12, 24, 100, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 100);
+   smartStraight(50, 20, 5, 24, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 150);
 
     score(3200, 100);
     driveBackward(20, 14, 10);
@@ -620,13 +619,13 @@ void soloAWP(){
     turnLeft(45,18,25,90,16);
                 wait(100, msec);
 
-    driveForward(31,25,40,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(27,23,40,24,0.3,0.002,0,0.1,1,0.3,90);
                     wait(100, msec);
 
     turnRight(6,30,26,80); 
                     wait(100, msec);
      driveForward(12,0,6,24,0.3,0.002,0,0.1,1,0.3,90);
-   wingPneumatics.set(true);
+   wingPneumatics.set(false);
 
     driveForward(60,0,6,24,0.3,0.002,0,0.1,1,0.3,30);
 

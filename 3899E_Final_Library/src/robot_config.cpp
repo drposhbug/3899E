@@ -74,6 +74,7 @@ void resetMotorPositions()
 void vexcodeInit(void)
 {
     // Calibrate the inertial sensor
+    wingPneumatics.set(false);
     InertialSensor.calibrate();
     Brain.Screen.printAt(10, 20, "Calibrating Inertial Sensor...");
     while (InertialSensor.isCalibrating())

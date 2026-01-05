@@ -362,6 +362,8 @@ int headingDisplayTask(void *params) {
         
         wait(50, msec);
     }
+    // Clear controller display when stopping to avoid lingering prints during driver control
+    Controller.Screen.clearScreen();
     return 0;
 }
 

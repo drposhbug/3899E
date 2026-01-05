@@ -1487,10 +1487,10 @@ void smartStraight(double targetDistance,
 
             // SYNC brake mode: if EITHER side is locking up (coasting), BOTH sides coast
             vex::brakeType syncedBrakeMode;
-            if (leftBrakeMode == vex::coast || rightBrakeMode == vex::coast) {
-                syncedBrakeMode = vex::coast;
+            if (leftBrakeMode == vex::hold || rightBrakeMode == vex::hold) {
+                syncedBrakeMode = vex::hold;
             } else {
-                syncedBrakeMode = vex::brake;
+                syncedBrakeMode = vex::hold;
             }
 
             // SYNC voltage: use the MINIMUM magnitude (most conservative) for BOTH sides

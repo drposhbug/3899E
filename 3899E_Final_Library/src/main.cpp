@@ -16,11 +16,10 @@ void runAuton(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Autonomous Mode...");
 
-    Brain.Screen.clearScreen();
-  Brain.Screen.print("Running Driver Control Mode...");
-    // Start heading display task
+  // Start heading display task (autonomous-only)
   headingDisplayParams.isRunning = true;
   vex::task heading_task(headingDisplayTask, &headingDisplayParams);
+  wingPneumatics.set(false);
   
   // Start heading display task
   //autonTest();    
@@ -31,8 +30,8 @@ void runAuton(void) {
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  //soloAWP();
- leftSideLong();
+  soloAWP();
+ //leftSideLong();
     //leftSidemiddle();
 
   //rightMiddleAuto();
@@ -44,16 +43,18 @@ void runAuton(void) {
 }
 
 void runDriver(void) {
-  headingDisplayParams.isRunning = false;
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Driver Control Mode...");
   
+  headingDisplayParams.isRunning = false;
+  Controller.Screen.clearScreen(); // stop controller prints during driver control
   driverControl(); // Start driver control function
 }
 
 int main()
 {
     // Initializing Robot Configuration. DO NOT REMOVE!
+    wingPneumatics.set(false);
     vexcodeInit();
     //initializeOpticalSensor();
 
