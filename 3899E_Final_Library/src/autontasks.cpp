@@ -407,3 +407,52 @@ void scoreStart(double timeMs, double power) {
     g_scoringPower = power;
     g_scoringTaskHandle = vex::task(scoringTaskEntry, nullptr);
 }
+
+
+//async intake with matchload
+static std::atomic<bool> g_matchLoadIntakeTaskRunning(false);
+static double g_matchLoadIntakeTimeMs = 0;
+static double g_matchLoadIntakePower = 100;
+static bool g_matchLoadIntakeMatchload = false;
+static double g_matchLoadIntakeDelayMs = 0;
+int matchLoadIntakeTaskEntry(void*) {
+    g_matchLoadIntakeTaskRunning.store(true);
+
+    if (g_matchLoadIntakeDelayMs > 0) {
+        vex::task::sleep(g_matchLoadIntakeDelayMs);
+    }
+
+    frontHoodPneumatics.set(true);  
+    backHoodPneumatics.set(false);   
+
+    vex::timer t;
+    double voltage = g_matchLoadIntakePower / 8.34;
+    intakeMotor1.spin(forward, voltage, voltageUnits::volt);
+    intakeMotor2.spin(forward, voltage, voltageUnits::volt);
+
+
+    if (g_matchLoadIntakeMatchload) {
+        vex::task::sleep(matchloadRetractDelay);
+        matchLoadPneumatics.set(true);
+    }
+
+    while (g_matchLoadIntakeTaskRunning.load() && t.time(msec) < g_matchLoadIntakeTimeMs) {
+        vex::task::sleep(10);
+    }
+
+    // Stop intake first
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+
+    // Delay then retract pneumatic if it was extended
+    if (g_matchLoadIntakeMatchload) {
+        matchLoadPneumatics.set(false);
+    }
+
+    g_matchLoadIntakeTaskRunning.store(false);
+    return 0;
+}
+
+void matchLoadIntake(double timeMs, double power, bool matchload, double matchloadDelay){
+
+}
