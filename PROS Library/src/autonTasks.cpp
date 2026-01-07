@@ -50,8 +50,8 @@ void intakeHopperTaskFunc(void*) {
     }
 
     // Configure hood for intake
-    FrontHoodPneumatics.extend();   // Close front hood
-    BackHoodPneumatics.retract();   // Open back hood
+    frontHoodPneumatics.set_value(true);   // Close front hood
+    backHoodPneumatics.set_value(false);   // Open back hood
 
     uint32_t startTime = pros::millis();
     double voltage = intakeHopperParams.power / 8.34;
@@ -115,8 +115,8 @@ void matchloadTaskFunc(void*) {
     }
 
     // Configure hood for intake
-    FrontHoodPneumatics.extend();   // Close front hood
-    BackHoodPneumatics.retract();   // Open back hood
+    frontHoodPneumatics.set_value(true);   // Close front hood
+    backHoodPneumatics.set_value(false);   // Open back hood
 
     // Start intake motors
     uint32_t startTime = pros::millis();
@@ -125,7 +125,7 @@ void matchloadTaskFunc(void*) {
     intakeMotor2.move_voltage(voltage * 1000);
 
     // Extend matchload pneumatic
-    MatchLoadPneumatics.extend();
+    matchLoadPneumatics.set_value(true);
 
     // Run until time expires or task is stopped
     while (matchloadParams.running.load() && 
@@ -139,7 +139,7 @@ void matchloadTaskFunc(void*) {
 
     // Delay then retract matchload pneumatic
     pros::delay(matchloadRetractDelay);
-    MatchLoadPneumatics.retract();
+    matchLoadPneumatics.set_value(true;
 
     matchloadParams.running.store(false);
 }
@@ -187,11 +187,11 @@ void intake(double time, bool pistonState) {
 
     // Configure pneumatics
     if (pistonState) {
-        FrontHoodPneumatics.extend();   // Close front hood
-        BackHoodPneumatics.retract();   // Open back hood
+        frontHoodPneumatics.set_value(true);   // Close front hood
+        backHoodPneumatics.set_value(false);   // Open back hood
     } else {
-        FrontHoodPneumatics.retract();
-        BackHoodPneumatics.retract();
+        frontHoodPneumatics.set_value(false);
+        backHoodPneumatics.set_value(false);
     }
 
     // Run intake motors
@@ -202,7 +202,7 @@ void intake(double time, bool pistonState) {
     }
 
     // Cleanup
-    BackHoodPneumatics.retract();
+    backHoodPneumatics.set_value(false);
     intakeMotor1.brake();
     intakeMotor2.brake();
 }
@@ -225,18 +225,18 @@ void intakeTaskEntry(void*) {
 
     // Configure matchload pneumatic
     if (g_matchLoadState) {
-        MatchLoadPneumatics.extend();
+        matchLoadPneumatics.set_value(true);
     } else {
-        MatchLoadPneumatics.retract();
+        matchLoadPneumatics.set_value(false);
     }
 
     // Configure hood pneumatics
     if (g_intakePistonState) {
-        FrontHoodPneumatics.extend();
-        BackHoodPneumatics.retract();
+        frontHoodPneumatics.set_value(true);
+        backHoodPneumatics.set_value(false);
     } else {
-        FrontHoodPneumatics.retract();
-        BackHoodPneumatics.retract();
+        frontHoodPneumatics.set_value(false);
+        backHoodPneumatics.set_value(false);
     }
 
     // Run intake with color detection
@@ -257,9 +257,9 @@ void intakeTaskEntry(void*) {
             pros::delay(50);
 
             // Prepare for ejection
-            PtoPneumatics.extend();
-            FrontHoodPneumatics.retract();
-            BackHoodPneumatics.retract();
+            ptoPneumatics.set_value(true);
+            frontHoodPneumatics.set_value(false);
+            backHoodPneumatics.set_value(false);
 
             // Eject wrong-colored ring (300ms outtake)
             uint32_t outtakeStart = pros::millis();
@@ -270,7 +270,7 @@ void intakeTaskEntry(void*) {
             }
 
             // Stop ejection and reset
-            PtoPneumatics.retract();
+            ptoPneumatics.set_value(false);
             intakeMotor1.brake();
             intakeMotor2.brake();
             resetColorDetection();
@@ -278,11 +278,11 @@ void intakeTaskEntry(void*) {
 
             // Resume intake configuration
             if (g_intakePistonState) {
-                FrontHoodPneumatics.extend();
-                BackHoodPneumatics.retract();
+                frontHoodPneumatics.set_value(true);
+                backHoodPneumatics.set_value(false);
             } else {
-                FrontHoodPneumatics.retract();
-                BackHoodPneumatics.retract();
+                frontHoodPneumatics.set_value(false);
+                backHoodPneumatics.set_value(false);
             }
         }
 
@@ -292,10 +292,10 @@ void intakeTaskEntry(void*) {
     // Cleanup all systems
     intakeMotor1.brake();
     intakeMotor2.brake();
-    FrontHoodPneumatics.retract();
-    BackHoodPneumatics.retract();
-    MatchLoadPneumatics.retract();
-    PtoPneumatics.retract();
+    frontHoodPneumatics.set_value(false);
+    backHoodPneumatics.set_value(false);
+    matchLoadPneumatics.set_value(false);
+    ptoPneumatics.set_value(false);
     g_intakeTaskRunning.store(false);
 }
 
@@ -377,9 +377,9 @@ void score(double time, double power) {
     uint32_t startTime = pros::millis();
 
     // Configure for scoring
-    frontHoodPneumatics.retract();  // Open front hood
-    backHoodPneumatics.extend();    // Close back hood
-    ptoPneumatics.extend();         // Engage PTO
+    frontHoodPneumatics.set_value(false);  // Open front hood
+    backHoodPneumatics.set_value(false);    // Close back hood
+    ptoPneumatics.set_value(false);         // Engage PTO
 
     double voltagePower = power / 8.34;
 
@@ -391,10 +391,10 @@ void score(double time, double power) {
     }
 
     // Cleanup
-    frontHoodPneumatics.retract();
+    frontHoodPneumatics.set_value(false);
     intakeMotor1.brake();
     intakeMotor2.brake();
-    ptoPneumatics.retract();
+    ptoPneumatics.set_value(false);
 }
 
 /**
@@ -419,9 +419,9 @@ void outtake(double time, double power) {
     uint32_t startTime = pros::millis();
 
     // Configure for outtake
-    ptoPneumatics.extend();         // Engage PTO
-    frontHoodPneumatics.retract();  // Close front hood
-    backHoodPneumatics.retract();   // Close back hood
+    ptoPneumatics.set_value(false);         // Engage PTO
+    frontHoodPneumatics.set_value(false);  // Close front hood
+    backHoodPneumatics.set_value(false);   // Close back hood
 
     // Run outtake motors in reverse
     while ((pros::millis() - startTime) < time) {
@@ -432,7 +432,7 @@ void outtake(double time, double power) {
     }
 
     // Cleanup
-    PtoPneumatics.retract();
+    ptoPneumatics.set_value(false);
     intakeMotor1.brake();
     intakeMotor2.brake();
 }
@@ -455,11 +455,11 @@ void headingDisplayTask(void* params) {
     
     while (p->isRunning) {
         // Calculate cartesian heading (offset - gyro rotation)
-        double heading = headingOffset - InertialSensor.get_rotation();
+        double heading = headingOffset - inertialSensor.get_rotation();
         
         // Get encoder positions in degrees
-        double leftEnc = PassiveEncoderLeft.get_position() / 100.0;  // PROS returns centidegrees
-        double rightEnc = PassiveEncoderRight.get_position() / 100.0;
+        double leftEnc = passiveEncoderLeft.get_position() / 100.0;  // PROS returns centidegrees
+        double rightEnc = passiveEncoderRight.get_position() / 100.0;
         
         // Convert to cm
         double leftCM = leftEnc * ENCODER_WHEEL_CIRCUMFERENCE_CM / 360.0;
@@ -499,9 +499,9 @@ void scoringTaskEntry(void*) {
     g_scoringTaskRunning.store(true);
 
     // Configure for scoring
-    FrontHoodPneumatics.retract();  // Open front hood
-    BackHoodPneumatics.extend();    // Close back hood
-    PtoPneumatics.extend();         // Engage PTO
+    frontHoodPneumatics.set_value(false);  // Open front hood
+    backHoodPneumatics.set_value(true);    // Close back hood
+    ptoPneumatics.set_value(true);         // Engage ptoPnuematics
 
     uint32_t startTime = pros::millis();
     double voltagePower = g_scoringPower / 8.34;
@@ -515,10 +515,10 @@ void scoringTaskEntry(void*) {
     }
 
     // Cleanup
-    FrontHoodPneumatics.retract();
+    frontHoodPneumatics.set_value(false);
     intakeMotor1.brake();
     intakeMotor2.brake();
-    PtoPneumatics.retract();
+    ptoPneumatics.set_value(false);
     g_scoringTaskRunning.store(false);
 }
 
