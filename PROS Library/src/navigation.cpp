@@ -10,6 +10,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+
 inline int32_t voltageToMillivolts(double voltage) {
     return static_cast<int32_t>(voltage * 1000.0);
 }
@@ -105,7 +106,7 @@ double adaptiveABS::decelControlSpeed(double wheelSpeed, double robotSpeed) {
 
 void turnOdometry(double targetHeading, double breakDistanceInDegrees, double minSpeed, double maxSpeed, double exitTolerance) {
     bool decelCompleted = false, accelCompleted = false, decel = false;
-    double currentHeading = InertialSensor.get_rotation() - headingOffset;
+    double currentHeading = inertialSensor.get_rotation() - headingOffset;
     int completeRotations = (int)(currentHeading / 360.0);
     double targetRotationHeading = targetHeading + (completeRotations * 360.0);
     double headingError = targetRotationHeading - currentHeading;
@@ -124,7 +125,7 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
 
     while ((maxSpeedVoltage > 0 && currentHeading <= targetRotationHeading - exitTolerance) ||
            (maxSpeedVoltage < 0 && currentHeading >= targetRotationHeading + exitTolerance)) {
-        currentHeading = InertialSensor.get_rotation() - headingOffset;
+        currentHeading = inertialSensor.get_rotation() - headingOffset;
         headingError = targetRotationHeading - currentHeading;
         double leftMotorRPM = fabs(leftMotor[1]->get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ;
         double rightMotorRPM = fabs(rightMotor[1]->get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ;
@@ -204,7 +205,7 @@ void straightOdometry(double targetDistance, double breakDistance, double target
         double rightDeg = passiveEncoderRight.get_position() / 100.0;
         currentDistance = ((leftDeg + rightDeg) / 2.0 / 360.0) * encoderWheelCircumferenceCM;
         avgMotorVoltage = (motorVoltageLeft[0]+motorVoltageLeft[1]+motorVoltageLeft[2]+motorVoltageRight[0]+motorVoltageRight[1]+motorVoltageRight[2]) / numberDriveMotor;
-        double currentHeading = InertialSensor.get_rotation() - headingOffset;
+        double currentHeading = inertialSensor.get_rotation() - headingOffset;
         double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
         double leftEncoderRPM = passiveEncoderLeft.get_velocity() / 100.0 / 6.0 * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double rightEncoderRPM = passiveEncoderRight.get_velocity() / 100.0 / 6.0 * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
@@ -279,12 +280,12 @@ void backwardMP(double targetDistance, double breakDistance, double targetHeadin
 }
 
 void leftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
-    double currentHeading = InertialSensor.get_rotation() - headingOffset;
+    double currentHeading = inertialSensor.get_rotation() - headingOffset;
     turnOdometry(currentHeading - turnAmount, breakDistance, minSpeed, maxSpeed);
 }
 
 void rightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
-    double currentHeading = InertialSensor.get_rotation() - headingOffset;
+    double currentHeading = inertialSensor.get_rotation() - headingOffset;
     turnOdometry(currentHeading + turnAmount, breakDistance, minSpeed, maxSpeed);
 }
 
@@ -302,14 +303,14 @@ void driveBackward(double targetDistance, double breakDistance, double targetHea
 }
 
 void turnRight(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed, double exitTolerance) {
-    double currentHeading = InertialSensor.get_rotation() - headingOffset;
+    double currentHeading = inertialSensor.get_rotation() - headingOffset;
     double targetHeading = -absoluteTargetHeading;
     while (targetHeading <= currentHeading) targetHeading += 360.0;
     turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed, exitTolerance);
 }
 
 void turnLeft(double absoluteTargetHeading, double breakDistance, double minSpeed, double maxSpeed, double exitTolerance) {
-    double currentHeading = InertialSensor.get_rotation() - headingOffset;
+    double currentHeading = inertialSensor.get_rotation() - headingOffset;
     double targetHeading = -absoluteTargetHeading;
     while (targetHeading >= currentHeading) targetHeading -= 360.0;
     turnOdometry(targetHeading, breakDistance, minSpeed, maxSpeed, exitTolerance);
@@ -319,8 +320,8 @@ void pidlessForward(double timeMs, double speedPct) {
     uint32_t startTime = pros::millis();
     int32_t voltage = voltageToMillivolts(speedPct / 100.0 * 12.0);
     while ((pros::millis() - startTime) < timeMs) {
-        LeftMotor1.move_voltage(voltage); LeftMotor2.move_voltage(voltage); LeftMotor3.move_voltage(voltage);
-        RightMotor1.move_voltage(voltage); RightMotor2.move_voltage(voltage); RightMotor3.move_voltage(voltage);
+        leftMotor1.move_voltage(voltage); leftMotor2.move_voltage(voltage); leftMotor3.move_voltage(voltage);
+        rightMotor1.move_voltage(voltage); rightMotor2.move_voltage(voltage); rightMotor3.move_voltage(voltage);
         pros::delay(10);
     }
     for (int i = 0; i < 3; i++) {
@@ -334,12 +335,12 @@ void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees, doub
 }
 
 void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
-    double currentHeading = InertialSensor.get_rotation() - headingOffset;
+    double currentHeading = inertialSensor.get_rotation() - headingOffset;
     pivotTurnOdometry(currentHeading + turnAmount, breakDistance, minSpeed, maxSpeed);
 }
 
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
-    double currentHeading = InertialSensor.get_rotation() - headingOffset;
+    double currentHeading = inertialSensor.get_rotation() - headingOffset;
     pivotTurnOdometry(currentHeading - turnAmount, breakDistance, minSpeed, maxSpeed);
 }
 
@@ -398,7 +399,7 @@ void smartStraight(double targetDistance, double breakDistance, double targetHea
         avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + 
                           motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2]) / numberDriveMotor;
 
-        double currentHeading = InertialSensor.get_rotation() - headingOffset;
+        double currentHeading = inertialSensor.get_rotation() - headingOffset;
         double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
 
         double leftEncoderRPM = passiveEncoderLeft.get_velocity() / 100.0 / 6.0 * (encoderWheelCircumferenceCM / wheelCircumferenceCM);

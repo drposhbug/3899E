@@ -5,6 +5,7 @@
 #include "autontasks.hpp"
 #include <cmath>
 
+
 // Color detection thresholds for optical sensor
 const double RED_HUE_MIN_1 = 340.0;
 const double RED_HUE_MAX_1 = 360.0;
@@ -193,12 +194,12 @@ void driverControl() {
         // Convert speed (cm/s) to velocity percentage for PROS
         double maxSpeedCmS = absoluteMaxRPM * wheelCircumferenceCM / 60.0;
         
-        LeftMotor1.move_velocity(motorPowerLeft[0] / maxSpeedCmS * 600);
-        RightMotor1.move_velocity(motorPowerRight[0] / maxSpeedCmS * 600);
-        LeftMotor2.move_velocity(motorPowerLeft[1] / maxSpeedCmS * 600);
-        RightMotor2.move_velocity(motorPowerRight[1] / maxSpeedCmS * 600);
-        LeftMotor3.move_velocity(motorPowerLeft[2] / maxSpeedCmS * 600);
-        RightMotor3.move_velocity(motorPowerRight[2] / maxSpeedCmS * 600);
+        leftMotor1.move_velocity(motorPowerLeft[0] / maxSpeedCmS * 600);
+        rightMotor1.move_velocity(motorPowerRight[0] / maxSpeedCmS * 600);
+        leftMotor2.move_velocity(motorPowerLeft[1] / maxSpeedCmS * 600);
+        rightMotor2.move_velocity(motorPowerRight[1] / maxSpeedCmS * 600);
+        leftMotor3.move_velocity(motorPowerLeft[2] / maxSpeedCmS * 600);
+        rightMotor3.move_velocity(motorPowerRight[2] / maxSpeedCmS * 600);
 
         // Loop delay (20ms = 50Hz update rate)
         pros::delay(20);

@@ -139,7 +139,7 @@ void matchloadTaskFunc(void*) {
 
     // Delay then retract matchload pneumatic
     pros::delay(matchloadRetractDelay);
-    matchLoadPneumatics.set_value(true;
+    matchLoadPneumatics.set_value(true);
 
     matchloadParams.running.store(false);
 }
@@ -462,8 +462,8 @@ void headingDisplayTask(void* params) {
         double rightEnc = passiveEncoderRight.get_position() / 100.0;
         
         // Convert to cm
-        double leftCM = leftEnc * ENCODER_WHEEL_CIRCUMFERENCE_CM / 360.0;
-        double rightCM = rightEnc * ENCODER_WHEEL_CIRCUMFERENCE_CM / 360.0;
+        double leftCM = leftEnc * encoderWheelCircumferenceCM / 360.0;
+        double rightCM = rightEnc * encoderWheelCircumferenceCM / 360.0;
         double avgCM = (leftCM + rightCM) / 2.0;
         
         // Display on brain LCD (PROS doesn't have direct controller screen access)

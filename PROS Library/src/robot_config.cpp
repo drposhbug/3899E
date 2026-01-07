@@ -8,14 +8,14 @@ pros::Controller controller(pros::E_CONTROLLER_MASTER);
 // ==========================================
 
 // Left Drive
-pros::Motor LeftMotor1(7);
-pros::Motor LeftMotor2(19);
-pros::Motor LeftMotor3(8);
+pros::Motor leftMotor1(7);
+pros::Motor leftMotor2(19);
+pros::Motor leftMotor3(8);
 
 // Right Drive
-pros::Motor RightMotor1(1);
-pros::Motor RightMotor2(11);
-pros::Motor RightMotor3(2);
+pros::Motor rightMotor1(1);
+pros::Motor rightMotor2(11);
+pros::Motor rightMotor3(2);
 
 // Intake
 pros::Motor intakeMotor1(10);
@@ -33,7 +33,7 @@ pros::adi::DigitalOut ptoPneumatics('H');
 pros::adi::DigitalOut wingPneumatics('C');
 
 // Sensors
-pros::Imu InertialSensor(18);
+pros::Imu inertialSensor(18);
 
 // Rotation Sensors (Port only)
 pros::Rotation passiveEncoderLeft(6);
@@ -53,8 +53,8 @@ bool isAcceleratingLeft[3] = {false, false, false};
 bool isAcceleratingRight[3] = {false, false, false};
 
 // Define Separate Motor Arrays (pointers to motors)
-pros::Motor* leftMotor[3] = {&LeftMotor3, &LeftMotor2, &LeftMotor1};
-pros::Motor* rightMotor[3] = {&RightMotor3, &RightMotor2, &RightMotor1};
+pros::Motor* leftMotor[3] = {&leftMotor3, &leftMotor2, &leftMotor1};
+pros::Motor* rightMotor[3] = {&rightMotor3, &rightMotor2, &rightMotor1};
 
 // Constants
 const double numberDriveMotor = 6;
@@ -94,23 +94,23 @@ void resetMotorPositions()
 void vexcodeInit(void)
 {
     // 1. Configure Motor Gearing (Blue Cartridge = 600 RPM)
-    LeftMotor1.set_gearing(pros::E_MOTOR_GEAR_600);
-    LeftMotor2.set_gearing(pros::E_MOTOR_GEAR_600);
-    LeftMotor3.set_gearing(pros::E_MOTOR_GEAR_600);
-    RightMotor1.set_gearing(pros::E_MOTOR_GEAR_600);
-    RightMotor2.set_gearing(pros::E_MOTOR_GEAR_600);
-    RightMotor3.set_gearing(pros::E_MOTOR_GEAR_600);
+    leftMotor1.set_gearing(pros::E_MOTOR_GEAR_600);
+    leftMotor2.set_gearing(pros::E_MOTOR_GEAR_600);
+    leftMotor3.set_gearing(pros::E_MOTOR_GEAR_600);
+    rightMotor1.set_gearing(pros::E_MOTOR_GEAR_600);
+    rightMotor2.set_gearing(pros::E_MOTOR_GEAR_600);
+    rightMotor3.set_gearing(pros::E_MOTOR_GEAR_600);
     intakeMotor1.set_gearing(pros::E_MOTOR_GEAR_600);
     intakeMotor2.set_gearing(pros::E_MOTOR_GEAR_600);
 
     // 2. Configure Motor Directions
-    LeftMotor1.set_reversed(true);
-    LeftMotor2.set_reversed(false);
-    LeftMotor3.set_reversed(true);
+    leftMotor1.set_reversed(true);
+    leftMotor2.set_reversed(false);
+    leftMotor3.set_reversed(true);
 
-    RightMotor1.set_reversed(false);
-    RightMotor2.set_reversed(true);
-    RightMotor3.set_reversed(false);
+    rightMotor1.set_reversed(false);
+    rightMotor2.set_reversed(true);
+    rightMotor3.set_reversed(false);
 
     intakeMotor1.set_reversed(true);
     intakeMotor2.set_reversed(false);
@@ -123,15 +123,15 @@ void vexcodeInit(void)
     // 4. Initialize Hardware
     wingPneumatics.set_value(false);
     
-    InertialSensor.reset();
+    inertialSensor.reset();
     pros::lcd::print(0, "Calibrating Inertial Sensor...");
     
-    while (InertialSensor.is_calibrating())
+    while (inertialSensor.is_calibrating())
     {
         pros::delay(100);
     }
     
-    InertialSensor.set_heading(0);
+    inertialSensor.set_heading(0);
     pros::lcd::print(1, "Calibration Complete");
     pros::delay(500);
     pros::lcd::clear();

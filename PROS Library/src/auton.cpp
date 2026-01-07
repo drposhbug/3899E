@@ -14,7 +14,7 @@
 
 void autonTest() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
     matchloadStart(800, 100, 0, true);
     pros::delay(200);
@@ -35,7 +35,7 @@ void autonTest() {
 /*/void Calibration
 {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
     setStartPosition(0.0, 0.0, 0.0);
     startOdometryTask();
@@ -45,7 +45,7 @@ void autonTest() {
 
 void odomTest() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
     
     // Set starting position and start odometry tracking
@@ -70,8 +70,8 @@ void autonLeft() {
     initializeOpticalSensor();
 
     // Reset gyro to ensure clean starting state
-    InertialSensor.set_rotation(0);
-    //InertialSensor.set_heading(0);
+    inertialSensor.set_rotation(0);
+    //inertialSensor.set_heading(0);
 
     //bool isMatchLoadPneumaticsActive = false;
  
@@ -130,7 +130,7 @@ void autonLeft() {
 void autonRight() {
     initializeOpticalSensor();
 
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
  
     headingOffset = 0;
     
@@ -183,7 +183,7 @@ void autonRight() {
 
 void leftSideLong() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 16;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -231,7 +231,7 @@ void leftSideLong() {
 
 void leftSidemiddle() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 16;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -297,7 +297,7 @@ void leftSidemiddle() {
 
 void SpeedwayAutonLeft() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
     ptoPneumatics.set_value(true);
     backHoodPneumatics.set_value(false);
@@ -357,7 +357,7 @@ void SpeedwayAutonLeft() {
     //leftMP(180,150,20);
     //forwardMP(35,18,90,15,0.815,0.0,0.0,0.0,0.55,0.3,80);
     //score(1000);
-    double currentHeading = InertialSensor.get_rotation();
+    double currentHeading = inertialSensor.get_rotation();
     pros::lcd::print(0, "Heading: %.2f", currentHeading);
     
     //intake(miliseconds, true/false for on/off pistons)
@@ -368,7 +368,7 @@ void SpeedwayAutonLeft() {
 void SevenBallRight() {
     matchLoadPneumatics.set_value(true);
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = -12;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -424,7 +424,7 @@ void SevenBallRight() {
 void SevenBallLeft() {
     matchLoadPneumatics.set_value(true);
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 12;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -455,7 +455,7 @@ void SevenBallLeft() {
 
 void rightMiddleAuto() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = -16;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -562,7 +562,7 @@ void rightMiddleAuto() {
 
 void soloAWP() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = -16;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -629,14 +629,14 @@ void soloAWP() {
 
 void colourTest() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     intakeStart(10000, 50, true);
 }
 
 /*
 void odomTest(){
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
 
     setStartingPosition(0.0, 0.0, 0.0);

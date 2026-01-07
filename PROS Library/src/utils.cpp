@@ -172,7 +172,7 @@ double getEncoderSpeed(pros::Rotation& encoder)
 }
 
 double getRotation() {
-    return InertialSensor.get_rotation() + headingOffset;
+    return inertialSensor.get_rotation() + headingOffset;
 }
 
 void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage)
@@ -263,7 +263,7 @@ void colorDetectionTask(void* params)
 }
 
 double getAdjustedRotation() {
-    return InertialSensor.get_rotation() + headingOffset;
+    return inertialSensor.get_rotation() + headingOffset;
 }
 
 void waitForButtonPress() {
