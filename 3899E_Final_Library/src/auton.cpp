@@ -208,41 +208,42 @@ void leftSideLong(){
     wingPneumatics.set(false);
 
     wait(50, msec);
-    intakeStart(700, 100, false);
-    matchloadStart(6700,100,725,true);
+    intakeStart(1000, 100, false);
+    matchloadStart(6000,100,1050,true);
     driveForward(83, 60, 16);
     wait(250, msec);
-    turnLeft(150,118,26,80,16);
+    turnLeft(147,118,26,80,16);
     wait(200, msec);
        
-    driveForward(90,70,150,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(102,70,147,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnLeft(175,25,26,80,13);
     wait(200, msec);
-    smartStraight(43, 21, 180, 15, 150);
+    smartStraight(50, 26, 180, 15, 150);
     wait(270, msec);
 
     driveBackward(26, 14, 176);
     wait(200, msec);
-    turnRight(-13,145,25,90,16);
+    turnRight(0,145,25,90,16);
     wait(200, msec);
-    smartStraight(40, 19, -13, 24, 200);
+    smartStraight(40, 19, 0, 24, 200);
 
-    score(7000, 100);
+    score(3200, 100);
     driveBackward(20, 14, -10);
     wait(100, msec);
-    turnRight(-40,18,25,90,16);
+    turnLeft(40,18,25,90,16);
+    
     wait(100, msec);
 
-    driveForward(35,25,-40,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(35,25,40,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(100, msec);
 
-    turnLeft(-4,30,26,80);
+    turnRight(4,30,26,80);
     wait(100, msec);
-    driveForward(12,0,-4,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(12,0,4,24,0.3,0.002,0,0.1,1,0.3,90);
     wingPneumatics.set(true);
 
-    driveForward(40,0,-4,24,0.3,0.002,0,0.1,1,0.3,40);
+    driveForward(40,0,4,24,0.3,0.002,0,0.1,1,0.3,40);
 }
 
 void leftSidemiddle(){
@@ -592,26 +593,26 @@ void soloAWP(){
     frontHoodPneumatics.set(false);
        wingPneumatics.set(true);
 
-    intakeStart(470, 100, false);
-    matchloadStart(6400,100,1150,true);
+    intakeStart(1000, 100, false);
+    matchloadStart(5500,100,1050,true);
     driveForward(85, 60, -16, 30);
     wait(250, msec);
     turnRight(-148,118,26,80,14);
     wait(200, msec);
        
-    driveForward(105,70,-148,24,0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(105,76,-148,24, 0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnRight(-176,20,26,80); 
     wait(200, msec);
-       smartStraight(45, 40, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
+       smartStraight(47, 40, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
        wait(80, msec);
 
     //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
     driveBackward(26, 14, -176);
         wait(200, msec);
-    turnLeft(5,160,25,90,16);
+    turnLeft(8,160,25,90,16);
         wait(200, msec);
-   smartStraight(50, 20, 5, 24, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 150);
+   smartStraight(50, 20, 8, 24, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 150);
 
     score(3200, 100);
     driveBackward(20, 14, 10);
