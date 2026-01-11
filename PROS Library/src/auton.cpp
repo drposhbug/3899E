@@ -14,12 +14,15 @@
 
 void autonTest() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
-    matchloadStart(800, 100, 0, true);
-    pros::delay(200);
-    smartMove(100, 30, true, 150); // true = forward, for matchload smart wall stop, no pid
-    pros::delay(950);
+    //matchloadStart(800, 100, 0, true);
+    //pros::delay(200);
+    //smartMove(100, 30, true, 150); // true = forward, for matchload smart wall stop, no pid
+    //pros::delay(950);
+    //turnLeft(90, 80); 
+    move(50, 100, 1);
+    //driveForward(50, 20, 0);
     //driveBackward(20, 15, 0);
     /*driveBackward(40, 20, 0);
     turnLeft(90, 80); 
@@ -35,7 +38,7 @@ void autonTest() {
 /*/void Calibration
 {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
     setStartPosition(0.0, 0.0, 0.0);
     startOdometryTask();
@@ -45,7 +48,7 @@ void autonTest() {
 
 void odomTest() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
     
     // Set starting position and start odometry tracking
@@ -65,125 +68,9 @@ void odomTest() {
     //stopOdometryTask();
 }
 
-//turnOdometry(turnAmount, breakDistance, minSpeed, maxSpeed)
-void autonLeft() {
-    initializeOpticalSensor();
-
-    // Reset gyro to ensure clean starting state
-    InertialSensor.set_rotation(0);
-    //InertialSensor.set_heading(0);
-
-    //bool isMatchLoadPneumaticsActive = false;
- 
-    headingOffset = 180; 
-    
-    //(targetDistance, breakDistance, targetHeading, minSpeed, Kp, Ki, Kd, 
-    // accelHeadingScaling, decelHeadingScaling,approachHeadingScaling, maxSpeed
-    
-    /*/frontHoodPneumatics.set_value(true);
-    backHoodPneumatics.set_value(true);
-    matchLoadPneumatics.set_value(true);
-    intakeMotor1.move_voltage(-12000); //forward is outtake reverse is intake
-    intakeMotor2.move_voltage(-12000);
-    pros::delay(500);
-    frontHoodPneumatics.set_value(false);
-    backHoodPneumatics.set_value(false);
-    matchLoadPneumatics.set_value(false);*/
-    
-
-    //george this is MY stuffnegnagaffgafgniafa
-    forwardMP(79, 38, 180, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
-    pros::delay(200);
-    leftMP(90, 60, 12.5);
-    pros::delay(200);
-    forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
-    pros::delay(200);
-    backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
-    pros::delay(200);
-    leftMP(175, 125, 20);
-    pros::delay(200);
-    forwardMP(35, 18, 0, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
-
-    //leftMP(180,140,15);
-    //backwardMP(200, 60, 0, 30, 0.5, 0.00, 0.00, 0.5, 0.5, 0.5, 100);
-    //leftMP(180,136,8);
-    //turnOdometry(180, 20, 10, 100);
-    //pros::delay(300);
-    //turnOdometry(0, 20, 10, 100);
-    //pros::delay(200);
-    //turnOdometry(180, 20, 10, 100);
-    //pros::delay(200);
-
-    /*
-    // Explicitly ensure all motors are braked at the end
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i]->set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-        rightMotor[i]->set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-        leftMotor[i]->brake();
-        rightMotor[i]->brake();
-    }
-    */
-
-    //pros::delay(10000);  // Wait to test resistance
-}
-
-void autonRight() {
-    initializeOpticalSensor();
-
-    InertialSensor.set_rotation(0);
- 
-    headingOffset = 0;
-    
-    //driveForward(200,110,0,25,0.8,0.09,0,0.1,0,0.1,100);
-
-    //turnLeft(180,145,25,90,16); //bestoverall speed and lateral shift - Use this for speed
-    
-    //turnLeft(180,155,25,70, 16);// nest so far for 180, no lateral shift but some forward shift
-    //turnLeft(180,160,25,70, 12);//good 180
-    //turnOdometry(180,180,25,70, 90);
-    //  intakeHopperStart(3000, 100, 500);  
-    //smartMove(100, 40, true, 150); //for matchload smart wall stop, no pid
-
-    //driveForward(100,60,0,24,0.6,0.005,0,0.1,1,0.3,100); //Best for most distances
-    //driveForward(200,60,0,18,1.1,0.005,0,0.1,1,0.3,81); //best for long distance
-
-    //  pros::delay(1000); // brief pause to allow motors to settle
-    /*  
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i]->set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-        rightMotor[i]->set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-        leftMotor[i]->brake();
-        rightMotor[i]->brake();
-    }
-    */
-
-    //driveForward(100,60,0,20,1.1,0.005,0,0.1,1,0.3,100); // testing hold
-    //driveForward(200,90,0,25,1.1,0.005,0,0.1,1,0.3,100); //testing hold
-
-    //driveForward(200,80,0,25,1.1,0.0,0,0.0,1,0.2,100); //quite good on heading and distance
-    //const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)
-    //const double LOCK_THRESHOLD_DECEL = 0.25;
-
-    /*forwardMP(80, 38, 0, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
-    pros::delay(200);
-    rightMP(90,65,12.5);
-    pros::delay(200);
-    forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
-    pros::delay(200);
-    backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
-    pros::delay(200);
-    rightMP(78,50,20);
-    pros::delay(200);
-    backwardMP(3, 3, 90, 10, 0, 0.00, 0.00, 0., 0, 0, 20);
-    pros::delay(200);
-    rightMP(78,50,20);
-    pros::delay(200);
-    forwardMP(37, 18, 270, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);*/
-}
-
 void leftSideLong() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 16;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -231,7 +118,7 @@ void leftSideLong() {
 
 void leftSidemiddle() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 16;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -295,80 +182,11 @@ void leftSidemiddle() {
     */
 }
 
-void SpeedwayAutonLeft() {
-    initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
-    headingOffset = 0;
-    ptoPneumatics.set_value(true);
-    backHoodPneumatics.set_value(false);
-    frontHoodPneumatics.set_value(true);
-
-    leftMP(16, 10, 20, 50);
-    pros::delay(400);
-    intake(true, 100);
-    forwardMP(80, 60, -18, 20, 0.615, 0, 0, 0.1, 0.05, 0.05, 50);
-    pros::delay(400);
-    backwardMP(7, 4, -20, 15);
-    intake(false, 0);
-    rightMP(52, 47, 20);
-    forwardMP(18, 10, 29, 30, 0.5, 0, 0, 0.1, 0.05, 0.05, 100);
-    ptoPneumatics.set_value(true);
-    backHoodPneumatics.set_value(true);
-    frontHoodPneumatics.set_value(false);
-    score(400, 95);
-    score(1000, 65);
-    score(1000, 65);
-    backwardMP(116, 67, 45, 15);
-    rightMP(97, 60, 20);
-    pros::delay(200);
-    matchLoadPneumatics.set_value(true);
-    //forwardMP(27,19,180,20);
-    rightMotor[0]->move_voltage(12000);
-    rightMotor[1]->move_voltage(12000);
-    rightMotor[2]->move_voltage(12000);
-    leftMotor[0]->move_voltage(12000);
-    leftMotor[1]->move_voltage(12000);
-    leftMotor[2]->move_voltage(12000);
-    pros::delay(800);
-    rightMotor[0]->brake();
-    rightMotor[1]->brake();
-    rightMotor[2]->brake();
-    leftMotor[0]->brake();
-    leftMotor[1]->brake();
-    leftMotor[2]->brake();
-    intake(true, 100);
-    pros::delay(700);
-    intake(false, 0);
-
-    /*
-    leftMP(105,82,20);
-    pros::delay(400);
-    forwardMP(76, 49, -124.5, 20);
-    pros::delay(200);
-    leftMP(54.5,45,15);
-    pros::delay(200);
-    matchLoadPneumatics.set_value(true);
-    intake(true);
-    forwardMP(25,15,-180,20);   
-    pros::delay(200);
-    intake(false);
-    backwardMP(20,15,-180,15);
-    pros::delay(200);
-    //leftMP(180,150,20);
-    //forwardMP(35,18,90,15,0.815,0.0,0.0,0.0,0.55,0.3,80);
-    //score(1000);
-    double currentHeading = InertialSensor.get_rotation();
-    pros::lcd::print(0, "Heading: %.2f", currentHeading);
-    
-    //intake(miliseconds, true/false for on/off pistons)
-    //outtake and scoring are just how many ms
-    */
-}
 
 void SevenBallRight() {
     matchLoadPneumatics.set_value(true);
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = -12;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -424,7 +242,7 @@ void SevenBallRight() {
 void SevenBallLeft() {
     matchLoadPneumatics.set_value(true);
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 12;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -455,7 +273,7 @@ void SevenBallLeft() {
 
 void rightMiddleAuto() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = -16;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -562,7 +380,7 @@ void rightMiddleAuto() {
 
 void soloAWP() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = -16;
     ptoPneumatics.set_value(false);
     backHoodPneumatics.set_value(false);
@@ -629,14 +447,14 @@ void soloAWP() {
 
 void colourTest() {
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     intakeStart(10000, 50, true);
 }
 
 /*
 void odomTest(){
     initializeOpticalSensor();
-    InertialSensor.set_rotation(0);
+    inertialSensor.set_rotation(0);
     headingOffset = 0;
 
     setStartingPosition(0.0, 0.0, 0.0);

@@ -168,11 +168,11 @@ double getMotorSpeed(pros::Motor& motor)
 // Function to calculate motor encoder speed in cm per second
 double getEncoderSpeed(pros::Rotation& encoder)
 {
-    return encoder.get_velocity() / 100.0 * encoderWheelCircumferenceCM / 60.0; // PROS returns centidegrees/sec
+    return encoder.get_velocity() * encoderWheelCircumferenceCM / 360.0; // PROS returns degrees/sec
 }
 
 double getRotation() {
-    return InertialSensor.get_rotation() + headingOffset;
+    return inertialSensor.get_rotation() + headingOffset;
 }
 
 void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage)
@@ -263,7 +263,7 @@ void colorDetectionTask(void* params)
 }
 
 double getAdjustedRotation() {
-    return InertialSensor.get_rotation() + headingOffset;
+    return inertialSensor.get_rotation() + headingOffset;
 }
 
 void waitForButtonPress() {
@@ -395,43 +395,4 @@ void waitForButton() {
     pros::delay(300);
 }
 
-SimpleArmTaskParams simpleArmParams;
 
-/**
- * Task to move arm to a position after a delay
- */
-void simpleArmTask(void* params) {
-    SimpleArmTaskParams* p = static_cast<SimpleArmTaskParams*>(params);
-
-    p->isComplete = false;
-
-    // Wait for the specified delay
-    if (p->delayMs > 0) {
-        pros::delay(p->delayMs);
-    }
-
-    // Calculate position with adjustment
-    double targetPosition = static_cast<double>(p->position) + p->adjustment;
-
-    // Move arm to position (commented out as arm motors not defined in this conversion)
-    // armMotor1.move_absolute(targetPosition, 100);
-    // armMotor2.move_absolute(targetPosition, 100);
-
-    p->isComplete = true;
-    p->isRunning = false;
-}
-
-/**
- * Move arm to a position with optional adjustment and delay
- */
-void moveArm(ArmPosition position, int adjustment, int delayMs) {
-    // Setup parameters
-    simpleArmParams.isRunning = true;
-    simpleArmParams.position = position;
-    simpleArmParams.adjustment = adjustment;
-    simpleArmParams.delayMs = delayMs;
-    simpleArmParams.isComplete = false;
-
-    // Start the task
-    pros::Task arm_task(simpleArmTask, &simpleArmParams);
-}

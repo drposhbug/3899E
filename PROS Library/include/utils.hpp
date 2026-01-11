@@ -18,9 +18,6 @@ double calculateLockupRatio(double wheelSpeed, double robotSpeed);
 float rollingAverage(float newValue, float currentAverage, int n);
 void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage, double absoluteMaxVoltage);
 
-// Color detection enum (must be defined before use)
-enum class Color { RED, BLUE };
-
 // Color detection
 bool detectColor(Color targetColor);
 bool detectRed();
@@ -87,17 +84,5 @@ extern IntakeStallTaskParams intakeStallParams;
 
 void waitForButton();
 
-// Enhanced arm task parameters
-struct SimpleArmTaskParams {
-    bool isRunning;
-    ArmPosition position;
-    int adjustment;
-    int delayMs;
-    bool isComplete;
-};
-
-// Function declarations
-void simpleArmTask(void* params);
-void moveArm(ArmPosition position, int adjustment = 0, int delayMs = 0);
 
 #endif // UTILS_HPP

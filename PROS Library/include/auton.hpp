@@ -1,6 +1,10 @@
-#ifndef AUTON_HPP
-#define AUTON_HPP
+#pragma once
+#include "robot_config.hpp" // Includes the single definition of Color
 
+// DELETE THIS SECTION IF IT EXISTS:
+// enum class Color { RED, BLUE }; 
+
+// Function Declarations
 void autonLeft();
 void autonRight();
 void autonTest();
@@ -15,5 +19,4 @@ void SevenBallLeft();
 void rightMiddleAuto();
 void leftSideLong();
 void leftSidemiddle();
-
-#endif // AUTON_HPP
+void colourTest(); // Make sure this matches your cpp declaration
