@@ -20,10 +20,10 @@ vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
 vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
 vex::pneumatics wingPneumatics = vex::pneumatics(Brain.ThreeWirePort.C);
 // Define Sensors
-vex::inertial InertialSensor = vex::inertial(vex::PORT18);
-vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT6, true);  // Initialize the encoder on PORT10
-vex::rotation passiveEncoderRight = vex::rotation(vex::PORT17, true); // Initialize the encoder on PORT10
-vex::rotation passiveEncoderX = vex::rotation(vex::PORT5, true);     // Initialize the encoder on PORT10
+vex::inertial InertialSensor = vex::inertial(vex::PORT17);
+vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT20, true);  // Initialize the encoder on PORT10
+vex::rotation passiveEncoderRight = vex::rotation(vex::PORT13, true); // Initialize the encoder on PORT10
+vex::rotation passiveEncoderX = vex::rotation(vex::PORT12, true);     // Initialize the encoder on PORT10
 vex::optical opticalSensor = vex::optical(vex::PORT12);
 vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.A);
 // Global Variables
@@ -53,9 +53,26 @@ const double DISTANCE_TO_WHEEL = 15.25;           // distance between left and r
 const double DISTANCE_TO_ENCODER = 8.3;
 const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
 
-// Define the vision sensor signatures
-vex::aivision::colordesc red1(1, 238, 44, 125, 20, 0.3);
-vex::aivision visionSensor(vex::PORT6, red1);
+
+// ========================================
+// AI Vision Sensor Configuration (from Vision Utility)
+// ========================================
+// Individual Color Signatures
+vex::aivision::colordesc AIVision20__blueCube(1, 38, 121, 172, 25, 1);
+vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
+vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
+
+// Color Codes (combinations)
+vex::aivision::codedesc AIVision20__redLoad(1, AIVision20__orangeGoal, AIVision20__blueCube, AIVision20__redCube);
+vex::aivision::codedesc AIVision20__blueLoad(2, AIVision20__orangeGoal, AIVision20__redCube, AIVision20__blueCube);
+
+// Sensor initialization with all descriptors
+vex::aivision AIVision20(vex::PORT20, 
+                         AIVision20__blueCube, 
+                         AIVision20__orangeGoal, 
+                         AIVision20__redCube, 
+                         AIVision20__redLoad, 
+                         AIVision20__blueLoad);
 
 double headingOffset = 0.0;
 

@@ -557,3 +557,39 @@ void moveArm(ArmPosition position, int adjustment, int delayMs) {
     vex::task arm_task(simpleArmTask, &simpleArmParams);
 }
 
+void smartStop(double linearThreshold, double angularThreshold, int timeoutMsec, bool brakeLock) {
+    
+    // 1. FORCE BRAKE (Defensive)
+    // Immediately tell motors to slow down via back-EMF.
+    for(int i = 0; i < 3; i++) {
+        leftMotor[i].stop(vex::brakeType::brake);
+        rightMotor[i].stop(vex::brakeType::brake);
+    }
+
+    // 2. WAIT FOR SETTLE
+    int timeSpent = 0;
+    while(timeSpent < timeoutMsec) {
+        
+        // Check sensors (Passive Encoders + Gyro)
+        double linearSpeed = fabs(passiveEncoderLeft.velocity(vex::rpm)); 
+        double angularSpeed = fabs(InertialSensor.gyroRate(vex::axisType::zaxis, vex::velocityUnits::dps));
+//                                                                ^^^^^
+
+        // Exit immediately if the robot is effectively stopped
+        if (linearSpeed < linearThreshold && angularSpeed < angularThreshold) {
+            break; 
+        }
+
+        vex::task::sleep(10);
+        timeSpent += 10;
+    }
+
+    // 3. OPTIONAL LOCK
+    // If brakeLock is true, we clamp the motors in HOLD mode.
+    if (brakeLock) {
+        for(int i = 0; i < 3; i++) {
+            leftMotor[i].stop(vex::brakeType::hold);
+            rightMotor[i].stop(vex::brakeType::hold);
+        }
+    }
+}

@@ -88,6 +88,11 @@ extern IntakeStallTaskParams intakeStallParams;
 
 void waitForButton();
 
+// Function: smartStop
+// Parameter 'brakeLock': 
+//   true  = Finish with a hard motor lock (HOLD)
+//   false = Finish with a soft stop (BRAKE)
+void smartStop(double linearThreshold = 5.0, double angularThreshold = 5.0, int timeoutMsec = 250, bool brakeLock = true);
 
 // Enhanced arm task parameters
 struct SimpleArmTaskParams {

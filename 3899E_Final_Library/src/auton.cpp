@@ -15,17 +15,75 @@ using namespace vex; // Use the VEX namespace
                     approachHeadingScaling, maxSpeed);
 */                    
 
+void visionSensorTest() {
+    // REMOVED: visionSensor.setLight(...) -> This function does not exist for AI Vision
+    
+    Brain.Screen.clearScreen();
+    Brain.Screen.setPenColor(vex::color::white);
+    Brain.Screen.printAt(10, 20, "VISION TEST MODE");
+    Brain.Screen.printAt(10, 40, "Use Full Frame (0-320, 0-240)");
+
+    while (true) {
+        // --- TEST RED BLOCK ---
+        // Uses the ID for Red Block (2)
+        AIVision20.takeSnapshot(redBlock);
+        int redCount = AIVision20.objectCount;
+        int redX = (redCount > 0) ? AIVision20.objects[0].centerX : 0;
+        int redW = (redCount > 0) ? AIVision20.objects[0].width   : 0;
+
+        // --- TEST BLUE BLOCK ---
+        // Uses the ID for Blue Block (1)
+        AIVision20.takeSnapshot(blueBlock);
+        int blueCount = AIVision20.objectCount;
+        int blueX = (blueCount > 0) ? AIVision20.objects[0].centerX : 0;
+        int blueW = (blueCount > 0) ? AIVision20.objects[0].width   : 0;
+
+        // --- DISPLAY DATA ---
+        // Line 3: Red Stats
+        Brain.Screen.setCursor(3, 1);
+        if (redCount > 0) {
+            Brain.Screen.setPenColor(vex::color::red);
+            Brain.Screen.print("RED : FOUND! X=%3d W=%3d  ", redX, redW);
+        } else {
+            Brain.Screen.setPenColor(vex::color::white);
+            Brain.Screen.print("RED : SEARCHING...        ");
+        }
+
+        // Line 4: Blue Stats
+        Brain.Screen.setCursor(4, 1);
+        if (blueCount > 0) {
+            Brain.Screen.setPenColor(vex::color::cyan);
+            Brain.Screen.print("BLUE: FOUND! X=%3d W=%3d  ", blueX, blueW);
+        } else {
+            Brain.Screen.setPenColor(vex::color::white);
+            Brain.Screen.print("BLUE: SEARCHING...        ");
+        }
+
+        // Line 6: Debug Tip
+        Brain.Screen.setCursor(6, 1);
+        Brain.Screen.setPenColor(vex::color::yellow);
+        Brain.Screen.print("If 0 found: Check IDs in Utility");
+
+        vex::task::sleep(100); // Update every 100ms
+    }
+}
+
 void autonTest(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     headingOffset = 0;
-    matchloadStart(800,100,0,true);
-    wait(200, msec);
-    smartMove(100, 30, forward, 150); //for matchload smart wall stop, no pid
-    wait(950, msec);
+    //visionDrive(AIVision20__redCube, 25.0, 90.0);
+
+
+
+    //visionSensorTest();
+    //matchloadStart(800,100,0,true);
+    //wait(200, msec);
+    //smartMove(100, 30, forward, 150); //for matchload smart wall stop, no pid
+    //wait(950, msec);
     //driveBackward(20, 15, 0);
    /*driveBackward(40, 20, 0);
-   turnLeft(90, 80); 
+   turnLeft(90, 80);
    driveBackward(40, 20, 90);
    turnLeft(180,80); 
    driveBackward(40, 20, 180);
@@ -587,13 +645,23 @@ outtake(500, 100);
 void soloAWP(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = -16;
+    headingOffset = -90;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
        wingPneumatics.set(true);
 
-    intakeStart(1000, 100, false);
+    driveForward(42,0,-90);
+    turnRight(-135,0,24,100,16);
+    smartStop(5, 10, 300, false);
+    smartStraight(47, 0, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
+    driveBackward(12,0,-180);
+    turnRight(70,0,25,100,0);
+    //smartStop(5, 10, 300, false);
+    driveForward(30,0,-360);
+    
+
+    /*intakeStart(1000, 100, false);
     matchloadStart(5500,100,1050,true);
     driveForward(85, 60, -16, 30);
     wait(250, msec);
@@ -628,7 +696,7 @@ void soloAWP(){
      driveForward(12,0,6,24,0.3,0.002,0,0.1,1,0.3,90);
    wingPneumatics.set(false);
 
-    driveForward(60,0,6,24,0.3,0.002,0,0.1,1,0.3,30);
+    driveForwardV2(60,0,6,24,0.3,0.002,0,0.1,1,0.3,30);
 
 
     //wait(250, msec);
@@ -649,13 +717,33 @@ void soloAWP(){
     //wait(300, msec);
     //driveForward(126, 75, -315);
     //outtake(1000);
-    //driveBackward(20, 15, -315);
+    //driveBackward(20, 15, -315);*/
 }
 
 void colourTest(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     intakeStart(10000, 50, true);
+}
+
+void soloAWPMiddle(){
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    headingOffset = -90;
+    ptoPneumatics.set(false);
+    backHoodPneumatics.set(false);
+    frontHoodPneumatics.set(false);
+       wingPneumatics.set(true);
+    driveForwardV2(60,45,-90,24,3,0.3,0.005,0,0.1,1,0.3,100);
+
+      for (int i = 0; i < 3; i++)
+    {
+        leftMotor[i].setBrake(hold);
+        rightMotor[i].setBrake(hold);
+        leftMotor[i].stop();
+        rightMotor[i].stop();
+    }
+    turnRight(-179,65,25,80,28);
 }
 
 /*

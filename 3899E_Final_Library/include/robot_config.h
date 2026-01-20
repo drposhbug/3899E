@@ -27,8 +27,25 @@ extern vex::pneumatics ptoPneumatics;
 extern vex::pneumatics wingPneumatics;
 // Declare Sensors
 extern vex::inertial InertialSensor;
+// ========================================
+// AI Vision Sensor Configuration
+// ========================================
+// AI Vision sensor with Push Back object classifications
+// Push Back game AI Classifications - NO tuning needed
+// These work across all competition venues with consistent lighting
 //extern vex::aivision visionSensor;
-extern vex::aivision::colordesc red1;  // Declare the red descriptor
+//vex::aivision::aiclassdesc redBlock(2);   // Pre-trained red block ID
+//vex::aivision::aiclassdesc blueBlock(1);  // Pre-trained blue block ID
+
+extern vex::aivision::aiobjdesc redBlock;
+extern vex::aivision::aiobjdesc blueBlock;
+
+
+// Color signatures (for future color tracking if needed)
+// Note: Requires manual tuning for each lighting condition
+// Use these for detecting goals, alliance stations, or other non-block elements
+extern vex::aivision::colordesc red1;  // Red color signature - for goals/manual tracking
+
 extern vex::rotation passiveEncoderLeft; // Declare the passive encoder sensor
 extern vex::rotation passiveEncoderRight; // Declare the passive encoder sensor
 extern vex::rotation passiveEncoderX; // Declare the passive encoder sensor
@@ -125,6 +142,21 @@ namespace MotionDefaults {
         constexpr double MAX_SPEED = 100.0;
     }
 }
+
+// ========================================
+// AI Vision Sensor Configuration (from Vision Utility)
+// ========================================
+// Individual Color Signatures
+extern vex::aivision::colordesc AIVision20__blueCube;
+extern vex::aivision::colordesc AIVision20__orangeGoal;
+extern vex::aivision::colordesc AIVision20__redCube;
+
+// Color Codes (combinations)
+extern vex::aivision::codedesc AIVision20__redLoad;
+extern vex::aivision::codedesc AIVision20__blueLoad;
+
+// Sensor declaration (with all descriptors)
+extern vex::aivision AIVision20;
 
 #endif
 

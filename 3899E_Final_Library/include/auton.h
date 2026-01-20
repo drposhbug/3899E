@@ -19,6 +19,7 @@ void SevenBallLeft();
 void rightMiddleAuto();
 void leftSideLong();
 void leftSidemiddle();
+void soloAWPMiddle();
 
 
 #endif // AUTON_H

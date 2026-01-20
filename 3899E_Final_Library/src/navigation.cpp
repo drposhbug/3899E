@@ -16,6 +16,9 @@
 
 using namespace vex;
 
+const int VISION_CENTER_X = 160;      // Center of 320px wide sensor frame
+const int MIN_OBJECT_WIDTH = 25;      // Minimum width in pixels for valid block detection
+
 enum MotionPhase
 {
     READY,
@@ -2207,4 +2210,148 @@ void pidlessForward(double timeMs, double speedPct)
     RightMotor1.stop(coast);
     RightMotor2.stop(coast);
     RightMotor3.stop(coast);
+}
+
+
+/**
+ * Drives the robot toward a game object using AI Vision color signatures for precise final approach corrections.
+ * 
+ * Uses the provided color signature from your Vision Utility configuration (e.g., AIVision20__redCube).
+ * When an object is detected in the bounding box, centers it in the camera frame using heading PID.
+ * If no valid object is found, falls back to IMU correction toward the targetHeading.
+ * 
+ * Designed for short final approaches (<50 cm) after fast odometry moves.
+ * Prioritizes speed with vision correcting lateral/heading errors.
+ */
+void visionDrive(
+    vex::aivision::colordesc targetSignature,
+    double targetDistanceCM,
+    double targetHeading,
+    double kp_head,
+    double ki_head,
+    double kd_head,
+    double kp_dist,
+    double ki_dist,
+    double kd_dist,
+    vex::brakeType brakeMode,
+    double distanceTolerance,
+    double minSpeed,
+    int visionTimeout,
+    int minX,
+    int maxX,
+    int minY,
+    int maxY)
+{
+    passiveEncoderLeft.resetPosition();
+    passiveEncoderRight.resetPosition();
+
+    PID headingPID(kp_head, ki_head, kd_head);
+    PID distPID(kp_dist, ki_dist, kd_dist);
+    headingPID.pidReset();
+    distPID.pidReset();
+
+    vex::timer timeoutTimer;
+
+    bool objectFound = false;
+    double currentDistance = 0.0;
+
+    Brain.Screen.clearScreen();
+
+    while (std::fabs(currentDistance) < std::fabs(targetDistanceCM))
+    {
+        currentDistance = ((passiveEncoderLeft.position(degrees) +
+                            passiveEncoderRight.position(degrees)) / 2.0 / 360.0) *
+                           encoderWheelCircumferenceCM;
+
+        // Use the user-passed color signature (e.g., AIVision20__redCube)
+        AIVision20.takeSnapshot(targetSignature);
+
+        double turnCorrection = 0.0;
+        objectFound = false;
+
+        if (AIVision20.objectCount > 0)
+        {
+            for (int i = 0; i < AIVision20.objectCount; i++)
+            {
+                auto& obj = AIVision20.objects[i];
+
+                // Filter out tiny detections (noise)
+                if (obj.width < MIN_OBJECT_WIDTH) continue;
+
+                // Only accept objects inside the user-defined bounding box
+                if (obj.centerX >= minX && obj.centerX <= maxX &&
+                    obj.centerY >= minY && obj.centerY <= maxY)
+                {
+                    // Corrected error sign: object X - center (positive = object right → turn right)
+                    double error = obj.centerX - VISION_CENTER_X;
+
+                    turnCorrection = headingPID.calculate(0.0, error);
+                    objectFound = true;
+
+                    Brain.Screen.setCursor(1, 1);
+                    Brain.Screen.print("Vision OK  X:%3d W:%3d ", obj.centerX, obj.width);
+                    break;
+                }
+            }
+        }
+
+        // Fallback: if no valid object found, correct toward the target absolute heading
+        if (!objectFound)
+        {
+            double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+            double headingError = targetHeading - currentHeading;
+            headingError = fmod(headingError + 540.0, 360.0) - 180.0;
+
+            turnCorrection = headingPID.calculate(0.0, headingError);
+
+            Brain.Screen.setCursor(1, 1);
+            Brain.Screen.print("Fallback → Hdg Err:%.1f°   ", headingError);
+        }
+
+        // Safety timeout
+        if (timeoutTimer.time(msec) > visionTimeout)
+        {
+            Brain.Screen.printAt(10, 100, "Vision Timeout!");
+            break;
+        }
+
+        // Distance PID for forward/backward speed
+        double baseSpeed = distPID.calculate(targetDistanceCM, currentDistance);
+
+        double speedSign = (baseSpeed >= 0) ? 1.0 : -1.0;
+        baseSpeed = std::fabs(baseSpeed);
+        baseSpeed = std::min(baseSpeed, 100.0);  // Hard cap at 100% (or add maxSpeed parameter if needed)
+        baseSpeed = std::max(baseSpeed, minSpeed);
+        baseSpeed *= speedSign;
+
+        // Early stop when distance goal is reached
+        double errorDist = targetDistanceCM - currentDistance;
+        if (std::fabs(errorDist) < distanceTolerance)
+        {
+            Brain.Screen.printAt(10, 100, "Distance reached!");
+            break;
+        }
+
+        // Differential drive voltages
+        double leftVolts  = (baseSpeed - turnCorrection) * 0.12;
+        double rightVolts = (baseSpeed + turnCorrection) * 0.12;
+
+        leftVolts  = std::max(-12.0, std::min(12.0, leftVolts));
+        rightVolts = std::max(-12.0, std::min(12.0, rightVolts));
+
+        for (int i = 0; i < 3; i++)
+        {
+            leftMotor[i].spin(forward, leftVolts, voltageUnits::volt);
+            rightMotor[i].spin(forward, rightVolts, voltageUnits::volt);
+        }
+
+        vex::task::sleep(20);
+    }
+
+    // Stop with the user-specified brake mode
+    for (int i = 0; i < 3; i++)
+    {
+        leftMotor[i].stop(brakeMode);
+        rightMotor[i].stop(brakeMode);
+    }
 }

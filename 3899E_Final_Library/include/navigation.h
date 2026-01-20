@@ -1,4 +1,5 @@
 #include "vex.h"  // Make sure this is included to use vex:: types
+#include "utils.h"  // Added: Defines Color enum
 
 #ifndef PID_TASKS_H // Include guard to prevent multiple inclusions
 #define PID_TASKS_H
@@ -190,7 +191,7 @@ void driveForward(double targetDistance,
              double ki_heading = 0.005,
              double kd_heading = 0, 
              double accelHeadingScaling = 0.1,
-             double decelHeadingScaling = 1, 
+             double decelHeadingScaling = 0.2, 
              double approachHeadingScaling = 0.3,
              double maxSpeed = 100);
 
@@ -221,29 +222,82 @@ void turnLeft(double absoluteTargtHeading,
 void pidlessForward(double timeMs, double speedPct);
 
 void driveForwardV2(double targetDistance,
-             double breakDistance, 
-             double targetHeading,
-             double minSpeed,
-             double distanceTolerance,
-             double kp_heading, 
-             double ki_heading,
-             double kd_heading, 
-             double accelHeadingScaling,
-             double decelHeadingScaling, 
-             double approachHeadingScaling,
-             double maxSpeed);
+             double breakDistance = 10, 
+             double targetHeading = 0,
+             double minSpeed = 24,
+             double distanceTolerance = 5,
+             double kp_heading = 1.1, 
+             double ki_heading = 0.005,
+             double kd_heading = 0, 
+             double accelHeadingScaling = 0.1,
+             double decelHeadingScaling = 1, 
+             double approachHeadingScaling = 0.3,
+             double maxSpeed = 100);
 
 void driveBackwardV2(double targetDistance,
-              double breakDistance, 
-              double targetHeading,
-              double minSpeed,
-              double distanceTolerance,
-              double kp_heading, 
-              double ki_heading,
-              double kd_heading, 
-              double accelHeadingScaling,
-              double decelHeadingScaling, 
-              double approachHeadingScaling,
-              double maxSpeed);
+             double breakDistance = 10, 
+             double targetHeading = 0,
+             double minSpeed = 24,
+             double distanceTolerance = 5,
+             double kp_heading = 1.1, 
+             double ki_heading = 0.005,
+             double kd_heading = 0, 
+             double accelHeadingScaling = 0.1,
+             double decelHeadingScaling = 1, 
+             double approachHeadingScaling = 0.3,
+             double maxSpeed = 100);
+
+
+
+/**
+ * Drives the robot toward a game object using AI Vision color signatures for precise final approach corrections.
+ * 
+ * Pass one of your configured color signatures from the Vision Utility as the first argument:
+ *   - AIVision20__blueCube
+ *   - AIVision20__orangeGoal
+ *   - AIVision20__redCube
+ * 
+ * The function uses the provided color signature to detect the object.
+ * When detected in the bounding box, centers it in the camera frame using heading PID.
+ * If no valid object is found, falls back to IMU correction toward the targetHeading.
+ * 
+ * Designed for short final approaches (<50 cm) after fast odometry moves.
+ * Prioritizes speed with vision correcting lateral/heading errors.
+ * 
+ * @param targetSignature      The configured color signature (e.g., AIVision20__redCube)
+ * @param targetDistanceCM     Distance to travel (positive = forward, negative = reverse)
+ * @param targetHeading        Absolute target heading in degrees (VEX field: 0° = North)
+ *                             Used as fallback when vision tracking is lost
+ * @param kp_head              Proportional gain for heading correction (X-error)
+ * @param ki_head              Integral gain for heading correction
+ * @param kd_head              Derivative gain for heading correction
+ * @param kp_dist              Proportional gain for distance control
+ * @param ki_dist              Integral gain for distance control
+ * @param kd_dist              Derivative gain for distance control
+ * @param brakeMode            Brake type to apply at the end (coast, brake, hold)
+ * @param distanceTolerance    Acceptable error in cm to consider distance goal achieved
+ * @param minSpeed             Minimum speed floor to prevent stalling near target (%)
+ * @param visionTimeout        Maximum time (ms) before aborting due to no progress
+ * @param minX/maxX/minY/maxY  Bounding box in pixels (0-319 x, 0-239 y) for valid detections
+ */
+void visionDrive(
+    vex::aivision::colordesc targetSignature,
+    double targetDistanceCM,
+    double targetHeading = 0.0,
+    double kp_head = 0.45,
+    double ki_head = 0.01,
+    double kd_head = 0.05,
+    double kp_dist = 1.2,
+    double ki_dist = 0.02,
+    double kd_dist = 0.08,
+    vex::brakeType brakeMode = vex::brakeType::brake,
+    double distanceTolerance = 2.0,
+    double minSpeed = 15.0,
+    int visionTimeout = 5000,
+    int minX = 50,
+    int maxX = 270,
+    int minY = 100,
+    int maxY = 212
+);
 
 #endif // PID_TASKS_H;

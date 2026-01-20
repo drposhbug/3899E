@@ -31,6 +31,7 @@ void runAuton(void) {
   //SevenBallRight();
   //SevenBallLeft();
   soloAWP();
+  //soloAWPMiddle();
  //leftSideLong();
     //leftSidemiddle();
 
