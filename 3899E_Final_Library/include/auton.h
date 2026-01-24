@@ -20,6 +20,7 @@ void rightMiddleAuto();
 void leftSideLong();
 void leftSidemiddle();
 void soloAWPMiddle();
+void visionSensorTest();
 
 
 #endif // AUTON_H

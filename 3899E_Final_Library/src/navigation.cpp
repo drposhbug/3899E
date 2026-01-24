@@ -2213,134 +2213,163 @@ void pidlessForward(double timeMs, double speedPct)
 }
 
 
-/**
- * Drives the robot toward a game object using AI Vision color signatures for precise final approach corrections.
- * 
- * Uses the provided color signature from your Vision Utility configuration (e.g., AIVision20__redCube).
- * When an object is detected in the bounding box, centers it in the camera frame using heading PID.
- * If no valid object is found, falls back to IMU correction toward the targetHeading.
- * 
- * Designed for short final approaches (<50 cm) after fast odometry moves.
- * Prioritizes speed with vision correcting lateral/heading errors.
- */
+
 void visionDrive(
     vex::aivision::colordesc targetSignature,
-    double targetDistanceCM,
+    int    targetPixelWidth,
+    double timeoutDistanceCM,
     double targetHeading,
+    double minSpeedPct,
+    double maxSpeedPct,
+    vex::brakeType brakeMode,
     double kp_head,
     double ki_head,
     double kd_head,
     double kp_dist,
     double ki_dist,
     double kd_dist,
-    vex::brakeType brakeMode,
-    double distanceTolerance,
-    double minSpeed,
-    int visionTimeout,
-    int minX,
-    int maxX,
-    int minY,
-    int maxY)
-{
+    int    minX,
+    int    maxX,
+    int    minY,
+    int    maxY,
+    int    maxObjectsToCheck,
+    int    consecutiveRequired
+) {
+    // Reset encoders and record starting odometry position for safety timeout
     passiveEncoderLeft.resetPosition();
     passiveEncoderRight.resetPosition();
+    updateOdometry();
+    double startX = globalX;
+    double startY = globalY;
 
+    // Initialize PID controllers for heading (lateral correction) and distance (approach speed)
     PID headingPID(kp_head, ki_head, kd_head);
     PID distPID(kp_dist, ki_dist, kd_dist);
     headingPID.pidReset();
     distPID.pidReset();
 
-    vex::timer timeoutTimer;
+    // Buffer for 4-frame rolling median filter on pixel width (reduces noise from bad frames)
+    const int MEDIAN_WINDOW = 4;
+    double widthHistory[MEDIAN_WINDOW] = {0.0};
+    int widthHistoryIdx = 0;
+    int widthHistoryCount = 0;
 
-    bool objectFound = false;
-    double currentDistance = 0.0;
+    // Store last valid values for fallback when vision drops
+    double lastTurnCorrection = 0.0;
+    double lastPixelWidth     = 0.0;  // Starts at 0 → large PID error → full speed if never seen
+    int consecutiveStableWidth = 0;
+
+    // Maximum voltage allowed for turn correction (leaves headroom for forward motion)
+    const double MAX_TURN_VOLTAGE = 4.0;
 
     Brain.Screen.clearScreen();
 
-    while (std::fabs(currentDistance) < std::fabs(targetDistanceCM))
-    {
-        currentDistance = ((passiveEncoderLeft.position(degrees) +
-                            passiveEncoderRight.position(degrees)) / 2.0 / 360.0) *
-                           encoderWheelCircumferenceCM;
+    while (true) {
+        // Update current position and check safety distance limit
+        updateOdometry();
+        double deltaX = globalX - startX;
+        double deltaY = globalY - startY;
+        double distanceTraveled = sqrt(deltaX * deltaX + deltaY * deltaY);
+        if (distanceTraveled >= timeoutDistanceCM) {
+            Brain.Screen.printAt(10, 100, "Safety distance timeout!");
+            break;
+        }
 
-        // Use the user-passed color signature (e.g., AIVision20__redCube)
+        // Capture latest vision snapshot and find the largest valid object in ROI
         AIVision20.takeSnapshot(targetSignature);
 
-        double turnCorrection = 0.0;
-        objectFound = false;
+        int bestIdx = -1;
+        double largestWidth = 0.0;
+        int objectsChecked = std::min(maxObjectsToCheck, (int)AIVision20.objectCount);
 
-        if (AIVision20.objectCount > 0)
-        {
-            for (int i = 0; i < AIVision20.objectCount; i++)
-            {
-                auto& obj = AIVision20.objects[i];
+        for (int i = 0; i < objectsChecked; i++) {
+            auto& obj = AIVision20.objects[i];
+            if (obj.width < MIN_OBJECT_WIDTH) continue;
 
-                // Filter out tiny detections (noise)
-                if (obj.width < MIN_OBJECT_WIDTH) continue;
-
-                // Only accept objects inside the user-defined bounding box
-                if (obj.centerX >= minX && obj.centerX <= maxX &&
-                    obj.centerY >= minY && obj.centerY <= maxY)
-                {
-                    // Corrected error sign: object X - center (positive = object right → turn right)
-                    double error = obj.centerX - VISION_CENTER_X;
-
-                    turnCorrection = headingPID.calculate(0.0, error);
-                    objectFound = true;
-
-                    Brain.Screen.setCursor(1, 1);
-                    Brain.Screen.print("Vision OK  X:%3d W:%3d ", obj.centerX, obj.width);
-                    break;
+            // Check if object's center is inside the defined bounding box
+            if (obj.centerX >= minX && obj.centerX <= maxX &&
+                obj.centerY >= minY && obj.centerY <= maxY) {
+                if (obj.width > largestWidth) {
+                    largestWidth = obj.width;
+                    bestIdx = i;
                 }
             }
         }
 
-        // Fallback: if no valid object found, correct toward the target absolute heading
-        if (!objectFound)
-        {
-            double currentHeading = InertialSensor.rotation(degrees) + headingOffset;
+        // Default to last known values (persistence when vision drops)
+        double currentPixelWidth = lastPixelWidth;
+        double turnCorrection    = lastTurnCorrection;
+
+        if (bestIdx >= 0) {
+            auto& obj = AIVision20.objects[bestIdx];
+
+            // Calculate lateral error and apply PID to center object horizontally
+            double xError = obj.centerX - VISION_CENTER_X;
+            turnCorrection = headingPID.calculate(0.0, xError);
+
+            // Apply 4-frame rolling median to smooth pixel width (rejects outliers)
+            double rawWidth = obj.width;
+            widthHistory[widthHistoryIdx] = rawWidth;
+            widthHistoryIdx = (widthHistoryIdx + 1) % MEDIAN_WINDOW;
+            if (widthHistoryCount < MEDIAN_WINDOW) widthHistoryCount++;
+
+            double sorted[MEDIAN_WINDOW];
+            std::copy(widthHistory, widthHistory + MEDIAN_WINDOW, sorted);
+            std::sort(sorted, sorted + widthHistoryCount);
+
+            if (widthHistoryCount < MEDIAN_WINDOW) {
+                currentPixelWidth = rawWidth;
+            } else {
+                currentPixelWidth = (sorted[1] + sorted[2]) / 2.0;  // Average of two middle values
+            }
+
+            // Update persistence for next frame fallback
+            lastTurnCorrection = turnCorrection;
+            lastPixelWidth     = currentPixelWidth;
+        } else {
+            // No valid object → fall back to IMU-based heading hold
+            double currentHeading = InertialSensor.rotation(degrees) - headingOffset;
             double headingError = targetHeading - currentHeading;
             headingError = fmod(headingError + 540.0, 360.0) - 180.0;
-
-            turnCorrection = headingPID.calculate(0.0, headingError);
-
-            Brain.Screen.setCursor(1, 1);
-            Brain.Screen.print("Fallback → Hdg Err:%.1f°   ", headingError);
+            turnCorrection = headingPID.calculate(targetHeading, currentHeading);
         }
 
-        // Safety timeout
-        if (timeoutTimer.time(msec) > visionTimeout)
-        {
-            Brain.Screen.printAt(10, 100, "Vision Timeout!");
-            break;
+        // Check if we've reached the target width stably
+        if (currentPixelWidth >= targetPixelWidth) {
+            consecutiveStableWidth++;
+            if (consecutiveStableWidth >= consecutiveRequired) {
+                break;
+            }
+        } else {
+            consecutiveStableWidth = 0;
         }
 
-        // Distance PID for forward/backward speed
-        double baseSpeed = distPID.calculate(targetDistanceCM, currentDistance);
+        // Calculate forward drive voltage using pixel-width error
+        double drivePower = distPID.calculate((double)targetPixelWidth, currentPixelWidth);
+        double driveVoltage = drivePower * 0.12;
 
-        double speedSign = (baseSpeed >= 0) ? 1.0 : -1.0;
-        baseSpeed = std::fabs(baseSpeed);
-        baseSpeed = std::min(baseSpeed, 100.0);  // Hard cap at 100% (or add maxSpeed parameter if needed)
-        baseSpeed = std::max(baseSpeed, minSpeed);
-        baseSpeed *= speedSign;
+        // Prevent reverse motion
+        if (driveVoltage < 0) driveVoltage = 0;
 
-        // Early stop when distance goal is reached
-        double errorDist = targetDistanceCM - currentDistance;
-        if (std::fabs(errorDist) < distanceTolerance)
-        {
-            Brain.Screen.printAt(10, 100, "Distance reached!");
-            break;
-        }
+        // Clamp base drive to user-defined min/max speed FIRST (respects maxSpeedPct)
+        double maxVolts = maxSpeedPct * 0.12;
+        double minVolts = minSpeedPct * 0.12;
+        driveVoltage = std::max(minVolts, std::min(maxVolts, driveVoltage));
 
-        // Differential drive voltages
-        double leftVolts  = (baseSpeed - turnCorrection) * 0.12;
-        double rightVolts = (baseSpeed + turnCorrection) * 0.12;
+        // Clamp turn correction voltage
+        double turnVoltage = turnCorrection * 0.12;
+        turnVoltage = std::max(-MAX_TURN_VOLTAGE, std::min(MAX_TURN_VOLTAGE, turnVoltage));
 
+        // Apply differential drive
+        double leftVolts  = driveVoltage + turnVoltage;
+        double rightVolts = driveVoltage - turnVoltage;
+
+        // Final clamp to hardware voltage limits (±12 V)
         leftVolts  = std::max(-12.0, std::min(12.0, leftVolts));
         rightVolts = std::max(-12.0, std::min(12.0, rightVolts));
 
-        for (int i = 0; i < 3; i++)
-        {
+        // Send voltages to motors
+        for (int i = 0; i < 3; i++) {
             leftMotor[i].spin(forward, leftVolts, voltageUnits::volt);
             rightMotor[i].spin(forward, rightVolts, voltageUnits::volt);
         }
@@ -2348,9 +2377,97 @@ void visionDrive(
         vex::task::sleep(20);
     }
 
-    // Stop with the user-specified brake mode
-    for (int i = 0; i < 3; i++)
-    {
+    // Stop motors with chosen brake mode
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].stop(brakeMode);
+        rightMotor[i].stop(brakeMode);
+    }
+}
+
+
+
+// ───────────────────────────────────────────────
+// Minimal vision drive - core PID only, no safety nets
+// ───────────────────────────────────────────────
+void visionDriveMinimal(
+    vex::aivision::colordesc targetSignature,
+    int    targetPixelWidth,
+    double targetHeading,
+    double minSpeedPct,
+    double maxSpeedPct,
+    vex::brakeType brakeMode,
+    double kp_head,
+    double ki_head,
+    double kd_head,
+    double kp_dist,
+    double ki_dist,
+    double kd_dist
+) {
+    PID headingPID(kp_head, ki_head, kd_head);
+    PID distPID(kp_dist, ki_dist, kd_dist);
+    headingPID.pidReset();
+    distPID.pidReset();
+
+    Brain.Screen.clearScreen();
+
+    while (true) {
+        AIVision20.takeSnapshot(targetSignature);
+
+        if (AIVision20.objectCount == 0) {
+            Brain.Screen.printAt(10, 20, "No object detected - stopping");
+            break;
+        }
+
+        auto& obj = AIVision20.objects[0];
+
+        double xError = obj.centerX - VISION_CENTER_X;
+        double turnCorrection = headingPID.calculate(0.0, xError);
+
+        double currentPixelWidth = obj.width;
+        double drivePower = distPID.calculate((double)targetPixelWidth, currentPixelWidth);
+
+        double driveVoltage = drivePower * 0.12;
+        if (driveVoltage < 0) driveVoltage = 0;
+
+        double maxVolts = maxSpeedPct * 0.12;
+        double minVolts = minSpeedPct * 0.12;
+        driveVoltage = std::max(minVolts, std::min(maxVolts, driveVoltage));
+
+        double turnVoltage = turnCorrection * 0.12;
+
+        // ─── FLIPPED turn direction ───
+        double leftVolts  = driveVoltage - turnVoltage;
+        double rightVolts = driveVoltage + turnVoltage;
+
+        leftVolts  = std::max(-12.0, std::min(12.0, leftVolts));
+        rightVolts = std::max(-12.0, std::min(12.0, rightVolts));
+
+        for (int i = 0; i < 3; i++) {
+            leftMotor[i].spin(forward,  leftVolts,  voltageUnits::volt);
+            rightMotor[i].spin(forward, rightVolts, voltageUnits::volt);
+        }
+
+        // Debug prints (comment out when no longer needed)
+        Brain.Screen.clearScreen();
+        Brain.Screen.printAt(10, 20,  "Obj CenterX: %.0f", obj.centerX);
+        Brain.Screen.printAt(10, 40,  "xError: %.2f", xError);
+        Brain.Screen.printAt(10, 60,  "turnCorrection: %.2f", turnCorrection);
+        Brain.Screen.printAt(10, 80,  "turnVoltage: %.2f", turnVoltage);
+        Brain.Screen.printAt(10, 100, "Obj Width: %.0f", currentPixelWidth);
+        Brain.Screen.printAt(10, 120, "drivePower: %.2f", drivePower);
+        Brain.Screen.printAt(10, 140, "driveVoltage: %.2f", driveVoltage);
+        Brain.Screen.printAt(10, 160, "Left Volts: %.2f", leftVolts);
+        Brain.Screen.printAt(10, 180, "Right Volts: %.2f", rightVolts);
+
+        if (currentPixelWidth >= targetPixelWidth) {
+            Brain.Screen.printAt(10, 200, "Target width reached - stopping");
+            break;
+        }
+
+        vex::task::sleep(20);
+    }
+
+    for (int i = 0; i < 3; i++) {
         leftMotor[i].stop(brakeMode);
         rightMotor[i].stop(brakeMode);
     }

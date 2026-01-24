@@ -22,7 +22,8 @@ void runAuton(void) {
   wingPneumatics.set(false);
   
   // Start heading display task
-  //autonTest();    
+  //visionSensorTest(); 
+  autonTest();    
   //autonLeft(); 
   //autonRight();
   //autonFwdRight();
@@ -30,7 +31,7 @@ void runAuton(void) {
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  soloAWP();
+  //soloAWP();
   //soloAWPMiddle();
  //leftSideLong();
     //leftSidemiddle();

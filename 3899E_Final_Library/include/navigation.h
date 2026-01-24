@@ -250,54 +250,79 @@ void driveBackwardV2(double targetDistance,
 
 
 /**
- * Drives the robot toward a game object using AI Vision color signatures for precise final approach corrections.
- * 
- * Pass one of your configured color signatures from the Vision Utility as the first argument:
- *   - AIVision20__blueCube
- *   - AIVision20__orangeGoal
- *   - AIVision20__redCube
- * 
- * The function uses the provided color signature to detect the object.
- * When detected in the bounding box, centers it in the camera frame using heading PID.
- * If no valid object is found, falls back to IMU correction toward the targetHeading.
- * 
- * Designed for short final approaches (<50 cm) after fast odometry moves.
- * Prioritizes speed with vision correcting lateral/heading errors.
- * 
- * @param targetSignature      The configured color signature (e.g., AIVision20__redCube)
- * @param targetDistanceCM     Distance to travel (positive = forward, negative = reverse)
- * @param targetHeading        Absolute target heading in degrees (VEX field: 0° = North)
- *                             Used as fallback when vision tracking is lost
- * @param kp_head              Proportional gain for heading correction (X-error)
- * @param ki_head              Integral gain for heading correction
- * @param kd_head              Derivative gain for heading correction
- * @param kp_dist              Proportional gain for distance control
- * @param ki_dist              Integral gain for distance control
- * @param kd_dist              Derivative gain for distance control
- * @param brakeMode            Brake type to apply at the end (coast, brake, hold)
- * @param distanceTolerance    Acceptable error in cm to consider distance goal achieved
- * @param minSpeed             Minimum speed floor to prevent stalling near target (%)
- * @param visionTimeout        Maximum time (ms) before aborting due to no progress
- * @param minX/maxX/minY/maxY  Bounding box in pixels (0-319 x, 0-239 y) for valid detections
+ * Drives the robot toward a game object using AI Vision for precise final approach.
+ *
+ * This function uses a color signature to detect and track an object (e.g. ring, mobile goal).
+ * It centers the object laterally using heading PID and modulates forward speed using distance PID on pixel width.
+ *
+ * Primary stop condition: object width reaches or exceeds targetPixelWidth for consecutiveRequired frames.
+ * Safety stop: traveled distance exceeds timeoutDistanceCM (odometry-based).
+ *
+ * Behavior on vision loss:
+ *   - If object was previously seen: continues using last known turn correction and pixel width.
+ *   - If never seen: falls back to IMU heading hold toward targetHeading and drives forward at up to maxSpeedPct
+ *     (PID sees large error since width=0, so full speed until timeout or reacquisition).
+ *
+ * Designed for short-to-medium final approaches (30–150 cm) after coarse odometry positioning.
+ * Includes noise rejection (4-frame rolling median on width) and turn authority limiting.
+ *
+ * @param targetSignature      Pre-configured color signature from Vision Utility (e.g. AIVision20__redRing)
+ * @param targetPixelWidth     Desired minimum object width (pixels) to consider reached (e.g. 140–180)
+ * @param timeoutDistanceCM    Maximum distance (cm) to travel before safety abort (odometry)
+ * @param targetHeading        Fallback absolute heading (degrees) when vision is unavailable (VEX: 0° usually North/downfield)
+ * @param minSpeedPct          Minimum speed floor (% of 12V) to prevent stalling near target
+ * @param maxSpeedPct          Maximum allowed speed (%) – caps blind search and approach speed
+ * @param brakeMode            Brake type applied on exit (coast for smooth stop, hold for position lock)
+ * @param kp_head              Proportional gain for lateral (X-error) heading correction
+ * @param ki_head              Integral gain for heading correction (usually 0)
+ * @param kd_head              Derivative gain for heading damping
+ * @param kp_dist              Proportional gain for distance (pixel width) control
+ * @param ki_dist              Integral gain for distance control (small value to reduce steady-state error)
+ * @param kd_dist              Derivative gain for smooth deceleration as width increases
+ * @param minX                 Left edge of valid detection region (pixels, 0–319)
+ * @param maxX                 Right edge of valid detection region
+ * @param minY                 Top edge of valid detection region (pixels, 0–239)
+ * @param maxY                 Bottom edge of valid detection region
+ * @param maxObjectsToCheck    Maximum number of detected objects to evaluate (performance optimization)
+ * @param consecutiveRequired  Number of consecutive frames width must be >= targetPixelWidth to stop
  */
 void visionDrive(
     vex::aivision::colordesc targetSignature,
-    double targetDistanceCM,
-    double targetHeading = 0.0,
-    double kp_head = 0.45,
-    double ki_head = 0.01,
-    double kd_head = 0.05,
-    double kp_dist = 1.2,
-    double ki_dist = 0.02,
-    double kd_dist = 0.08,
-    vex::brakeType brakeMode = vex::brakeType::brake,
-    double distanceTolerance = 2.0,
-    double minSpeed = 15.0,
-    int visionTimeout = 5000,
-    int minX = 50,
-    int maxX = 270,
-    int minY = 100,
-    int maxY = 212
+    int    targetPixelWidth,
+    double timeoutDistanceCM,
+    double targetHeading        = 0.0,
+    double minSpeedPct          = 20.0,
+    double maxSpeedPct          = 85.0,
+    vex::brakeType brakeMode    = vex::brakeType::coast,
+    double kp_head              = 0.10,
+    double ki_head              = 0.00,
+    double kd_head              = 0.10,
+    double kp_dist              = 1.30,
+    double ki_dist              = 0.06,
+    double kd_dist              = 0.14,
+    int    minX                 = 0,
+    int    maxX                 = 320,
+    int    minY                 = 0,
+    int    maxY                 = 240,
+    int    maxObjectsToCheck    = 5,
+    int    consecutiveRequired  = 3
 );
+
+void visionDriveMinimal(
+    vex::aivision::colordesc targetSignature,
+    int    targetPixelWidth,
+    double targetHeading        = 0.0,
+    double minSpeedPct          = 20.0,
+    double maxSpeedPct          = 85.0,
+    vex::brakeType brakeMode    = vex::brakeType::coast,
+    double kp_head              = 0.20,
+    double ki_head              = 0.00,
+    double kd_head              = 0.00,
+    double kp_dist              = 1.30,
+    double ki_dist              = 0.00,
+    double kd_dist              = 0.00
+
+);
+
 
 #endif // PID_TASKS_H;

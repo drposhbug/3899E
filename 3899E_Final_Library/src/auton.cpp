@@ -26,14 +26,14 @@ void visionSensorTest() {
     while (true) {
         // --- TEST RED BLOCK ---
         // Uses the ID for Red Block (2)
-        AIVision20.takeSnapshot(redBlock);
+        AIVision20.takeSnapshot(AIVision20__redCube);
         int redCount = AIVision20.objectCount;
         int redX = (redCount > 0) ? AIVision20.objects[0].centerX : 0;
         int redW = (redCount > 0) ? AIVision20.objects[0].width   : 0;
 
         // --- TEST BLUE BLOCK ---
         // Uses the ID for Blue Block (1)
-        AIVision20.takeSnapshot(blueBlock);
+        AIVision20.takeSnapshot(AIVision20__redCube);
         int blueCount = AIVision20.objectCount;
         int blueX = (blueCount > 0) ? AIVision20.objects[0].centerX : 0;
         int blueW = (blueCount > 0) ? AIVision20.objects[0].width   : 0;
@@ -68,11 +68,15 @@ void visionSensorTest() {
     }
 }
 
+/*
 void autonTest(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
     headingOffset = 0;
-    //visionDrive(AIVision20__redCube, 25.0, 90.0);
+    //visionDrive(AIVision20__blueCube, 50.0, 0.0);
+    visionDriveMinimal(AIVision20__blueCube, 150, 0, 22, 40);
+
+    
 
 
 
@@ -90,7 +94,20 @@ void autonTest(){
    turnLeft(270, 80); 
    driveBackward(40, 20, 270);
    turnLeft(360, 80); 
-   driveBackward(40, 20, 360);*/
+   driveBackward(40, 20, 360);
+}
+*/
+void autonTest() {
+    // Example call - adjust signature, target width, and gains as needed
+    visionDriveMinimal(
+        AIVision20__blueCube,                   // Your colordesc from robot_config
+        75,                    // Target pixel width when "close" (tune based on object size)
+        0.0,                    // Heading hold (optional)
+        24.0, 100.0,             // Min/max speed %
+        brakeType::hold,       // Or coast/hold
+        0.25, 0.0, 0.0,        // Heading PID: Increase kp_head if turning is weak
+        1.50, 0.0, 0.0        // Distance PID: Increase kp_dist if approach is slow
+    );
 }
 
 /*/void Calibration

@@ -67,7 +67,7 @@ vex::aivision::codedesc AIVision20__redLoad(1, AIVision20__orangeGoal, AIVision2
 vex::aivision::codedesc AIVision20__blueLoad(2, AIVision20__orangeGoal, AIVision20__redCube, AIVision20__blueCube);
 
 // Sensor initialization with all descriptors
-vex::aivision AIVision20(vex::PORT20, 
+vex::aivision AIVision20(vex::PORT14, 
                          AIVision20__blueCube, 
                          AIVision20__orangeGoal, 
                          AIVision20__redCube, 
