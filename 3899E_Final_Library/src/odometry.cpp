@@ -29,97 +29,80 @@ enum RobotState
 
 RobotState currentState = STATIONARY; // Initialize robot state as stationary
 
-// Function to set custom starting position and heading
 void setStartPosition(double startX, double startY, double startHeading)
 {
-    // Set global position variables
+    // 1. Set global position variables
     globalX = startX;
     globalY = startY;
-
-    // Calculate offset between current inertial reading and desired heading
+    globalRotation = startHeading; 
+    
+    // 2. Calculate offset between current inertial reading and desired heading
     headingOffset = startHeading - InertialSensor.rotation(degrees);
-
-    // Convert cm to degrees for encoders
+    
+    // 3. Convert cm to degrees for encoders
     double startX_deg = (startX / encoderWheelCircumferenceCM) * 360.0;
     double startY_deg = (startY / encoderWheelCircumferenceCM) * 360.0;
-
-    // Initialize encoders with start position
+    
+    // 4. Initialize hardware encoders
     passiveEncoderLeft.setPosition(startY_deg, vex::rotationUnits::deg);
     passiveEncoderRight.setPosition(startY_deg, vex::rotationUnits::deg);
     passiveEncoderX.setPosition(startX_deg, vex::rotationUnits::deg);
+    
+    // 5. CRITICAL: Sync previous variables to prevent phantom movement on first update
+    prevLeftEncoder = startY_deg;
+    prevRightEncoder = startY_deg;
+    prevXEncoder = startX_deg;
+    prevRotation = startHeading;
 }
 
 // Function to Update Odometry Readings
 void updateOdometry()
 {
-    // Step 1: Read Encoder and Inertial Sensor Values
-    double leftEncoder = passiveEncoderLeft.position(vex::rotationUnits::deg);                            // Current left encoder value in degrees
-    double rightEncoder = passiveEncoderRight.position(vex::rotationUnits::deg);                          // Current right encoder value in degrees
-    double xEncoder = xEncoderEnabled ? passiveEncoderX.position(vex::rotationUnits::deg) : prevXEncoder; // Read from X encoder if enabled
-    double currentRotation = getAdjustedRotation();                                                        // Current heading from the inertial sensor in degrees
-
-    // Step 2: Calculate Delta Changes
-    double deltaLeft = leftEncoder - prevLeftEncoder;                // Change in left encoder value
-    double deltaRight = rightEncoder - prevRightEncoder;             // Change in right encoder value
-    double deltaX = xEncoder - prevXEncoder;                         // Change in X encoder value (if enabled)
-    double deltaRotation = currentRotation - prevRotation;
-
-    // Step 3: Update Previous Values for the Next Cycle
-    prevLeftEncoder = leftEncoder;   // Store current left encoder value for the next update
-    prevRightEncoder = rightEncoder; // Store current right encoder value for the next update
-    prevXEncoder = xEncoder;         // Store current X encoder value for the next update
-    prevRotation = currentRotation;     // Store current rotation for the next update
-
-    // Step 4: Calculate Average Distance Traveled
-    // Average distance moved by the robot based on both left and right encoders
-    double avgDeltaDistance = ((deltaLeft + deltaRight) / 2.0) * (encoderWheelCircumferenceCM / 360.0);
-
-    // Step 5: Calculate Movement Components (ΔX and ΔY)
-    // Cache trigonometric calculations for better performance
-    double deltaXPos = 0.0, deltaYPos = 0.0;
-    double headingRad = globalRotation * (M_PI / 180.0);    // Convert current heading to radians
-
-    if (currentState == TURNING)
-    {
-        double deltaRotationRad = deltaRotation * (M_PI / 180.0); // Change in heading in radians
-        if (fabs(deltaRotationRad) > 0.001)
-        {
-            // Calculate individual turning radii for Y wheels
-            double leftRadius = (deltaLeft * (encoderWheelCircumferenceCM / 360.0)) / deltaRotationRad;
-            double rightRadius = (deltaRight * (encoderWheelCircumferenceCM / 360.0)) / deltaRotationRad;
-            double avgRadius = (leftRadius + rightRadius) / 2.0;
-
-            // Use actual Y encoder readings for Y position change  
-            deltaYPos = (deltaX * (encoderWheelCircumferenceCM / 360.0));
-
-            // X change uses the average of parallel wheels
-            deltaXPos = avgRadius * (sin(headingRad + deltaRotationRad) - sin(headingRad));
-        }
-    }
-    else if (currentState == STRAIGHT)
-    {
-        // Calculate lateral movement from X encoder (sideways drift)
-        double lateralMovement = (deltaX * (encoderWheelCircumferenceCM / 360.0));
-        
-        // Combine forward movement with lateral drift compensation
-        // Forward component + lateral component rotated into global frame
-        deltaYPos = avgDeltaDistance * cos(headingRad) + lateralMovement * (-sin(headingRad));
-        deltaXPos = avgDeltaDistance * sin(headingRad) + lateralMovement * cos(headingRad);
-    }
-
-    // Brain.Screen.printAt(10, 80, "xEnabled: %d", xEncoderEnabled);
-    //  Brain.Screen.printAt(10, 100, "deltaX: %.2f deltaY: %.2f", deltaXPos, deltaYPos);
-
-    // Step 6: Update Global Position
-    globalX += deltaXPos;                        // Update global X position
-    globalY += deltaYPos;                        // Update global Y position
-    globalRotation = fmod(getAdjustedRotation() + 360.0, 360.0);
-
-    // Step 7: Debugging Information (Displayed on Brain Screen)
-    Brain.Screen.printAt(10, 20, "X: %.2f, Y: %.2f, Rotation: %.2f", globalX, globalY, globalRotation);
-    // Brain.Screen.printAt(10, 40, "DeltaLeft: %.2f, DeltaRight: %.2f", deltaLeft, deltaRight);
-    // Brain.Screen.printAt(10, 60, "DeltaHeading: %.2f", deltaHeading);
+    // ===== 1. READ SENSORS =====
+    double leftEncoder = passiveEncoderLeft.position(vex::rotationUnits::deg);
+    double rightEncoder = passiveEncoderRight.position(vex::rotationUnits::deg);
+    double xEncoder = xEncoderEnabled ? passiveEncoderX.position(vex::rotationUnits::deg) : prevXEncoder;
+    double currentRotation = getAdjustedRotation(); 
+    
+    // ===== 2. CALCULATE DELTAS =====
+    double deltaLeftDeg = leftEncoder - prevLeftEncoder;
+    double deltaRightDeg = rightEncoder - prevRightEncoder;
+    double deltaXDeg = xEncoder - prevXEncoder;
+    double deltaRotationDeg = currentRotation - prevRotation;
+    
+    // ===== 3. UPDATE PREVIOUS VALUES =====
+    prevLeftEncoder = leftEncoder;
+    prevRightEncoder = rightEncoder;
+    prevXEncoder = xEncoder;
+    prevRotation = currentRotation;
+    
+    // ===== 4. CONVERT TO DISTANCES (cm) =====
+    double deltaForwardDist = ((deltaLeftDeg + deltaRightDeg) / 2.0) * (encoderWheelCircumferenceCM / 360.0);
+    double deltaSidewaysDist = deltaXDeg * (encoderWheelCircumferenceCM / 360.0);
+    
+    // ===== 5. ROTATION-AWARE POSITION UPDATE =====
+    // Convert angles to radians for trig functions
+    double currentHeadingRad = globalRotation * (M_PI / 180.0);
+    double deltaThetaRad = deltaRotationDeg * (M_PI / 180.0);
+    
+    // Use average heading during this timestep (handles arcs correctly)
+    double avgHeadingRad = currentHeadingRad + (deltaThetaRad / 2.0);
+    
+    // Rotate local robot movement into global field coordinates
+    // Robot +Y (forward) → Field coordinates using avgHeading
+    // Robot +X (sideways) → Field coordinates using avgHeading
+    double deltaGlobalY = deltaForwardDist * cos(avgHeadingRad) - deltaSidewaysDist * sin(avgHeadingRad);
+    double deltaGlobalX = deltaForwardDist * sin(avgHeadingRad) + deltaSidewaysDist * cos(avgHeadingRad);
+    
+    // ===== 6. UPDATE GLOBAL POSITION =====
+    globalX += deltaGlobalX;
+    globalY += deltaGlobalY;
+    globalRotation = currentRotation;  // Already normalized by getAdjustedRotation()
+    
+    // ===== 7. DEBUG OUTPUT (Optional) =====
+    Brain.Screen.printAt(10, 20, "X: %.2f, Y: %.2f, Rot: %.2f", globalX, globalY, globalRotation);
 }
+
 
 // Function to calculate the distance and heading needed to reach a target point
 // Parameters:
@@ -377,7 +360,8 @@ void backwardToPoint(double targetX, double targetY,
     // targetHeading = 0;
 
     // Move straight with PID heading correction
-    straightOdometry(distanceToTarget, breakDistance, minSpeed, targetHeading,
+// FIX: Arguments swapped to correct order (targetHeading FIRST, then minSpeed)
+    straightOdometry(distanceToTarget, breakDistance, targetHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading, accelHeadingScaling,
                     decelHeadingScaling, approachHeadingScaling, maxSpeed);
 

@@ -17,24 +17,19 @@ extern double prevRightEncoder;  // Previous right encoder reading
 extern double prevXEncoder;      // Previous X encoder reading
 extern double prevRotation;      // Previous rotation reading
 
-// Function declarations for odometry task management
-void startOdometryTask();
-void stopOdometryTask();
-
-// Add these function prototypes
-void setStartPosition(double startX = 0, double startY = 0, double startHeading = 0);
-
 // Encoder State
 extern bool xEncoderEnabled;    // X encoder enable/disable flag
 
 // Function Declarations
 void updateOdometry();          // Updates the robot's position and orientation
 
-// Add these new functions:
+// Initialization
+void setStartPosition(double startX = 0, double startY = 0, double startHeading = 0);
+
 // Navigation Helper Functions
 void calculatePathToTarget(double currentX, double currentY, 
                          double targetX, double targetY, 
-                         double& distance, double& heading);  // Calculates path parameters to target
+                         double& distance, double& heading);
 
 void turnToPoint(double targetX, double targetY,            
                 double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
@@ -73,18 +68,15 @@ void backwardToPoint(double targetX, double targetY,
                double approachHeadingScaling = MotionDefaults::StraightBackward::APPROACH_HEADING_SCALING,
                double maxSpeed = MotionDefaults::StraightBackward::MAX_SPEED);
 
-// Struct for odometry task parameters
+// Odometry Task Management
 struct OdometryTaskParams {
     bool isRunning;  // Flag to control task execution
 };
 
-// Function declaration for odometry task
 int odometryTask(void *params);
-
-// Global odometry task parameters
 extern OdometryTaskParams odometryParams;
 
-
-              
+void startOdometryTask();
+void stopOdometryTask();
 
 #endif // ODOMETRY_H
