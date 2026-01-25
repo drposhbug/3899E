@@ -318,10 +318,10 @@ void visionDriveMinimal(
     double kp_head              = 0.20,
     double ki_head              = 0.00,
     double kd_head              = 0.00,
+    double kp_distToHeadScaling = 0.015,
     double kp_dist              = 1.30,
     double ki_dist              = 0.00,
     double kd_dist              = 0.00
-
 );
 
 

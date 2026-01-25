@@ -1,13 +1,13 @@
-#include "pid.h"          // Include the PID header file
-#include "vex.h"          // Include the VEX library
-#include "utils.h"        // Include the utility header for normalizeHeading
-#include "robot_config.h" // Include the robot configuration
+#include "pid.h"          
+#include "vex.h"          
+#include "utils.h"        
+#include "robot_config.h" 
 #include "navigation.h"
 #include "odometry.h"
 #include "autontasks.h"
-#include <cmath> // Include math library for M_PI
+#include <cmath> 
 
-using namespace vex; // Use the VEX namespace
+using namespace vex; 
 
 /*straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed,
                     kp_heading, ki_heading, kd_heading,
@@ -33,7 +33,7 @@ void visionSensorTest() {
 
         // --- TEST BLUE BLOCK ---
         // Uses the ID for Blue Block (1)
-        AIVision20.takeSnapshot(AIVision20__redCube);
+        AIVision20.takeSnapshot(AIVision20__blueCube);
         int blueCount = AIVision20.objectCount;
         int blueX = (blueCount > 0) ? AIVision20.objects[0].centerX : 0;
         int blueW = (blueCount > 0) ? AIVision20.objects[0].width   : 0;
@@ -72,7 +72,7 @@ void visionSensorTest() {
 void autonTest(){
    initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
+    robotStartingHeading = 0;
     //visionDrive(AIVision20__blueCube, 50.0, 0.0);
     visionDriveMinimal(AIVision20__blueCube, 150, 0, 22, 40);
 
@@ -86,7 +86,7 @@ void autonTest(){
     //smartMove(100, 30, forward, 150); //for matchload smart wall stop, no pid
     //wait(950, msec);
     //driveBackward(20, 15, 0);
-   /*driveBackward(40, 20, 0);
+      //driveBackward(40, 20, 0);
    turnLeft(90, 80);
    driveBackward(40, 20, 90);
    turnLeft(180,80); 
@@ -97,16 +97,33 @@ void autonTest(){
    driveBackward(40, 20, 360);
 }
 */
+
 void autonTest() {
-    // Example call - adjust signature, target width, and gains as needed
-    visionDriveMinimal(
-        AIVision20__blueCube,                   // Your colordesc from robot_config
-        75,                    // Target pixel width when "close" (tune based on object size)
-        0.0,                    // Heading hold (optional)
-        24.0, 100.0,             // Min/max speed %
-        brakeType::hold,       // Or coast/hold
-        0.25, 0.0, 0.0,        // Heading PID: Increase kp_head if turning is weak
-        1.50, 0.0, 0.0        // Distance PID: Increase kp_dist if approach is slow
+    setStartPosition(0.0, 0.0, 0.0);
+    
+    /*
+    visionDriveMinimal(// not bad for first 3 center balls
+        AIVision20__orangeGoal, 
+        150,                    
+        0.0,                    
+        24.0, 75.0,             
+        brakeType::hold,       
+        .75, 0.0, 0.0, 
+        1.5,       
+        1.50, 0.0, 0.0        
+    );
+
+    */
+
+        visionDriveMinimal(
+        AIVision20__orangeGoal, 
+        100,                    
+        0.0,                    
+        24.0, 60.0,             
+        brakeType::hold,       
+        .6, 0.0, 0.0, 
+        10,       
+        1.50, 0.0, 0.0        
     );
 }
 
@@ -114,7 +131,7 @@ void autonTest() {
 {
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
+    robotStartingHeading = 0;
     setStartPosition(0.0, 0.0, 0.0);
     startOdometryTask();
     forwardToPoint(200, 0, 20);
@@ -124,56 +141,21 @@ void autonTest() {
 
 void odomTest(){
     initializeOpticalSensor();
-    InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
-    
-    // Set starting position and start odometry tracking
     setStartPosition(0.0, 0.0, 0.0);
     startOdometryTask();
     
-    // Robot faces 0°, move backward 70cm by going forward to (-70, 0)
-    forwardToPoint(0, 70, 40);  // This will make robot face 180° and move forward to reach (-70, 0)
-    turnRightToPoint (70, 0, 70);
-    //forwardToPoint(-100, 140, 40); 
-    /*
-    // Or if you want true backward movement, turn around first then move forward
-    turnToPoint(-70, 0);  // Turn to face the target
-    forwardToPoint(-70, 0);  // Move forward to the target
-    */
+    forwardToPoint(0, 70, 40);  
+    turnRightToPoint(70, 0, 70);
     
     stopOdometryTask();
 }
 
 //turnOdometry(turnAmount, breakDistance, minSpeed, maxSpeed)
-   void autonLeft()
+void autonLeft()
 {
     initializeOpticalSensor();
+    setStartPosition(0.0, 0.0, 180.0);
 
-    // Reset gyro to ensure clean starting state
-    InertialSensor.setRotation(0, degrees);
-    //InertialSensor.setHeading(0, degrees);
-
-    //bool isMatchLoadPneumaticsActive = false;
- 
-    
-    headingOffset = 180; 
-    
-    //(targetDistance, breakDistance, targetHeading, minSpeed, Kp, Ki, Kd, 
-    // accelHeadingScaling, decelHeadingScaling,approachHeadingScaling, maxSpeed
-    
-    /*/frontHoodPneumatics.set(true);
-    backHoodPneumatics.set(true);
-    matchLoadPneumatics.set(true);
-    intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt); //forward is outtake reverse is intake
-    intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
-    wait(500, msec);
-    frontHoodPneumatics.set(false
-    backHoodPneumatics.set(false);
-    matchLoadPneumatics.set(false);*/
-    
-
-
-    //george this is MY stuffnegnagaffgafgniafa
     forwardMP(79, 38, 180, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
     wait(200, msec);
     leftMP(90,60,12.5);
@@ -185,98 +167,29 @@ void odomTest(){
     leftMP(175,125,20);
     wait(200, msec);
     forwardMP(35, 18, 0, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
-
-
-
-
-    //leftMP(180,140,15);
-    //backwardMP(200, 60, 0, 30, 0.5, 0.00, 0.00, 0.5, 0.5, 0.5, 100);
-    //leftMP(180,136,8);
-    //turnOdometry(180, 20, 10, 100);
-    //wait(300, msec);
-    //turnOdometry(0, 20, 10, 100);
-    //wait(200, msec);
-    //turnOdometry(180, 20, 10, 100);
-    //wait(200, msec);
-    
-
-
-    /*
-    // Explicitly ensure all motors are braked at the end
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].setBrake(brake);
-        rightMotor[i].setBrake(brake);
-        leftMotor[i].stop();
-        rightMotor[i].stop();
-    }
-    */
-
-    //wait(10000, msec);  // Wait to test resistance
 }
 
 void autonRight(){
     initializeOpticalSensor();
+    setStartPosition(0.0, 0.0, 0.0);
 
-    InertialSensor.setRotation(0, degrees);
- 
-    headingOffset = 0;
-    
-    //driveForward(200,110,0,25,0.8,0.09,0,0.1,0,0.1,100);
-
-    //turnLeft(180,145,25,90,16); //bestoverall speed and lateral shift - Use this for speed
-    
-    
-    //turnLeft(180,155,25,70, 16);// nest so far for 180, no lateral shift but some forward shift
-    //turnLeft(180,160,25,70, 12);//good 180
-    //turnOdometry(180,180,25,70, 90);
-    //  intakeHopperStart(3000, 100, 500);  
-    //smartMove(100, 40, forward, 150); //for matchload smart wall stop, no pid
-
-    //driveForward(100,60,0,24,0.6,0.005,0,0.1,1,0.3,100); //Best for most distances
-    //driveForward(200,60,0,18,1.1,0.005,0,0.1,1,0.3,81); //best for long distance
-
-    //  wait(1000, msec); // brief pause to allow motors to settle
-    /*  
-       for (int i = 0; i < 3; i++)
-    {
-        leftMotor[i].setBrake(hold);
-        rightMotor[i].setBrake(hold);
-        leftMotor[i].stop();
-        rightMotor[i].stop();
-    }
-*/
-    
-
-    //driveForward(100,60,0,20,1.1,0.005,0,0.1,1,0.3,100); // testing hold
-    //driveForward(200,90,0,25,1.1,0.005,0,0.1,1,0.3,100); //testing hold
-
-    //driveForward(200,80,0,25,1.1,0.0,0,0.0,1,0.2,100); //quite good on heading and distance
-   //const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)
-   //const double LOCK_THRESHOLD_DECEL = 0.25;
-
-
-
-    /*forwardMP(80, 38, 0, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
+    forwardMP(79, 38, 0, 20, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 80);
     wait(200, msec);
-    rightMP(90,65,12.5);
+    rightMP(90,60,12.5);
     wait(200, msec);
-    forwardMP(15, 10, 90, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
+    forwardMP(15, 10, 270, 15, 0.815, 0.0, 0.0, 0.0, 0.55, 0.3, 70);
     wait(200, msec);
-    backwardMP(20, 15, 90, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
+    backwardMP(20, 15, 270, 10, 0.815, 0.00, 0.00, 0., 0.55, 0.3, 50);
     wait(200, msec);
-    rightMP(78,50,20);
+    rightMP(175,125,20);
     wait(200, msec);
-    backwardMP(3, 3, 90, 10, 0, 0.00, 0.00, 0., 0, 0, 20);
-    wait(200, msec);
-    rightMP(78,50,20);
-    wait(200, msec);
-    forwardMP(37, 18, 270, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);*/
+    forwardMP(35, 18, 180, 15, 0.815, 0.0, 0.0, 0.0, 0, 0, 80);
 }
 
 void leftSideLong(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 16;
+    robotStartingHeading = 16;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
@@ -324,7 +237,7 @@ void leftSideLong(){
 void leftSidemiddle(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 16;
+    robotStartingHeading = 16;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
@@ -335,25 +248,25 @@ void leftSidemiddle(){
     matchloadStart(1200,100,750,true);
     matchLoadPneumatics.set(true);
     driveForward(70, 60, 16,26);
-        wait(200, msec);
+    wait(200, msec);
 
-        //driveBackward(8, 4, 16);
-       // move(3, 50, vex::reverse); //simple move without PID
-     //driveBackwardV2(8, 3, 16, 24, 1); // try this one, new motion profile with distance tolerance added as the last parameter.
+    //driveBackward(8, 4, 16);
+    // move(3, 50, vex::reverse); //simple move without PID
+    //driveBackwardV2(8, 3, 16, 24, 1); // try this one, new motion profile with distance tolerance added as the last parameter.
     //driveBackwardV2(8,3,16,24,1,0.005,0,0.1,1,0.3,60); //This one gives you full control, chnage power to 60, too fast at that distance.
 
-     turnRight(-50,50,25,90,16);
+    turnRight(-50,50,25,90,16);
 
-      //   wait(100, msec);
+    //   wait(100, msec);
     //scoreStart(1200, 70);
-     driveForward(25,13,-50,24,0.3,0.002,0,0.1,1,0.3,90);
-     //        wait(200, msec);
+    driveForward(25,13,-50,24,0.3,0.002,0,0.1,1,0.3,90);
+    //        wait(200, msec);
     //driveBackward(105, 82, -45);
 
    
 
 
-     //turnRight(-180,190,25,90,16);
+    //turnRight(-180,190,25,90,16);
 
 
     /*
@@ -390,15 +303,14 @@ void leftSidemiddle(){
     driveForward(40,0,-4,24,0.3,0.002,0,0.1,1,0.3,40);
     */
 }
+
 void SpeedwayAutonLeft(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
+    robotStartingHeading = 0;
     ptoPneumatics.set(true);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(true);
-
-
 
     leftMP(16,10,20,50);
     wait(400, msec);
@@ -437,9 +349,6 @@ void SpeedwayAutonLeft(){
     wait(700, msec);
     intake(false,0);
     
-
-
-
     /*
     leftMP(105,82,20);
     wait(400, msec);
@@ -458,24 +367,24 @@ void SpeedwayAutonLeft(){
     //forwardMP(35,18,90,15,0.815,0.0,0.0,0.0,0.55,0.3,80);
     //score(1000);
     double currentHeading = InertialSensor.rotation(vex::degrees);
-Controller.Screen.print("Heading: %.2f", currentHeading);
+    Controller.Screen.print("Heading: %.2f", currentHeading);
     
     //intake(miliseconds, true/false for on/off pistons)
-        //outtake and scoring are just how many ms
-*/
+    //outtake and scoring are just how many ms
+    */
 }
 
 void SevenBallRight(){
-   matchLoadPneumatics.set(true);
+    matchLoadPneumatics.set(true);
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = -12;
+    robotStartingHeading = -12;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
     wait(50, msec);//necessary in order for matchload pneumatics to engage properly epstein fn
     matchLoadPneumatics.set(false);
-   /* intakeStart(100, 75, true, false);
+    /* intakeStart(100, 75, true, false);
     wait(200, msec);
     intakeStart(100, 75, true, false);
     wait(200, msec); */
@@ -525,7 +434,7 @@ void SevenBallLeft(){
     matchLoadPneumatics.set(true);
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 12;
+    robotStartingHeading = 12;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
@@ -552,88 +461,89 @@ void SevenBallLeft(){
     //ptoPneumatics.set(true);
     //intakeStart(7500, 75, true, true);
 }
+
 void rightMiddleAuto(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = -16;
+    robotStartingHeading = -16;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
-       wingPneumatics.set(false);
+    wingPneumatics.set(false);
 
     wait(50, msec);
     intakeStart(470, 100, false);
     matchloadStart(2000,40,630,true);
     driveForward(91, 58, -16);
-     wait(200, msec);
+    wait(200, msec);
     driveBackward(19, 12, -16);
-        wait(100, msec);
-     turnLeft(45,50,25,90,16);
+    wait(100, msec);
+    turnLeft(45,50,25,90,16);
 
     
-  //  turnRight(-148,114,26,80,14);
+    //  turnRight(-148,114,26,80,14);
     wait(200, msec);
-   smartStraight(70, 50, 45, 15, 150);
-outtake(500, 100);
-        wait(100, msec);
+    smartStraight(70, 50, 45, 15, 150);
+    outtake(500, 100);
+    wait(100, msec);
 
     driveBackward(130, 110, 45);
-        wait(100, msec);
-     turnLeft(180,110,25,90,16);
-   smartStraight(30, 21, 180, 15, 150);
-       wait(270, msec);
+    wait(100, msec);
+    turnLeft(180,110,25,90,16);
+    smartStraight(30, 21, 180, 15, 150);
+    wait(270, msec);
 
     //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
     driveBackward(26, 14, 176);
-        wait(200, msec);
+    wait(200, msec);
     turnLeft(10,145,25,90,16);
-        wait(200, msec);
-   smartStraight(40, 19, 10, 24, 150);
+    wait(200, msec);
+    smartStraight(40, 19, 10, 24, 150);
 
     score(3200, 100);
     driveBackward(20, 14, 10);
-            wait(200, msec);
+    wait(200, msec);
     turnLeft(40,18,25,90,16);
-                wait(100, msec);
+    wait(100, msec);
 
     driveForward(35,25,40,24,0.3,0.002,0,0.1,1,0.3,90);
-                    wait(100, msec);
+    wait(100, msec);
 
     turnRight(4,30,26,80); 
-                    wait(100, msec);
-     driveForward(12,0,4,24,0.3,0.002,0,0.1,1,0.3,90);
-   wingPneumatics.set(true);
+    wait(100, msec);
+    driveForward(12,0,4,24,0.3,0.002,0,0.1,1,0.3,90);
+    wingPneumatics.set(true);
 
     driveForward(40,0,4,24,0.3,0.002,0,0.1,1,0.3,40);
 
-     /*
+    /*
     driveForward(99,78,-148,24,0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnRight(-176,20,26,80); 
     wait(200, msec);
-   smartStraight(30, 21, -180, 15, 150);
-       wait(270, msec);
+    smartStraight(30, 21, -180, 15, 150);
+    wait(270, msec);
 
     //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
     driveBackward(26, 14, -176);
-        wait(200, msec);
+    wait(200, msec);
     turnLeft(10,145,25,90,16);
-        wait(200, msec);
-   smartStraight(40, 19, 10, 24, 150);
+    wait(200, msec);
+    smartStraight(40, 19, 10, 24, 150);
 
     score(3200, 100);
     driveBackward(20, 14, 10);
-            wait(200, msec);
+    wait(200, msec);
     turnLeft(40,18,25,90,16);
-                wait(100, msec);
+    wait(100, msec);
 
     driveForward(35,25,40,24,0.3,0.002,0,0.1,1,0.3,90);
-                    wait(100, msec);
+    wait(100, msec);
 
     turnRight(4,30,26,80); 
-                    wait(100, msec);
-     driveForward(12,0,4,24,0.3,0.002,0,0.1,1,0.3,90);
-   wingPneumatics.set(true);
+    wait(100, msec);
+    driveForward(12,0,4,24,0.3,0.002,0,0.1,1,0.3,90);
+    wingPneumatics.set(true);
 
     driveForward(40,0,4,24,0.3,0.002,0,0.1,1,0.3,40);
 
@@ -659,14 +569,15 @@ outtake(500, 100);
     //driveBackward(20, 15, -315);
     */
 }
+
 void soloAWP(){
     initializeOpticalSensor();
-    InertialSensor.setRotation(0, degrees);
-    headingOffset = -90;
+    setStartPosition(0.0, 0.0, -90.0);
+    
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
-       wingPneumatics.set(true);
+    wingPneumatics.set(true);
 
     driveForward(42,0,-90);
     turnRight(-135,0,24,100,16);
@@ -674,7 +585,6 @@ void soloAWP(){
     smartStraight(47, 0, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
     driveBackward(12,0,-180);
     turnRight(70,0,25,100,0);
-    //smartStop(5, 10, 300, false);
     driveForward(30,0,-360);
     
 
@@ -689,29 +599,29 @@ void soloAWP(){
     wait(200, msec);
     turnRight(-176,20,26,80); 
     wait(200, msec);
-       smartStraight(47, 40, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
-       wait(80, msec);
+    smartStraight(47, 40, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
+    wait(80, msec);
 
     //smartMove(34, 60, forward, 250); //for matchload smart wall stop, no pid
     driveBackward(26, 14, -176);
-        wait(200, msec);
+    wait(200, msec);
     turnLeft(8,160,25,90,16);
-        wait(200, msec);
-   smartStraight(50, 20, 8, 24, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 150);
+    wait(200, msec);
+    smartStraight(50, 20, 8, 24, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 150);
 
     score(3200, 100);
     driveBackward(20, 14, 10);
-            wait(200, msec);
+    wait(200, msec);
     turnLeft(45,18,25,90,16);
-                wait(100, msec);
+    wait(100, msec);
 
     driveForward(27,23,40,24,0.3,0.002,0,0.1,1,0.3,90);
-                    wait(100, msec);
+    wait(100, msec);
 
     turnRight(6,30,26,80); 
-                    wait(100, msec);
-     driveForward(12,0,6,24,0.3,0.002,0,0.1,1,0.3,90);
-   wingPneumatics.set(false);
+    wait(100, msec);
+    driveForward(12,0,6,24,0.3,0.002,0,0.1,1,0.3,90);
+    wingPneumatics.set(false);
 
     driveForwardV2(60,0,6,24,0.3,0.002,0,0.1,1,0.3,30);
 
@@ -746,14 +656,14 @@ void colourTest(){
 void soloAWPMiddle(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = -90;
+    robotStartingHeading = -90;
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
-       wingPneumatics.set(true);
+    wingPneumatics.set(true);
     driveForwardV2(60,45,-90,24,3,0.3,0.005,0,0.1,1,0.3,100);
 
-      for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++)
     {
         leftMotor[i].setBrake(hold);
         rightMotor[i].setBrake(hold);
@@ -763,11 +673,85 @@ void soloAWPMiddle(){
     turnRight(-179,65,25,80,28);
 }
 
+void skills() {
+    initializeOpticalSensor();
+    setStartPosition(0.0, 0.0, 0.0);
+}
+
+void Inertial_Calib(){
+    Brain.Screen.clearScreen();
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("Calibrating...");
+    InertialSensor.calibrate();
+    while (InertialSensor.isCalibrating()) { 
+        wait(100, msec); 
+    }
+    Brain.Screen.setCursor(2, 1);
+    Brain.Screen.print("Calibration Complete!");
+    wait(500, msec);
+    Brain.Screen.clearScreen();
+}
+
+void autonSelector(){
+    int autonMode = 0;
+    const char* autonNames[] = {
+        "Auton Left",
+        "Auton Right", 
+        "Solo AWP",
+        "Skills",
+        "Odom Test",
+        "Vision Test",
+        "Auton Test"
+    };
+    const int numAutons = 7;
+
+    Brain.Screen.clearScreen();
+    Brain.Screen.setPenColor(vex::color::white);
+
+    while(true) {
+        Brain.Screen.setCursor(1, 1);
+        Brain.Screen.print("Selected: %s          ", autonNames[autonMode]);
+        
+        Brain.Screen.setCursor(3, 1);
+        Brain.Screen.print("Press Left/Right to change");
+        Brain.Screen.setCursor(4, 1);
+        Brain.Screen.print("Press Center to confirm");
+
+        if(Controller.ButtonLeft.pressing()) {
+            autonMode = (autonMode - 1 + numAutons) % numAutons;
+            wait(200, msec);
+        }
+        else if(Controller.ButtonRight.pressing()) {
+            autonMode = (autonMode + 1) % numAutons;
+            wait(200, msec);
+        }
+        else if(Controller.ButtonA.pressing()) {
+            Brain.Screen.clearScreen();
+            Brain.Screen.setCursor(1, 1);
+            Brain.Screen.print("Running: %s", autonNames[autonMode]);
+            wait(500, msec);
+            
+            switch(autonMode) {
+                case 0: autonLeft(); break;
+                case 1: autonRight(); break;
+                case 2: soloAWP(); break;
+                case 3: skills(); break;
+                case 4: odomTest(); break;
+                case 5: visionSensorTest(); break;
+                case 6: autonTest(); break;
+            }
+            break;
+        }
+        
+        wait(20, msec);
+    }
+}
+
 /*
 void odomTest(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    headingOffset = 0;
+    robotStartingHeading = 0;
 
     setStartingPosition(0.0, 0.0, 0.0);
     startOdometryTask();

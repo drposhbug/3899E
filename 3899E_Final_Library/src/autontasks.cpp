@@ -313,7 +313,7 @@ void outtake(double time, double power) //skibidi outtake
     vex::timer outtakeTime;
     outtakeTime.reset();
 
-        ptoPneumatics.set(true); //engage pto for outtake
+    ptoPneumatics.set(true); //engage pto for outtake
     frontHoodPneumatics.set(false); //close front hood for outtake
     backHoodPneumatics.set(false); //close back hood for outtake
 
@@ -338,8 +338,8 @@ int headingDisplayTask(void *params) {
     HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
     
     while (p->isRunning) {
-        // Get cartesian heading (gyro rotation + headingOffset)
-        double heading = headingOffset - InertialSensor.rotation(degrees);
+        // Get adjusted rotation using the new function
+        double heading = getAdjustedRotation();  // CHANGED: Using getAdjustedRotation()
         double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
         double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
         

@@ -9,6 +9,10 @@ using namespace vex;
 // Minimum threshold for division operations to prevent divide by zero errors
 const double DIV_BY_ZERO_THRESHOLD = 0.001;
 
+
+extern double robotStartingHeading; 
+extern double gyroReadingAtStart;
+
 /**
  * Calculate the shortest path error between target and current heading.
  * Ensures the error is always in the range of -180 to +180 degrees for smooth PID control.
@@ -202,7 +206,7 @@ double getEncoderSpeed(vex::rotation &encoder)
 }
 
 double getRotation() {
-    return InertialSensor.rotation(degrees) + headingOffset;
+    return InertialSensor.rotation(degrees) + robotStartingHeading;
 }
 
 void PIDVoltageCapCorrection(double &leftVoltage, double &rightVoltage, double absoluteMaxVoltage)
@@ -320,8 +324,17 @@ int colorDetectionTask(void *params)
 }
 
 
+// Lines ~27-37
 double getAdjustedRotation() {
-    return InertialSensor.rotation(degrees) + headingOffset;
+    // 1. Get raw change since start (Tare)
+    double rawSensorChange = InertialSensor.rotation(degrees) - gyroReadingAtStart;
+
+    // 2. Subtract change from Start Heading (Modified Cartesian)
+    // Turning Right (+) means Angle gets smaller (-) in Modified Cartesian
+    double currentHeadingModified = robotStartingHeading - rawSensorChange;
+    
+    // 3. Convert to Standard Cartesian (CCW, 0=East) for internal Math
+    return modifiedToStandardCartesian(currentHeadingModified);
 }
 
 void waitForButtonPress() {

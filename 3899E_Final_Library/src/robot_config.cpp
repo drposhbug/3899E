@@ -24,9 +24,11 @@ vex::inertial InertialSensor = vex::inertial(vex::PORT17);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT20, true);  // Initialize the encoder on PORT10
 vex::rotation passiveEncoderRight = vex::rotation(vex::PORT13, true); // Initialize the encoder on PORT10
 vex::rotation passiveEncoderX = vex::rotation(vex::PORT12, true);     // Initialize the encoder on PORT10
-vex::optical opticalSensor = vex::optical(vex::PORT12);
+vex::optical opticalSensor = vex::optical(vex::PORT15);
 vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.A);
 // Global Variables
+double robotStartingHeading = 0.0; 
+double gyroReadingAtStart = 0.0;
 double targetDriverSpeedLeft = 0.0;                  // Target speed for left motors (-100 to +100)
 double targetDriverSpeedRight = 0.0;                 // Target speed for right motors (-100 to +100)
 bool isAcceleratingLeft[3] = {false, false, false};  // Acceleration flags for left motors
@@ -58,7 +60,8 @@ const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
 // AI Vision Sensor Configuration (from Vision Utility)
 // ========================================
 // Individual Color Signatures
-vex::aivision::colordesc AIVision20__blueCube(1, 38, 121, 172, 25, 1);
+//vex::aivision::colordesc AIVision20__blueCube(1, 38, 121, 172, 25, 1);//Fist one picks up a lot of dark bluish grey including mat
+vex::aivision::colordesc AIVision20__blueCube(1, 63, 130, 192, 20, 0.25);
 vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
 vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
 

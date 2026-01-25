@@ -4,9 +4,14 @@
 #include "vex.h"
 #include "robot_config.h"
 
+// Coordinate System Conversion Functions - ADDED
+double modifiedToStandardCartesian(double modifiedAngle);
+double standardToModifiedCartesian(double standardAngle);
+double vexToStandardCartesian(double vexAngle);
+double standardCartesianToVex(double standardAngle);
+
 // Heading functions
-double getRotation();
-double getAdjustedRotation();
+double getAdjustedRotation();  // KEPT - this is the main one used
 
 // Motor/Speed detection
 bool isSlipping(double motorSpeed, double encoderSpeed);
@@ -71,10 +76,10 @@ int armResetTask(void *params);
 
 // Structure for intake stall detection
 struct IntakeStallTaskParams {
-    bool isRunning;         // Flag to control task execution
-    double stallThreshold;  // Velocity threshold for stall detection (in percent)
-    int reverseRotation;    // How much to reverse the intake in degrees
-    int reverseSpeed;       // Speed to use when reversing (in percent)
+    bool isRunning;
+    double stallThreshold;
+    int reverseRotation;
+    int reverseSpeed;
 };
 
 // Task function for monitoring intake stalls
@@ -89,23 +94,19 @@ extern IntakeStallTaskParams intakeStallParams;
 void waitForButton();
 
 // Function: smartStop
-// Parameter 'brakeLock': 
-//   true  = Finish with a hard motor lock (HOLD)
-//   false = Finish with a soft stop (BRAKE)
 void smartStop(double linearThreshold = 5.0, double angularThreshold = 5.0, int timeoutMsec = 250, bool brakeLock = true);
 
 // Enhanced arm task parameters
 struct SimpleArmTaskParams {
-    bool isRunning;          // Flag to control task execution
-    ArmPosition position;    // Target position enum
-    int adjustment;          // Adjustment value to add/subtract from position
-    int delayMs;             // Delay before moving to position
-    bool isComplete;         // Flag to indicate if the task has completed
+    bool isRunning;
+    ArmPosition position;
+    int adjustment;
+    int delayMs;
+    bool isComplete;
 };
 
 // Function declarations
 int simpleArmTask(void *params);
 void moveArm(ArmPosition position, int adjustment = 0, int delayMs = 0);
-
 
 #endif // UTILS_H

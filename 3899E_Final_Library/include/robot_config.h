@@ -1,7 +1,7 @@
 #ifndef ROBOT_CONFIG_H
 #define ROBOT_CONFIG_H
 
-#include "vex.h" // Include the VEX library
+#include "vex.h"
 
 // Declare external instances of brain, controller, and motors
 extern vex::brain Brain;
@@ -19,7 +19,7 @@ extern vex::motor rightMotor[3];
 // Declare motors as extern so they can be accessed globally
 extern vex::motor intakeMotor1;
 extern vex::motor intakeMotor2;
-// Declare Pneumatics;
+// Declare Pneumatics
 extern vex::pneumatics frontHoodPneumatics;
 extern vex::pneumatics backHoodPneumatics;
 extern vex::pneumatics matchLoadPneumatics;
@@ -27,32 +27,16 @@ extern vex::pneumatics ptoPneumatics;
 extern vex::pneumatics wingPneumatics;
 // Declare Sensors
 extern vex::inertial InertialSensor;
-// ========================================
-// AI Vision Sensor Configuration
-// ========================================
-// AI Vision sensor with Push Back object classifications
-// Push Back game AI Classifications - NO tuning needed
-// These work across all competition venues with consistent lighting
-//extern vex::aivision visionSensor;
-//vex::aivision::aiclassdesc redBlock(2);   // Pre-trained red block ID
-//vex::aivision::aiclassdesc blueBlock(1);  // Pre-trained blue block ID
 
-//extern vex::aivision::aiobjdesc redBlock;
-//extern vex::aivision::aiobjdesc blueBlock;
-
-
-// Color signatures (for future color tracking if needed)
-// Note: Requires manual tuning for each lighting condition
-// Use these for detecting goals, alliance stations, or other non-block elements
-//extern vex::aivision::colordesc red1;  // Red color signature - for goals/manual tracking
-
-extern vex::rotation passiveEncoderLeft; // Declare the passive encoder sensor
-extern vex::rotation passiveEncoderRight; // Declare the passive encoder sensor
-extern vex::rotation passiveEncoderX; // Declare the passive encoder sensor
+extern vex::rotation passiveEncoderLeft;
+extern vex::rotation passiveEncoderRight;
+extern vex::rotation passiveEncoderX;
 extern vex::optical opticalSensor;
 extern vex::bumper autonBumper;
 
-//Declare Global Variable
+// Declare Global Variables
+extern double robotStartingHeading; // 
+extern double gyroReadingAtStart;   // The "Tare" value of the sensor
 extern double targetDriverSpeedLeft;
 extern double targetDriverSpeedRight;
 extern bool isAcceleratingLeft[3];
@@ -66,7 +50,7 @@ extern const double absoluteMaxRPM;
 extern const double absoluteMaxVoltage;
 extern const double gearRatio;
 extern const double minLaunchPower;
-extern double headingOffset;
+extern double robotStartingHeading;
 extern const double DRIVE_MOTOR_RPM_ADJ;
 extern const double ENCODER_RADIUS_RATIO;
 extern const double TRACK_WIDTH;
@@ -74,35 +58,32 @@ extern const double ENCODER_OFFSET_X;
 extern const double LEFT_ENCODER_OFFSET_Y;  
 extern const double RIGHT_ENCODER_OFFSET_Y;
 
- //Declare Constants
+// Declare Constants
 extern const double wheelCircumferenceCM;
 extern const double encoderWheelCircumferenceCM;
 extern const double VOLTAGE_TOLERANCE;
 
-//original
+// Arm positions
 enum ArmPosition {
-    Starting = 0,     // Position 0
-    Load1 = 83,  //85 original
+    Starting = 0,
+    Load1 = 83,
     Load2 = 128,
-    Hover = 580, // hover above side stake 
-    Side = 700,   // Position -770 (Y button)
-    Alliance = 550, // Position -550 (Right button)
+    Hover = 580,
+    Side = 700,
+    Alliance = 550,
     ScoringSide = 514,
-    ScoringAlliance =334, 
+    ScoringAlliance = 334, 
     Descore = 437
 };
-
 
 // Declare a variable to keep track of the arm's current position
 extern ArmPosition armstat;
 
-
 // Function to initialize the robot configuration
 void vexcodeInit(void);
 
-// Motion Profile Default Parameters - Organized by movement type
+// Motion Profile Default Parameters
 namespace MotionDefaults {
-    // Forward/Straight Movement Defaults
     namespace StraightForward {
         constexpr double BREAK_DISTANCE = 35.0;
         constexpr double MIN_SPEED = 20.0;
@@ -115,7 +96,6 @@ namespace MotionDefaults {
         constexpr double APPROACH_HEADING_SCALING = 0.05;
     }
     
-    // Backward Movement Defaults
     namespace StraightBackward {
         constexpr double BREAK_DISTANCE = 30.0;
         constexpr double MIN_SPEED = 20.0;
@@ -128,14 +108,12 @@ namespace MotionDefaults {
         constexpr double APPROACH_HEADING_SCALING = 0.06;
     }
     
-    // Left Turn Defaults
     namespace TurningLeft {
         constexpr double BREAK_DISTANCE = 5.0;
         constexpr double MIN_SPEED = 20.0;
         constexpr double MAX_SPEED = 100.0;
     }
     
-    // Right Turn Defaults
     namespace TurningRight {
         constexpr double BREAK_DISTANCE = 5.0;
         constexpr double MIN_SPEED = 20.0;
@@ -143,22 +121,14 @@ namespace MotionDefaults {
     }
 }
 
-// ========================================
-// AI Vision Sensor Configuration (from Vision Utility)
-// ========================================
-// Individual Color Signatures
+// AI Vision Sensor Configuration
 extern vex::aivision::colordesc AIVision20__blueCube;
 extern vex::aivision::colordesc AIVision20__orangeGoal;
 extern vex::aivision::colordesc AIVision20__redCube;
 
-// Color Codes (combinations)
 extern vex::aivision::codedesc AIVision20__redLoad;
 extern vex::aivision::codedesc AIVision20__blueLoad;
 
-// Sensor declaration (with all descriptors)
 extern vex::aivision AIVision20;
 
 #endif
-
-
-
