@@ -39,35 +39,44 @@ void turnToPoint(double targetX, double targetY,
 void turnLeftToPoint(double targetX, double targetY,
                     double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
                     double minSpeed = MotionDefaults::TurningLeft::MIN_SPEED,
-                    double maxSpeed = MotionDefaults::TurningLeft::MAX_SPEED);
+                    double maxSpeed = MotionDefaults::TurningLeft::MAX_SPEED,
+                    double exitTolerance = 0.5);
 
 void turnRightToPoint(double targetX, double targetY,
                      double breakDistanceInDegrees = MotionDefaults::TurningRight::BREAK_DISTANCE,
                      double minSpeed = MotionDefaults::TurningRight::MIN_SPEED,
-                     double maxSpeed = MotionDefaults::TurningRight::MAX_SPEED);
+                     double maxSpeed = MotionDefaults::TurningRight::MAX_SPEED,
+                        double exitTolerance = 0.5);
+
+
+// In include/odometry.h
+
+// In odometry.h
 
 void forwardToPoint(double targetX, double targetY,             
-               double breakDistance = MotionDefaults::StraightForward::BREAK_DISTANCE,
-               double minSpeed = MotionDefaults::StraightForward::MIN_SPEED,  
-               double kp_heading = MotionDefaults::StraightForward::KP_HEADING,
-               double ki_heading = MotionDefaults::StraightForward::KI_HEADING,
-               double kd_heading = MotionDefaults::StraightForward::KD_HEADING,
-               double accelHeadingScaling = MotionDefaults::StraightForward::ACCEL_HEADING_SCALING,
-               double decelHeadingScaling = MotionDefaults::StraightForward::DECEL_HEADING_SCALING,
-               double approachHeadingScaling = MotionDefaults::StraightForward::APPROACH_HEADING_SCALING,
-               double maxSpeed = MotionDefaults::StraightForward::MAX_SPEED);    
+               double breakDistance = 10,
+               double minSpeed = 24,  
+               double distanceTolerance = 5,
+               double kp_heading = 1.1,
+               double ki_heading = 0.0,
+               double kd_heading = 0,
+               double accelHeadingScaling = 0.1,
+               double decelHeadingScaling = 0.1,
+               double approachHeadingScaling = 0.3,
+               double maxSpeed = 100);    
 
 void backwardToPoint(double targetX, double targetY,             
-               double breakDistance = MotionDefaults::StraightBackward::BREAK_DISTANCE,
-               double minSpeed = MotionDefaults::StraightBackward::MIN_SPEED,  
-               double kp_heading = MotionDefaults::StraightBackward::KP_HEADING,
-               double ki_heading = MotionDefaults::StraightBackward::KI_HEADING,
-               double kd_heading = MotionDefaults::StraightBackward::KD_HEADING,
-               double accelHeadingScaling = MotionDefaults::StraightBackward::ACCEL_HEADING_SCALING,
-               double decelHeadingScaling = MotionDefaults::StraightBackward::DECEL_HEADING_SCALING,
-               double approachHeadingScaling = MotionDefaults::StraightBackward::APPROACH_HEADING_SCALING,
-               double maxSpeed = MotionDefaults::StraightBackward::MAX_SPEED);
-
+               double breakDistance = 10,
+               double minSpeed = 24,  
+               double distanceTolerance = 5,
+               double kp_heading = 1.1,
+               double ki_heading = 0.0,
+               double kd_heading = 0,
+               double accelHeadingScaling = 0.1,
+               double decelHeadingScaling = 0.1,
+               double approachHeadingScaling = 0.3,
+               double maxSpeed = 100);
+               
 // Odometry Task Management
 struct OdometryTaskParams {
     bool isRunning;  // Flag to control task execution

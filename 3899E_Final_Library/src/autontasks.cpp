@@ -338,31 +338,40 @@ int headingDisplayTask(void *params) {
     HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
     
     while (p->isRunning) {
-        // Get adjusted rotation using the new function
-        double heading = getAdjustedRotation();  // CHANGED: Using getAdjustedRotation()
+        // 1. Read Sensors
+        double heading = getAdjustedRotation(); 
         double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
         double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
+        // VERIFY NAME: Check your robot_config.h for the exact name of your X/Center/Aux encoder
+        double centerEnc = passiveEncoderX.position(rotationUnits::deg); 
         
-        // Convert degrees to cm
+        // 2. Convert to CM
         double leftCM = leftEnc * encoderWheelCircumferenceCM / 360.0;
         double rightCM = rightEnc * encoderWheelCircumferenceCM / 360.0;
+        double centerCM = centerEnc * encoderWheelCircumferenceCM / 360.0;
         double avgCM = (leftCM + rightCM) / 2.0;
         
-        // Line 1: Left and Right encoders in cm
+        // 3. Print to Controller (Optimized Layout)
+        
+        // Line 1: Encoders (L=Left, R=Right, X=Center)
         Controller.Screen.setCursor(1, 1);
-        Controller.Screen.print("L:%.0f R:%.0f   ", leftCM, rightCM);
+        // using %.0f removes decimals to save screen space and make it readable
+        Controller.Screen.print("L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
         
-        // Line 2: Average distance and current cartesian heading
+        // Line 2: Global Averages
         Controller.Screen.setCursor(2, 1);
-        Controller.Screen.print("A:%.0f H:%.1f   ", avgCM, heading);
+        Controller.Screen.print("Avg:%.0f  H:%.1f   ", avgCM, heading);
         
-        // Line 3: Target distance and target heading
+        // Line 3: Targets
         Controller.Screen.setCursor(3, 1);
-        Controller.Screen.print("tgtD:%.0f tgtH:%.0f", g_targetDistance, g_targetHeading);
+        Controller.Screen.print("Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
         
-        wait(50, msec);
+        // 4. SAFETY DELAY
+        // 250ms = 4 updates/sec. 
+        // Anything faster than 100ms risks disconnecting VEXnet during comps.
+        wait(500, msec);
     }
-    // Clear controller display when stopping to avoid lingering prints during driver control
+    
     Controller.Screen.clearScreen();
     return 0;
 }

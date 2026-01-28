@@ -23,7 +23,7 @@ void runAuton(void) {
   
   // Start heading display task
   //visionSensorTest(); 
-  autonTest();    
+  //autonTest();    
   //autonLeft(); 
   //autonRight();
   //autonFwdRight();

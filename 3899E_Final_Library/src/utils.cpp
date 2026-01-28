@@ -6,9 +6,49 @@
 
 using namespace vex;
 
+double modifiedToStandardCartesian(double modifiedAngle) {
+    return modifiedAngle + 90.0;
+}
+
+double standardToModifiedCartesian(double standardAngle) {
+    return standardAngle - 90.0;
+}
+
+double vexToStandardCartesian(double vexAngle) {
+    return -vexAngle + 90.0;
+}
+
+// ───────────────────────────────────────────────
+// Core heading access functions (all return Standard Cartesian)
+// Use getContinuousStandardHeading() for internal math, odometry, turns, PID
+// ───────────────────────────────────────────────
+
+// Continuous, unbounded Standard Cartesian heading (preferred for most calculations)
+double getContinuousStandardHeading() {
+    // Get total rotation from the sensor (VEX increases CW)
+    double rawVex = InertialSensor.rotation(degrees);
+
+    // Calculate rotation change since program start
+    double relativeVex = rawVex - gyroReadingAtStart;
+
+    // Subtract change to convert VEX (CW+) to Standard Cartesian (CCW+)
+    return robotStartingHeadingStandard - relativeVex;
+}
+
+// Normalized -180..+180 Standard Cartesian (shortest path friendly)
+double getNormalizedStandardHeading() {
+    double continuous = getContinuousStandardHeading();
+    return fmod(continuous + 540.0, 360.0) - 180.0;
+}
+
+// Normalized -180..+180 Modified Cartesian (North=0) – best for UI/printing
+double getNormalizedModifiedHeading() {
+    double standardNorm = getNormalizedStandardHeading();
+    return standardToModifiedCartesian(standardNorm);
+}
+
 // Minimum threshold for division operations to prevent divide by zero errors
 const double DIV_BY_ZERO_THRESHOLD = 0.001;
-
 
 extern double robotStartingHeading; 
 extern double gyroReadingAtStart;
@@ -22,6 +62,11 @@ extern double gyroReadingAtStart;
  * 2. Robot always takes the shortest path to target heading
  * 3. Error magnitude never exceeds 180 degrees
  */
+
+// Legacy / existing rotation function (normalized Modified Cartesian)
+double getAdjustedRotation() {
+    return getNormalizedModifiedHeading();  // Now consistent with new system
+}
 
 // Implement slip detection logic
 bool isSlipping(double motorSpeed, double encoderSpeed)
@@ -38,14 +83,10 @@ bool isLocking(double motorSpeed, double encoderSpeed)
 }
 
 // Color Detection Constants for utils.cpp
-// const double RED_HUE_MIN_1 = 340.0;  // First red range (340°-360°)
-// const double RED_HUE_MAX_1 = 360.0;
 const double RED_HUE_MIN_1 = 335.0; // First red range (340°-360°)
 const double RED_HUE_MAX_1 = 365.0;
 const double RED_HUE_MIN_2 = 0.0; // Second red range (0°-15°)
 const double RED_HUE_MAX_2 = 15.0;
-// const double BLUE_HUE_MIN = 215.0;   // Blue range
-// const double BLUE_HUE_MAX = 225.0;
 const double BLUE_HUE_MIN = 210.0; // Blue range
 const double BLUE_HUE_MAX = 230.0;
 const double MIN_BRIGHTNESS = 15.0; // Minimum brightness threshold
@@ -183,7 +224,6 @@ bool isAccelerating(double targetDriverSpeed, double currentSpeed)
     // If the speeds are in opposite directions
     else if ((targetDriverSpeed * currentSpeed) < 0)
     {
-
         // Moving from positive to negative or vice versa is still a sign of acceleration
         return true;
     }
@@ -203,10 +243,6 @@ double getMotorSpeed(vex::motor &motor)
 double getEncoderSpeed(vex::rotation &encoder)
 {
     return encoder.velocity(vex::velocityUnits::rpm) * encoderWheelCircumferenceCM / 60.0;
-}
-
-double getRotation() {
-    return InertialSensor.rotation(degrees) + robotStartingHeading;
 }
 
 void PIDVoltageCapCorrection(double &leftVoltage, double &rightVoltage, double absoluteMaxVoltage)
@@ -321,20 +357,6 @@ int colorDetectionTask(void *params)
         wait(10, msec); // Small delay to prevent CPU overload
     }
     return 0;
-}
-
-
-// Lines ~27-37
-double getAdjustedRotation() {
-    // 1. Get raw change since start (Tare)
-    double rawSensorChange = InertialSensor.rotation(degrees) - gyroReadingAtStart;
-
-    // 2. Subtract change from Start Heading (Modified Cartesian)
-    // Turning Right (+) means Angle gets smaller (-) in Modified Cartesian
-    double currentHeadingModified = robotStartingHeading - rawSensorChange;
-    
-    // 3. Convert to Standard Cartesian (CCW, 0=East) for internal Math
-    return modifiedToStandardCartesian(currentHeadingModified);
 }
 
 void waitForButtonPress() {
@@ -586,7 +608,6 @@ void smartStop(double linearThreshold, double angularThreshold, int timeoutMsec,
         // Check sensors (Passive Encoders + Gyro)
         double linearSpeed = fabs(passiveEncoderLeft.velocity(vex::rpm)); 
         double angularSpeed = fabs(InertialSensor.gyroRate(vex::axisType::zaxis, vex::velocityUnits::dps));
-//                                                                ^^^^^
 
         // Exit immediately if the robot is effectively stopped
         if (linearSpeed < linearThreshold && angularSpeed < angularThreshold) {

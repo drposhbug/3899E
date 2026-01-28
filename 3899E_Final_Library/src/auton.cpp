@@ -99,8 +99,91 @@ void autonTest(){
 */
 
 void autonTest() {
-    setStartPosition(0.0, 0.0, 0.0);
+    // Initialize sensor
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    setStartPosition(0.0, 0.0, 0);
+    // Set starting position in Standard Cartesian
+    // Starting at East (0° Standard)
+    //robotStartingHeadingStandard = 0.0;
+    gyroReadingAtStart = InertialSensor.rotation(degrees);
     
+    Brain.Screen.clearScreen();
+    Brain.Screen.printAt(10, 20, "Turn Odometry Test");
+    Brain.Screen.printAt(10, 40, "Starting: 0 deg Standard (East)");
+    Brain.Screen.printAt(10, 60, "Target: 90 deg Standard (North)");
+    Brain.Screen.printAt(10, 80, "Expected: 90 deg CCW turn");
+    
+       
+    // Test 1: Turn 90° CCW (from East to North)
+    // Current: 0°, Target: 90°, Error: +90° (should turn CCW in Standard)
+    //turnOdometry(0, 20, 24, 24, 1.0);
+  //turnRight(180, 40, 25, 25); 
+   // wait(2000, msec);
+   
+    
+    
+    double finalHeading = getContinuousStandardHeading();
+    Brain.Screen.printAt(10, 120, "Final heading: %.2f deg", finalHeading);
+    Brain.Screen.printAt(10, 140, "Expected: ~90 deg");
+    // driveForward(100, 40, 0);
+    //turnLeft(90,20, 25, 25);
+    double rawVex = InertialSensor.rotation(degrees);
+double relativeVex = rawVex - gyroReadingAtStart;
+Brain.Screen.printAt(10, 160, "Raw: %.2f Relative: %.2f", rawVex, relativeVex);
+Brain.Screen.printAt(10, 180, "StartStd: %.2f GyroStart: %.2f", robotStartingHeadingStandard, gyroReadingAtStart);
+Brain.Screen.printAt(10, 200, "Final: %.2f", getContinuousStandardHeading());
+ //wait(2000, msec);    
+//straightOdometryV3(50, 20, 90);
+   // wait(2000, msec);
+    //straightOdometryV3(-50, 20, 90);
+
+        
+    double bD=10, minS=15, tol=1, kp=0.25, ki=0.0, kd=0, accS=0.1, decS=.1, appS=0.3, maxS=15;
+    double tBrk=10, tMin=22, tMax=22;
+
+    forwardToPoint(0, 30, bD, minS, tol, kp, ki, kd, accS, decS, appS, maxS);
+   
+    //wait(1000, msec);
+    turnLeftToPoint(-30, 30, tBrk, tMin, tMax, 0.5);
+    /*
+    wait(500, msec);
+    forwardToPoint(-30, 30, bD, minS, tol, kp, ki, kd, accS, decS, appS, maxS);
+    wait(500, msec);
+    turnLeftToPoint(-30, 0, tBrk, tMin, tMax);
+    wait(500, msec);
+    forwardToPoint(-30, 0, bD, minS, tol, kp, ki, kd, accS, decS, appS, maxS);
+    wait(500, msec);
+    turnLeftToPoint(0, 0, tBrk, tMin, tMax);
+    wait(500, msec);
+    forwardToPoint(0, 0, bD, minS, tol, kp, ki, kd, accS, decS, appS, maxS);
+    wait(500, msec);
+    turnLeftToPoint(0, 30, tBrk, tMin, tMax);
+    */
+    
+
+
+    
+    //driveForwardV3(30, 10, 0, 15, 1, 0.25, 0.0, 0, 0.1, 0.1, 0.3, 15);
+    /*
+    wait(500, msec);  
+    turnLeft(90, 40, 25, 25);
+    wait(500, msec);  
+    driveForwardV3(30, 20, 90, 25, 5, 1.1, 0.005, 0, 0.1, 1, 0.3, 25);
+    wait(500, msec);  
+    turnLeft(180, 40, 25, 25);
+    wait(500, msec);  
+    driveForwardV3(30, 20, 180, 25, 5, 1.1, 0.005, 0, 0.1, 1, 0.3, 25);
+    wait(500, msec);  
+    turnLeft(270, 40, 25, 25);
+    wait(500, msec);  
+    driveForwardV3(30, 20, 270, 25, 5, 1.1, 0.005, 0, 0.1, 1, 0.3, 25);
+    wait(500, msec);  
+    turnLeft(0, 40, 25, 25);
+    wait(500, msec);  
+    driveForwardV3(30, 20, 0, 25, 5, 1.1, 0.005, 0, 0.1, 1, 0.3, 25);
+    wait(500, msec);  
+    */
     /*
     visionDriveMinimal(// not bad for first 3 center balls
         AIVision20__orangeGoal, 
@@ -115,7 +198,7 @@ void autonTest() {
 
     */
 
-        visionDriveMinimal(
+      /*  visionDriveMinimal(
         AIVision20__orangeGoal, 
         100,                    
         0.0,                    
@@ -124,8 +207,9 @@ void autonTest() {
         .6, 0.0, 0.0, 
         10,       
         1.50, 0.0, 0.0        
-    );
+    );*/
 }
+
 
 /*/void Calibration
 {
@@ -579,13 +663,27 @@ void soloAWP(){
     frontHoodPneumatics.set(false);
     wingPneumatics.set(true);
 
-    driveForward(42,0,-90);
-    turnRight(-135,0,24,100,16);
+    driveForwardV3(36,0,-90);
+    turnRight(-135,0,24,100,20);
     smartStop(5, 10, 300, false);
-    smartStraight(47, 0, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
-    driveBackward(12,0,-180);
-    turnRight(70,0,25,100,0);
-    driveForward(30,0,-360);
+    smartStraight(47, 0, -180, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
+    driveBackwardV3(12,0,-180);
+    turnRight(0,0,25,100,86);
+    smartStop(5, 10, 300, false);
+    smartStraight(60, 0, 0, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
+    driveBackwardV3(12,0,0);
+    turnLeft(45,0,25,100,25);
+    //visionDrive(AIVision20__orangeGoal, 150, 0, 22, 40);
+    visionDriveMinimal(
+            AIVision20__orangeGoal, 
+        130,                    
+        0.0,                    
+        24.0, 60.0,             
+        brakeType::coast,       
+        0.6, 0.0, 0.0, 
+        10,       
+        1.50, 0.0, 0.0);   
+    //driveForward(30,0,-360);
     
 
     /*intakeStart(1000, 100, false);

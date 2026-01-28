@@ -48,6 +48,23 @@ void straightOdometry(double targetDistance,
     double decelHeadingScaling = 0.2, 
     double approachHeadingScaling = 0.2, 
     double maxSpeed = 100);
+
+ /**
+ * straightOdometryV3 - Motion profiling with configurable stopping tolerance
+ * Now uses standard Cartesian heading throughout
+ */
+void straightOdometryV3(double targetDistance, 
+                        double breakDistance, 
+                        double targetHeading = 0, 
+                        double minSpeed = 16, 
+                        double distanceTolerance = 6.0,
+                        double kp_heading = 0.4, 
+                        double ki_heading = 0.01, 
+                        double kd_heading = 0.05, 
+                        double accelHeadingScaling = 0.2, 
+                        double decelHeadingScaling = 0.2, 
+                        double approachHeadingScaling = 0.2, 
+                        double maxSpeed = 100);
     
 void smartStraight(double targetDistance, 
     double breakDistance, 
@@ -89,6 +106,7 @@ void turnOdometry(double targetHeading,
             double minSpeed = 25, 
             double maxSpeed = 100,
             double exitTolerance = 16.0);
+
 
 double launchControl(double targetDriverSpeed, vex::motor& motor, vex::rotation& encoder);
 
@@ -179,6 +197,17 @@ void pivotTurnOdometry(double targetHeading,
              double breakDistanceInDegrees,
              double minSpeed, double maxSpeed);
 
+// ───────────────────────────────────────────────
+// V2: Modernized pivot turn with motion profiling, continuous headings,
+//     target snapping, and true pivot behavior
+//     (recommended replacement - uses brake mode at end)
+// ───────────────────────────────────────────────
+void pivotTurnOdometryV2(double targetHeading,
+                         double breakDistanceInDegrees,
+                         double minSpeed,
+                         double maxSpeed,
+                         double exitTolerance = 2.0);           
+
 void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
@@ -188,7 +217,7 @@ void driveForward(double targetDistance,
              double targetHeading = 0,
              double minSpeed = 24,
              double kp_heading = 1.1, 
-             double ki_heading = 0.005,
+             double ki_heading = 0.0,
              double kd_heading = 0, 
              double accelHeadingScaling = 0.1,
              double decelHeadingScaling = 0.2, 
@@ -200,10 +229,10 @@ void driveBackward(double targetDistance,
               double targetHeading = 0,
               double minSpeed = 24,
               double kp_heading = 1.1, 
-              double ki_heading = 0.005,
+              double ki_heading = 0.0,
               double kd_heading = 0, 
               double accelHeadingScaling = 0.1,
-              double decelHeadingScaling = 1, 
+              double decelHeadingScaling = 0.2, 
               double approachHeadingScaling = 0.3,
               double maxSpeed = 100);
 
@@ -211,13 +240,13 @@ void turnRight(double absoluteTargetHeading,
                double breakDistance, 
                double minSpeed = 25,
                double maxSpeed = 100,   
-               double exitTolerance =16);
+               double exitTolerance =2);
 
 void turnLeft(double absoluteTargtHeading, 
               double breakDistance, 
               double minSpeed = 25, 
               double maxSpeed = 100,
-              double exitTolerance =16);
+              double exitTolerance =2);
               
 void pidlessForward(double timeMs, double speedPct);
 
@@ -244,6 +273,32 @@ void driveBackwardV2(double targetDistance,
              double kd_heading = 0, 
              double accelHeadingScaling = 0.1,
              double decelHeadingScaling = 1, 
+             double approachHeadingScaling = 0.3,
+             double maxSpeed = 100);
+
+void driveForwardV3(double targetDistance,
+             double breakDistance = 10, 
+             double targetHeading = 0,
+             double minSpeed = 24,
+             double distanceTolerance = 5,
+             double kp_heading = 1.1, 
+             double ki_heading = 0,
+             double kd_heading = 0, 
+             double accelHeadingScaling = 0.1,
+             double decelHeadingScaling = 0.1, 
+             double approachHeadingScaling = 0.3,
+             double maxSpeed = 100);
+
+void driveBackwardV3(double targetDistance,
+             double breakDistance = 10, 
+             double targetHeading = 0,
+             double minSpeed = 24,
+             double distanceTolerance = 5,
+             double kp_heading = 1.1, 
+             double ki_heading = 0,
+             double kd_heading = 0, 
+             double accelHeadingScaling = 0.1,
+             double decelHeadingScaling = 0.1, 
              double approachHeadingScaling = 0.3,
              double maxSpeed = 100);
 

@@ -4,14 +4,22 @@
 #include "vex.h"
 #include "robot_config.h"
 
-// Coordinate System Conversion Functions - ADDED
+// Math Helpers (Must be declared here to be visible to navigation.cpp)
 double modifiedToStandardCartesian(double modifiedAngle);
 double standardToModifiedCartesian(double standardAngle);
 double vexToStandardCartesian(double vexAngle);
-double standardCartesianToVex(double standardAngle);
 
-// Heading functions
-double getAdjustedRotation();  // KEPT - this is the main one used
+
+// ───────────────────────────────────────────────
+// Core heading access functions (all return Standard Cartesian)
+// Use getContinuousStandardHeading() for internal math, odometry, turns, PID
+// ───────────────────────────────────────────────
+double getContinuousStandardHeading();      // UNBOUNDED / continuous (preferred for most calculations)
+double getNormalizedStandardHeading();      // wrapped -180..+180 Standard Cartesian
+double getNormalizedModifiedHeading();      // wrapped -180..+180 Modified Cartesian (North=0) – UI/printing
+
+// The Core Rotation Function
+double getAdjustedRotation();
 
 // Motor/Speed detection
 bool isSlipping(double motorSpeed, double encoderSpeed);

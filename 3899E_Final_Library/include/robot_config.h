@@ -35,7 +35,8 @@ extern vex::optical opticalSensor;
 extern vex::bumper autonBumper;
 
 // Declare Global Variables
-extern double robotStartingHeading; // 
+extern double robotStartingHeading; //
+extern double robotStartingHeadingStandard; 
 extern double gyroReadingAtStart;   // The "Tare" value of the sensor
 extern double targetDriverSpeedLeft;
 extern double targetDriverSpeedRight;
