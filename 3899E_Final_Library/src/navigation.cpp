@@ -1,4 +1,4 @@
-#include "navigation.h"
+// #include "navigation.h"  // ← REMOVE OR COMMENT OUT
 #include "robot_config.h"
 #include "vex.h"
 #include "utils.h"
@@ -2075,6 +2075,12 @@ void moveOdometry(double targetX,
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════
     
+    // ═══════════════════════════════════════════════════════════════════
+    // COORDINATE CONVERSION: User's Modified → Standard Cartesian
+    // ═══════════════════════════════════════════════════════════════════
+    double targetX_standard = targetY;  // User's Y (East/West) → Standard X
+    double targetY_standard = targetX;  // User's X (North/South) → Standard Y
+
     // Initialize PID controller for heading correction
     PID headingPID(kp_heading, ki_heading, kd_heading);
     headingPID.pidReset();
@@ -2082,7 +2088,8 @@ void moveOdometry(double targetX,
     // Initial distance and heading calculation
     updateOdometry();
     double initialDistance, initialHeading;
-    calculatePathToTarget(globalX, globalY, targetX, targetY, initialDistance, initialHeading);
+    double distanceToTarget, targetHeading;
+    calculatePathToTarget(globalX, globalY, targetX_standard, targetY_standard, distanceToTarget, targetHeading);
     
     // Determine direction: +1 for forward, -1 for backward
     double dir = (initialDistance >= 0) ? 1.0 : -1.0;
@@ -2127,7 +2134,7 @@ void moveOdometry(double targetX,
         updateOdometry();
         
         double distanceToTarget, targetHeading;
-        calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
+        calculatePathToTarget(globalX, globalY, targetX_standard, targetY_standard, distanceToTarget, targetHeading);
         
         // Exit condition - close enough to target
         if (std::fabs(distanceToTarget) <= distanceTolerance) {

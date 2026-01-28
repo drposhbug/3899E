@@ -2,7 +2,6 @@
 #include <atomic> 
 #include "utils.h"
 #include "vex.h"
-#include "navigation.h"
 #include "odometry.h"
 #include "autontasks.h"
 #include <cmath>

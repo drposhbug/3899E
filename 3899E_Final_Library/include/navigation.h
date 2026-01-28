@@ -1,8 +1,8 @@
 #include "vex.h"  // Make sure this is included to use vex:: types
 #include "utils.h"  // Added: Defines Color enum
 
-#ifndef PID_TASKS_H // Include guard to prevent multiple inclusions
-#define PID_TASKS_H
+#ifndef NAVIGATION_H
+#define NAVIGATION_H
 
 void move(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward);
 void smartMove(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward, double wallStalledTimeMs = -1);
@@ -409,13 +409,13 @@ void visionDriveMinimal(
 void moveOdometry(double targetX,
                   double targetY, 
                   double breakDistance, 
-                  double minSpeed,
-                  double distanceTolerance,
-                  double kp_heading, 
-                  double ki_heading, 
-                  double kd_heading,
-                  vex::brakeType finalBrakeMode,
-                  double accelHeadingScaling, 
-                  double decelHeadingScaling,
-                  double approachHeadingScaling, 
-                  double maxSpeed);
+                  double minSpeed = 16, 
+                  double distanceTolerance = 2.0,
+                  double kp_heading = 0.4, 
+                  double ki_heading = 0.01, 
+                  double kd_heading = 0.05,
+                  vex::brakeType brakeMode = vex::brakeType::brake,
+                  double accelHeadingScaling = 0.2, 
+                  double decelHeadingScaling = 0.2,
+                  double approachHeadingScaling = 0.2, 
+                  double maxSpeed = 100);

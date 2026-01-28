@@ -2,7 +2,7 @@
 #include "vex.h"          
 #include "utils.h"        
 #include "robot_config.h" 
-#include "navigation.h"
+//#include "navigation.h"
 #include "odometry.h"
 #include "autontasks.h"
 #include <cmath> 
@@ -101,9 +101,10 @@ void autonTest(){
 void autonTest() {
     // Initialize sensor
     initializeOpticalSensor();
-    setStartPosition(0.0, 0.0, 0.0);
+    setStartPosition(40, 0.0, -90.0);
     startOdometryTask();
     startCoordinateFinder();
+    moveOdometry(40, 10, 20); 
     // Set starting position in Standard Cartesian
     // Starting at East (0° Standard)
     //robotStartingHeadingStandard = 0.0;
