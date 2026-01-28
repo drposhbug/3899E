@@ -699,8 +699,21 @@ void skillsAuton(){
     turnRight(-135,0,24,100,22);
     smartStop(5, 10, 300, false);
     smartStraight(47, 0, -180, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
-    driveBackwardV3(12,0,-180);
-    turnRight(0,0,25,100,86);
+    driveBackwardV3(13.5,0,-180);
+    turnRight(45,0,25,100,70);
+    wait(350, msec);
+    visionDriveMinimal(// not bad for first 3 center balls
+        AIVision20__blueCube, 
+        60,                    
+        0.0,                    
+        24.0, 75.0,             
+        brakeType::hold,       
+        .1, 0.0, 0.0, 
+        0.3,       
+        1.50, 0.0, 0.0        
+    );
+    matchLoadPneumatics.set(true);
+    driveForwardV3(50,20,45,24,5,0.5,0,0.1,10.1,0.3,50);
 }
 
 void soloAWP(){
