@@ -101,11 +101,13 @@ void autonTest(){
 void autonTest() {
     // Initialize sensor
     initializeOpticalSensor();
-    InertialSensor.setRotation(0, degrees);
-    setStartPosition(0.0, 0.0, 0);
+    setStartPosition(0.0, 0.0, 0.0);
+    startOdometryTask();
+    startCoordinateFinder();
     // Set starting position in Standard Cartesian
     // Starting at East (0° Standard)
     //robotStartingHeadingStandard = 0.0;
+    /*
     gyroReadingAtStart = InertialSensor.rotation(degrees);
     
     Brain.Screen.clearScreen();
@@ -113,7 +115,7 @@ void autonTest() {
     Brain.Screen.printAt(10, 40, "Starting: 0 deg Standard (East)");
     Brain.Screen.printAt(10, 60, "Target: 90 deg Standard (North)");
     Brain.Screen.printAt(10, 80, "Expected: 90 deg CCW turn");
-    
+    */
        
     // Test 1: Turn 90° CCW (from East to North)
     // Current: 0°, Target: 90°, Error: +90° (should turn CCW in Standard)
@@ -122,7 +124,7 @@ void autonTest() {
    // wait(2000, msec);
    
     
-    
+ /*   
     double finalHeading = getContinuousStandardHeading();
     Brain.Screen.printAt(10, 120, "Final heading: %.2f deg", finalHeading);
     Brain.Screen.printAt(10, 140, "Expected: ~90 deg");
@@ -133,35 +135,65 @@ double relativeVex = rawVex - gyroReadingAtStart;
 Brain.Screen.printAt(10, 160, "Raw: %.2f Relative: %.2f", rawVex, relativeVex);
 Brain.Screen.printAt(10, 180, "StartStd: %.2f GyroStart: %.2f", robotStartingHeadingStandard, gyroReadingAtStart);
 Brain.Screen.printAt(10, 200, "Final: %.2f", getContinuousStandardHeading());
+
+
+Brain.Screen.clearScreen();
+Brain.Screen.printAt(10, 20, "START: H=%.1f Pos=(%.1f,%.1f)", 
+                     getContinuousStandardHeading(), globalX, globalY);
+wait(2000, msec);
+*/
+// First straight
+//forwardToPoint(0, 30, 10, 15, 1, 0.25, 0, 0, 0.1, 0.1, 0.3, 15);
+
+/*
+Brain.Screen.printAt(10, 40, "AFTER FWD: H=%.1f Pos=(%.1f,%.1f)", 
+                     getContinuousStandardHeading(), globalX, globalY);
+wait(3000, msec);
+
+// Calculate what the turn SHOULD be
+double dx = -30 - globalX;
+double dy = 30 - globalY;
+double calcHeading = atan2(dy, dx) * 180.0 / M_PI;
+Brain.Screen.printAt(10, 60, "Target calc: %.1f (atan2)", calcHeading);
+Brain.Screen.printAt(10, 80, "Current: %.1f", getContinuousStandardHeading());
+wait(3000, msec);
+
+// NOW do the turn
+turnLeftToPoint(-30, 30, 10, 22, 22, 0.5);
+Brain.Screen.printAt(10, 100, "AFTER TURN: H=%.1f", getContinuousStandardHeading());
+Brain.Screen.printAt(10, 120, "Pos=(%.1f,%.1f)", globalX, globalY);
+
+*/
+
+
+
  //wait(2000, msec);    
 //straightOdometryV3(50, 20, 90);
    // wait(2000, msec);
     //straightOdometryV3(-50, 20, 90);
 
-        
-    double bD=10, minS=15, tol=1, kp=0.25, ki=0.0, kd=0, accS=0.1, decS=.1, appS=0.3, maxS=15;
+   /*     
+    double bD=10, minS=15, tol=1, kp=0.75, ki=0.0, kd=0, accS=0.1, decS=.1, appS=0.3, maxS=15;
     double tBrk=10, tMin=22, tMax=22;
 
     forwardToPoint(0, 30, bD, minS, tol, kp, ki, kd, accS, decS, appS, maxS);
-   
-    //wait(1000, msec);
+    wait(500, msec);
     turnLeftToPoint(-30, 30, tBrk, tMin, tMax, 0.5);
-    /*
     wait(500, msec);
     forwardToPoint(-30, 30, bD, minS, tol, kp, ki, kd, accS, decS, appS, maxS);
     wait(500, msec);
-    turnLeftToPoint(-30, 0, tBrk, tMin, tMax);
+    turnLeftToPoint(-30, 0, tBrk, tMin, tMax, 0.5);
     wait(500, msec);
     forwardToPoint(-30, 0, bD, minS, tol, kp, ki, kd, accS, decS, appS, maxS);
     wait(500, msec);
-    turnLeftToPoint(0, 0, tBrk, tMin, tMax);
+    turnLeftToPoint(0, 0, tBrk, tMin, tMax, 0.5);
     wait(500, msec);
     forwardToPoint(0, 0, bD, minS, tol, kp, ki, kd, accS, decS, appS, maxS);
     wait(500, msec);
-    turnLeftToPoint(0, 30, tBrk, tMin, tMax);
-    */
+    turnLeftToPoint(0, 30, tBrk, tMin, tMax, 0.5);
     
-
+    
+*/
 
     
     //driveForwardV3(30, 10, 0, 15, 1, 0.25, 0.0, 0, 0.1, 0.1, 0.3, 15);
@@ -225,9 +257,8 @@ Brain.Screen.printAt(10, 200, "Final: %.2f", getContinuousStandardHeading());
 
 void odomTest(){
     initializeOpticalSensor();
-    setStartPosition(0.0, 0.0, 0.0);
     startOdometryTask();
-    
+    setStartPosition(0.0, 0.0, -90.0);
     forwardToPoint(0, 70, 40);  
     turnRightToPoint(70, 0, 70);
     
@@ -655,15 +686,17 @@ void rightMiddleAuto(){
 }
 
 void soloAWP(){
-    initializeOpticalSensor();
-    setStartPosition(0.0, 0.0, -90.0);
-    
+    setStartPosition(0.0, 25, -90.0);
+    startOdometryTask();
+    startCoordinateFinder();
+    initializeOpticalSensor();    
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
     wingPneumatics.set(true);
 
-    driveForwardV3(36,0,-90);
+    forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
+    //driveForwardV3(36,0,-90);
     turnRight(-135,0,24,100,20);
     smartStop(5, 10, 300, false);
     smartStraight(47, 0, -180, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);

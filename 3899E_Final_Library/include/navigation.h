@@ -381,3 +381,41 @@ void visionDriveMinimal(
 
 
 #endif // PID_TASKS_H;
+
+// ======================================================================
+// CLOSED-LOOP ODOMETRY FUNCTION DECLARATIONS
+// Add these to your odometry.h or navigation.h header file
+// ======================================================================
+
+/**
+ * Closed-loop point-to-point movement function
+ * Continuously recalculates distance and heading to target during movement
+ * Combines V3 structure with original launch control and adaptive ABS
+ * 
+ * @param targetX              Target X position in cm
+ * @param targetY              Target Y position in cm
+ * @param breakDistance        Distance before target to begin deceleration (cm)
+ * @param minSpeed             Minimum speed during approach phase (0-100%)
+ * @param distanceTolerance    Distance tolerance to exit movement (cm)
+ * @param kp_heading           Proportional gain for heading correction
+ * @param ki_heading           Integral gain for heading correction
+ * @param kd_heading           Derivative gain for heading correction
+ * @param finalBrakeMode       Brake mode at final stop (brake/coast/hold)
+ * @param accelHeadingScaling  Heading correction scaling during acceleration
+ * @param decelHeadingScaling  Heading correction scaling during deceleration
+ * @param approachHeadingScaling Heading correction scaling during approach
+ * @param maxSpeed             Maximum speed (0-100%)
+ */
+void moveOdometry(double targetX,
+                  double targetY, 
+                  double breakDistance, 
+                  double minSpeed,
+                  double distanceTolerance,
+                  double kp_heading, 
+                  double ki_heading, 
+                  double kd_heading,
+                  vex::brakeType finalBrakeMode,
+                  double accelHeadingScaling, 
+                  double decelHeadingScaling,
+                  double approachHeadingScaling, 
+                  double maxSpeed);

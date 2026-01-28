@@ -465,3 +465,79 @@ int matchLoadIntakeTaskEntry(void*) {
 void matchLoadIntake(double timeMs, double power, bool matchload, double matchloadDelay){
 
 }
+
+
+// ======================================================================
+// COORDINATE FINDER TASK
+// Displays real-time position for path planning
+// ======================================================================
+
+// Global task control
+struct CoordinateFinderParams {
+    bool isRunning;
+};
+
+CoordinateFinderParams coordFinderParams = {false};
+
+/**
+ * Background task that continuously displays robot position
+ * Updates every 500ms and overrides all other screen output
+ * Use this to manually push robot around and record coordinates
+ */
+int coordinateFinderTask(void *params) {
+    CoordinateFinderParams *p = static_cast<CoordinateFinderParams *>(params);
+    
+    while (p->isRunning) {
+        // Update odometry
+        updateOdometry();
+        
+        // Clear screen and display position prominently
+        Brain.Screen.clearScreen();
+        Brain.Screen.setPenColor(vex::color::white);
+        
+        // Title
+        Brain.Screen.setFont(vex::fontType::mono20);
+        Brain.Screen.printAt(10, 30, "=== COORDINATE FINDER ===");
+        
+        // Position data (large font)
+        Brain.Screen.setFont(vex::fontType::mono40);
+        Brain.Screen.printAt(10, 80, "X: %.1f cm", globalY);
+        Brain.Screen.printAt(10, 130, "Y: %.1f cm", globalX);
+        
+        // Heading (medium font)
+        Brain.Screen.setFont(vex::fontType::mono30);
+        Brain.Screen.printAt(10, 180, "H: %.1f deg", getNormalizedModifiedHeading());
+        
+        // Instructions (small font)
+        Brain.Screen.setFont(vex::fontType::mono15);
+        Brain.Screen.setPenColor(vex::color::yellow);
+        Brain.Screen.printAt(10, 220, "Push robot to target position");
+        Brain.Screen.printAt(10, 240, "Record coordinates above");
+        
+        // Wait 500ms before next update
+        wait(500, msec);
+    }
+    
+    return 0;
+}
+
+/**
+ * Start the coordinate finder task
+ * Call this after setStartPosition() to begin tracking
+ */
+void startCoordinateFinder() {
+    if (!coordFinderParams.isRunning) {
+        coordFinderParams.isRunning = true;
+        task coordTask(coordinateFinderTask, &coordFinderParams);
+    }
+}
+
+/**
+ * Stop the coordinate finder task
+ * Call this to return control to normal screen output
+ */
+void stopCoordinateFinder() {
+    coordFinderParams.isRunning = false;
+    wait(600, msec);  // Wait for task to finish current cycle
+    Brain.Screen.clearScreen();
+}

@@ -23,16 +23,27 @@ double vexToStandardCartesian(double vexAngle) {
 // Use getContinuousStandardHeading() for internal math, odometry, turns, PID
 // ───────────────────────────────────────────────
 
-// Continuous, unbounded Standard Cartesian heading (preferred for most calculations)
+// =========================================================
+// GYRO SCALAR: Corrects physical sensor error
+// Formula: Target (3600) / Actual (3568) = ~1.009
+// If you spin 10 times and get a POSITIVE angle (e.g. 32), decrease this (< 1.0)
+// If you spin 10 times and get a NEGATIVE angle (e.g. -328), increase this (> 1.0)
+// =========================================================
+const double GYRO_SCALE = 1.009017; 
+
 double getContinuousStandardHeading() {
-    // Get total rotation from the sensor (VEX increases CW)
-    double rawVex = InertialSensor.rotation(degrees);
+    // 1. Get raw rotation from sensor
+    double currentSensorRotation = InertialSensor.rotation(degrees);
 
-    // Calculate rotation change since program start
-    double relativeVex = rawVex - gyroReadingAtStart;
+    // 2. Calculate the raw change since start
+    double unscaledDelta = currentSensorRotation - gyroReadingAtStart;
 
-    // Subtract change to convert VEX (CW+) to Standard Cartesian (CCW+)
-    return robotStartingHeadingStandard - relativeVex;
+    // 3. APPLY SCALAR to the Delta
+    // This fixes the rotation magnitude
+    double scaledDelta = unscaledDelta * GYRO_SCALE;
+
+    // 4. Return result (Standard Math: Start - Change)
+    return robotStartingHeadingStandard - scaledDelta;
 }
 
 // Normalized -180..+180 Standard Cartesian (shortest path friendly)

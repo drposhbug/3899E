@@ -33,8 +33,8 @@ RobotState currentState = STATIONARY;
 // ======================================================================
 void setStartPosition(double startX, double startY, double startHeading_Modified) {
     // 1. Set Global Coordinates
-    globalX = startX;
-    globalY = startY;
+    globalX = startY;  // User's Y (East/West) → Standard X
+    globalY = startX;  // User's X (North/South) → Standard Y
 
     // 2. Save Display Heading (The "North" heading for the screen)
     // FIX: Don't do math with uninitialized variables. Just save the input.
@@ -111,7 +111,7 @@ void updateOdometry() {
         
         // --- ARC CORRECTION ALGORITHM ---
         // Raw Strafe: How much the X-wheel spun
-        double lateralRaw = deltaX * cmPerDegree;
+        double lateralRaw = - (deltaX * cmPerDegree);
 
         // Correction: When the robot turns, the X-wheel traces an arc even if the robot
         // didn't slide sideways. We calculate this "ghost movement" and subtract it.

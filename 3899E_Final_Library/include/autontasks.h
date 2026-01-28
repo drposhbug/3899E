@@ -27,4 +27,8 @@ extern double g_targetDistance;
 extern double g_targetHeading;
 int headingDisplayTask(void *params);
 
+// Coordinate Finder - displays robot position for path planning
+void startCoordinateFinder();
+void stopCoordinateFinder();
+
 #endif // AUTONTASKS_H
