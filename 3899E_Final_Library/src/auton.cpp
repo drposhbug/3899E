@@ -686,9 +686,26 @@ void rightMiddleAuto(){
     */
 }
 
+void skillsAuton(){
+    setStartPosition(0.0, 0, -90.0);
+    //startOdometryTask();
+    startCoordinateFinder();
+    initializeOpticalSensor();    
+    ptoPneumatics.set(false);
+    backHoodPneumatics.set(false);
+    frontHoodPneumatics.set(false);
+    wingPneumatics.set(true);
+    driveForwardV3(35,0,-90);
+    turnRight(-135,0,24,100,22);
+    smartStop(5, 10, 300, false);
+    smartStraight(47, 0, -180, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
+    driveBackwardV3(12,0,-180);
+    turnRight(0,0,25,100,86);
+}
+
 void soloAWP(){
-    setStartPosition(0.0, 25, -90.0);
-    startOdometryTask();
+    setStartPosition(0.0, 0, -90.0);
+    //startOdometryTask();
     startCoordinateFinder();
     initializeOpticalSensor();    
     ptoPneumatics.set(false);
@@ -696,19 +713,32 @@ void soloAWP(){
     frontHoodPneumatics.set(false);
     wingPneumatics.set(true);
 
-    forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
-    //driveForwardV3(36,0,-90);
-    turnRight(-135,0,24,100,20);
+    //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
+    driveForwardV3(35,0,-90);
+    turnRight(-135,0,24,100,22);
     smartStop(5, 10, 300, false);
     smartStraight(47, 0, -180, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
     driveBackwardV3(12,0,-180);
     turnRight(0,0,25,100,86);
     smartStop(5, 10, 300, false);
     smartStraight(60, 0, 0, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
-    driveBackwardV3(12,0,0);
-    turnLeft(45,0,25,100,25);
+    driveBackwardV3(22,0,0);
+    turnLeft(-330,0,25,100,20);
+    wait(200, msec);
+    visionDriveMinimal(// not bad for first 3 center balls
+        AIVision20__blueCube, 
+        100,                    
+        0.0,                    
+        24.0, 75.0,             
+        brakeType::hold,       
+        .1, 0.0, 0.0, 
+        1.75,       
+        1.50, 0.0, 0.0        
+    );
+    //forwardToPoint(45, 0, 20, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
+    //driveForwardV3(100,50,42);
     //visionDrive(AIVision20__orangeGoal, 150, 0, 22, 40);
-    visionDriveMinimal(
+    /*visionDriveMinimal(
             AIVision20__orangeGoal, 
         130,                    
         0.0,                    

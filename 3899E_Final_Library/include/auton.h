@@ -21,6 +21,7 @@ void leftSideLong();
 void leftSidemiddle();
 void soloAWPMiddle();
 void visionSensorTest();
+void skillsAuton();
 
 
 #endif // AUTON_H
