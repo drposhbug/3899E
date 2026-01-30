@@ -138,6 +138,7 @@ void driverControl()
                 frontHoodPneumatics.set(true);     // Close front hood for intake
                 backHoodPneumatics.set(false);    // Open back hood for intake
                 ptoPneumatics.set(false);
+                indexPneumatics.set(true);
 
                 wasR1Pressed = true;               // Mark that we've handled the press
             }
@@ -174,6 +175,7 @@ void driverControl()
             {
                 frontHoodPneumatics.set(false);     // Close front hood
                 backHoodPneumatics.set(false);     // Close back hood
+                indexPneumatics.set(false);
                 wasR2Pressed = true;
             }
             
@@ -204,8 +206,8 @@ void driverControl()
                 wasRightPressed = true;
             }
             spinForInProgress = false;
-            intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(reverse, 8, vex::voltageUnits::volt);
+            intakeMotor2.spin(reverse, 8, vex::voltageUnits::volt);
         }
         else
         {
@@ -227,6 +229,7 @@ void driverControl()
                 frontHoodPneumatics.set(false);      // Open front hood
                 backHoodPneumatics.set(true);      // Open back hood
                 ptoPneumatics.set(true);
+                indexPneumatics.set(false);
                 wasL1Pressed = true;
             }
             

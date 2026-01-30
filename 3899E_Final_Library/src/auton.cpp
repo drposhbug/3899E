@@ -467,12 +467,12 @@ void SpeedwayAutonLeft(){
     wait(200, msec);
     matchLoadPneumatics.set(true);
     //forwardMP(27,19,180,20);
-    rightMotor[0].spin(forward,12,vex::voltageUnits::volt);
-    rightMotor[1].spin(forward,12,vex::voltageUnits::volt);
-    rightMotor[2].spin(forward,12,vex::voltageUnits::volt);
-    leftMotor[0].spin(forward,12,vex::voltageUnits::volt);
-    leftMotor[1].spin(forward,12,vex::voltageUnits::volt);
-    leftMotor[2].spin(forward,12,vex::voltageUnits::volt);
+    //rightMotor[0].spin(forward,12,vex::voltageUnits::volt);
+    //rightMotor[1].spin(forward,12,vex::voltageUnits::volt);
+    //rightMotor[2].spin(forward,12,vex::voltageUnits::volt);
+    //leftMotor[0].spin(forward,12,vex::voltageUnits::volt);
+    //leftMotor[1].spin(forward,12,vex::voltageUnits::volt);
+    //leftMotor[2].spin(forward,12,vex::voltageUnits::volt);
     wait(800, msec);
     rightMotor[0].stop();
     rightMotor[1].stop();
@@ -789,58 +789,20 @@ void skillsAuton(){
 }
 
 void soloAWP(){
-    setStartPosition(0.0, 0, -90.0);
+    //setStartPosition(0.0, 0, -90.0);
     //startOdometryTask();
     //startCoordinateFinder();
-    initializeOpticalSensor();    
+    InertialSensor.setRotation(0, degrees);
+    robotStartingHeading = -90;
+    initializeOpticalSensor();
+        
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
     wingPneumatics.set(true);
-
-    //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
-    matchLoadPneumatics.set(true);
-    wait(200, msec);
-    driveForwardV3(36,0,-90);
-    turnRight(-135,0,24,100,22);
-    smartStop(5, 10, 300, false);
-    smartStraight(47, 0, -180, 15, 220, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
-    intakeStart (600, 100, true);
-    wait(600, msec);
-    driveBackwardV3(12,0,-180);
-    turnRight(0,0,25,100,84);
-    smartStop(5, 10, 300, false);
-    smartStraight(60, 0, 0, 15, 150, 0, 0, 0.05, 0.2, 0.2, 0.2, 35);
-    score(3000, 100);
-    driveBackwardV3(22,0,0);
-    turnLeft(-330,0,25,100,20);
-    wait(200, msec);
-    visionDriveMinimal(// not bad for first 3 center balls
-        AIVision20__blueCube, 
-        100,                    
-        0.0,                    
-        24.0, 75.0,             
-        brakeType::hold,       
-        .1, 0.0, 0.0, 
-        1.75,       
-        1.50, 0.0, 0.0        
-    );
-    //forwardToPoint(45, 0, 20, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
-    //driveForwardV3(100,50,42);
-    //visionDrive(AIVision20__orangeGoal, 150, 0, 22, 40);
-    /*visionDriveMinimal(
-            AIVision20__orangeGoal, 
-        130,                    
-        0.0,                    
-        24.0, 60.0,             
-        brakeType::coast,       
-        0.6, 0.0, 0.0, 
-        10,       
-        1.50, 0.0, 0.0);   
-    //driveForward(30,0,-360);
     
 
-    /*intakeStart(1000, 100, false);
+    intakeStart(1000, 100, false);
     matchloadStart(5500,100,1050,true);
     driveForward(85, 60, -16, 30);
     wait(250, msec);
@@ -1013,3 +975,61 @@ void odomTest(){
 }
 
 */
+
+void nothing(){
+    initializeOpticalSensor();
+    InertialSensor.setRotation(0, degrees);
+    robotStartingHeading = 0;
+
+    driveForward(15, 9, 0, 15, 0.615, 0, 0, 0.1, 0.05, 0.05, 50);
+}
+
+void soloAwp2(){
+    setStartPosition(0.0, 0, -90.0);
+    //startOdometryTask();
+    //startCoordinateFinder();
+    //InertialSensor.setRotation(0, degrees);
+    //robotStartingHeading = -90;
+    initializeOpticalSensor();
+
+    //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
+    matchLoadPneumatics.set(true);
+    wait(200, msec);
+    driveForwardV3(36,0,-90);
+    turnRight(-135,0,24,100,22);
+    smartStop(5, 10, 300, false);
+    smartStraight(47, 0, -180, 15, 220, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
+    intakeStart (600, 100, true);
+    wait(600, msec);
+    driveBackwardV3(12,0,-180);
+    turnRight(0,0,25,100,84);
+    smartStop(5, 10, 300, false);
+    smartStraight(60, 0, 0, 15, 150, 0, 0, 0.05, 0.2, 0.2, 0.2, 35);
+    score(3000, 100);
+    driveBackwardV3(22,0,0);
+    turnLeft(-330,0,25,100,20);
+    wait(200, msec);
+    visionDriveMinimal(// not bad for first 3 center balls
+        AIVision20__blueCube, 
+        100,                    
+        0.0,                    
+        24.0, 75.0,             
+        brakeType::hold,       
+        .1, 0.0, 0.0, 
+        1.75,       
+        1.50, 0.0, 0.0        
+    );
+    //forwardToPoint(45, 0, 20, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
+    //driveForwardV3(100,50,42);
+    //visionDrive(AIVision20__orangeGoal, 150, 0, 22, 40);
+    /*visionDriveMinimal(
+            AIVision20__orangeGoal, 
+        130,                    
+        0.0,                    
+        24.0, 60.0,             
+        brakeType::coast,       
+        0.6, 0.0, 0.0, 
+        10,       
+        1.50, 0.0, 0.0);   
+    //driveForward(30,0,-360);*/
+}

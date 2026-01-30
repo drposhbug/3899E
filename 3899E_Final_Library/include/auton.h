@@ -23,5 +23,8 @@ void soloAWPMiddle();
 void visionSensorTest();
 void skillsAuton();
 void CoordinateFinderTask();
+void nothing();
+void soloAwp2();
+
 
 #endif // AUTON_H
