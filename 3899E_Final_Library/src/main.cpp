@@ -23,7 +23,8 @@ void runAuton(void) {
   
   // Start heading display task
   //visionSensorTest(); 
-  //autonTest();    
+  //autonTest();  
+  //CoordinateFinderTask();  
   //autonLeft(); 
   //autonRight();
   //autonFwdRight();
@@ -31,8 +32,8 @@ void runAuton(void) {
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  //soloAWP();
-  skillsAuton();
+  soloAWP();
+  //skillsAuton();
   //soloAWPMiddle();
  //leftSideLong();
     //leftSidemiddle();

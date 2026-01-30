@@ -200,6 +200,7 @@ void driverControl()
                 frontHoodPneumatics.set(false);     // Close front hood for outtake
                 backHoodPneumatics.set(false);      // Close back hood for outtake
                 ptoPneumatics.set(false);
+                indexPneumatics.set(true);
                 wasRightPressed = true;
             }
             spinForInProgress = false;
@@ -212,6 +213,7 @@ void driverControl()
             {
                 intakeMotor1.stop();
                 intakeMotor2.stop();
+                indexPneumatics.set(false);
                 wasRightPressed = false;
             }
         }

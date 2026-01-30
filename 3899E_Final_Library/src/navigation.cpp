@@ -2047,6 +2047,203 @@ void visionDriveMinimal(
     }
 }
 
+void visionDriveV2(
+    vex::aivision::colordesc targetSignature,
+    vex::aivision::tagdesc* aiObjectSignature,
+    int targetPixelWidth,
+    double targetHeading,
+    double minSpeedPct,
+    double maxSpeedPct,
+    double timeoutDistanceCM,
+    double kp_head, double ki_head, double kd_head,
+    double kp_distToHeadScaling,
+    double kp_dist, double ki_dist, double kd_dist,
+    int minX, int maxX,
+    int minY, int maxY,
+    vex::brakeType brakeMode,
+    int minObjectWidth
+) {
+    // ========================================
+    // INITIALIZATION
+    // ========================================
+    
+    // Maximum steering correction as percentage (0-100)
+    double maxSteeringPct = 25.0;  // SET THIS VALUE HERE
+    
+    // Maximum number of objects to check for filtering
+    const int MAX_OBJECTS_TO_CHECK = 3;
+    
+    // Create PID controllers for heading (centering) and distance (forward movement)
+    PID headingPID(kp_head, ki_head, kd_head);  // Controls left/right turn to center object
+    PID distancePID(kp_dist, ki_dist, kd_dist);  // Controls forward speed based on object size
+    
+    // Reset PID accumulators to start fresh
+    headingPID.pidReset();
+    distancePID.pidReset();
+    
+    // Convert steering cap to voltage
+    double maxSteeringVoltage = maxSteeringPct * 0.12;
+    
+    // SNAP TARGET HEADING TO NEAREST CONTINUOUS EQUIVALENT
+    // Only matters in fallback mode, but adds safety/consistency
+    double currentHeadingInitial = getContinuousStandardHeading();
+    double rotationsDiff = std::round((currentHeadingInitial - targetHeading) / 360.0);
+    targetHeading += rotationsDiff * 360.0;
+
+    // ========================================
+    // FALLBACK TRACKING VARIABLES
+    // ========================================
+    
+    // Track last known good values
+    bool hasDetectedBefore = false;
+    double lastPixelOffsetFromCenter = 0.0;
+    int lastDetectedWidth = 0;
+
+    // ========================================
+    // MAIN VISION TRACKING LOOP
+    // ========================================
+    
+    while (true) {
+        // Capture a frame and detect objects matching the target signature
+        AIVision20.takeSnapshot(targetSignature);
+        
+        // ========================================
+        // FILTER AND SELECT BEST OBJECT
+        // ========================================
+        
+        int bestObjectIndex = -1;  // -1 means no valid object found
+        int largestWidth = 0;
+        
+        // Check up to MAX_OBJECTS_TO_CHECK objects
+        int objectsToCheck = std::min((int)AIVision20.objectCount, MAX_OBJECTS_TO_CHECK);
+        
+        for (int i = 0; i < objectsToCheck; i++) {
+            auto& obj = AIVision20.objects[i];
+            
+            // Calculate bottom edge Y coordinate
+            int bottomY = obj.centerY + (obj.height / 2);
+            
+            // Apply filters:
+            // 1. Minimum width check
+            if (obj.width < minObjectWidth) {
+                continue;  // Skip this object
+            }
+            
+            // 2. Bounding box check (bottom Y and center X)
+            if (bottomY < minY || bottomY > maxY) {
+                continue;  // Bottom Y out of bounds
+            }
+            if (obj.centerX < minX || obj.centerX > maxX) {
+                continue;  // Center X out of bounds
+            }
+            
+            // Object passed filters - check if it's the largest so far
+            if (obj.width > largestWidth) {
+                largestWidth = obj.width;
+                bestObjectIndex = i;
+            }
+        }
+        
+        // Declare variables that will be used regardless of detection
+        double pixelOffsetFromCenter;
+        int currentWidth;
+        
+        // ========================================
+        // VISION DETECTION OR FALLBACK
+        // ========================================
+        
+        if (bestObjectIndex == -1) {
+            // No valid object detected after filtering
+            if (!hasDetectedBefore) {
+                // First iteration and no detection - can't continue
+                break;
+            }
+            // Use last known values (fallback mode)
+            pixelOffsetFromCenter = lastPixelOffsetFromCenter;
+            currentWidth = lastDetectedWidth;
+        } else {
+            // Valid object detected - use current values
+            auto& detectedObject = AIVision20.objects[bestObjectIndex];
+            
+            pixelOffsetFromCenter = detectedObject.centerX - VISION_CENTER_X;
+            currentWidth = detectedObject.width;
+            
+            // Update last known values
+            lastPixelOffsetFromCenter = pixelOffsetFromCenter;
+            lastDetectedWidth = detectedObject.width;
+            hasDetectedBefore = true;
+            
+            // ========================================
+            // EXIT CONDITION CHECK (only when we have detection)
+            // ========================================
+            
+            if (detectedObject.width >= targetPixelWidth) {
+                break;
+            }
+        }
+        
+        // ========================================
+        // CALCULATE DISTANCE-BASED HEADING SCALING
+        // ========================================
+        
+        // Calculate how far we are from the target distance (in pixels)
+        double distanceErrorPixels = (double)targetPixelWidth - (double)currentWidth;
+        
+        // P-only scaling factor based on distance error
+        double headingScalingFactor = 1.0 + (kp_distToHeadScaling * distanceErrorPixels);
+        
+        // Clamp scaling factor to prevent negative or excessive values
+        headingScalingFactor = std::max(0.1, std::min(3.0, headingScalingFactor));
+        
+        // ========================================
+        // CALCULATE STEERING CORRECTION
+        // ========================================
+        
+        // Base heading correction from PID
+        double baseHeadingCorrectionVoltage = headingPID.calculate(0.0, pixelOffsetFromCenter) * 0.12;
+        
+        // Apply distance-based scaling to heading correction
+        double steeringCorrectionVoltage = baseHeadingCorrectionVoltage * headingScalingFactor;
+        
+        // Clamp steering to maximum allowed value
+        steeringCorrectionVoltage = std::max(-maxSteeringVoltage, std::min(maxSteeringVoltage, steeringCorrectionVoltage));
+        
+        // ========================================
+        // CALCULATE FORWARD DRIVE SPEED
+        // ========================================
+        
+        // PID outputs base drive voltage (larger error = faster approach)
+        double baseDriveVoltage = distancePID.calculate((double)targetPixelWidth, (double)currentWidth) * 0.12;
+        
+        // Clamp drive voltage between min and max speeds (converted to voltage)
+        double minDriveVoltage = minSpeedPct * 0.12;
+        double maxDriveVoltage = maxSpeedPct * 0.12;
+        double clampedDriveVoltage = std::max(minDriveVoltage, std::min(maxDriveVoltage, baseDriveVoltage));
+        
+        // ========================================
+        // APPLY MOTOR COMMANDS
+        // ========================================
+        
+        // Apply differential drive: base speed ± steering correction
+        for (int i = 0; i < 3; i++) {
+            leftMotor[i].spin(forward, clampedDriveVoltage - steeringCorrectionVoltage, volt);
+            rightMotor[i].spin(forward, clampedDriveVoltage + steeringCorrectionVoltage, volt);
+        }
+        
+        // Wait 20ms before next iteration (50Hz update rate)
+        vex::task::sleep(20);
+    }
+    
+    // ========================================
+    // CLEANUP - STOP ALL MOTORS
+    // ========================================
+    
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].stop(brakeMode);
+        rightMotor[i].stop(brakeMode);
+    }
+}
+
 void moveOdometry(double targetX,
                   double targetY, 
                   double breakDistance, 
@@ -2062,7 +2259,7 @@ void moveOdometry(double targetX,
                   double maxSpeed) 
 {
     // ========================================
-    // CONFIGURATION CONSTANTS (from original)
+    // CONFIGURATION CONSTANTS
     // ========================================
     const double LAUNCH_VOLTAGE = 12;
     const double ACCEL_FACTOR_LAUNCH = 1.25;
@@ -2071,125 +2268,171 @@ void moveOdometry(double targetX,
     const double LOCK_THRESHOLD_DECEL = 0.25;
     const int REQUIRED_CONSECUTIVE = 3;
     
+    // Safety Constants
+    const double HEADING_LOCK_DISTANCE = 20.0; // Freeze heading when closer than 20cm
+    const int OVERSHOOT_FRAMES = 5;            // Stop if distance increases for 5 loops (50ms)
+    
     // ═══════════════════════════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════
     
-    // ═══════════════════════════════════════════════════════════════════
-    // COORDINATE CONVERSION: User's Modified → Standard Cartesian
-    // ═══════════════════════════════════════════════════════════════════
+    // Coordinate Conversion: User's Modified → Standard Cartesian
     double targetX_standard = targetY;  // User's Y (East/West) → Standard X
     double targetY_standard = targetX;  // User's X (North/South) → Standard Y
 
-    // Initialize PID controller for heading correction
+    // Initialize PID controller
     PID headingPID(kp_heading, ki_heading, kd_heading);
     headingPID.pidReset();
     
-    // Initial distance and heading calculation
+    // Initial State Calculation
     updateOdometry();
-    double initialDistance, initialHeading;
     double distanceToTarget, targetHeading;
     calculatePathToTarget(globalX, globalY, targetX_standard, targetY_standard, distanceToTarget, targetHeading);
     
-    // Determine direction: +1 for forward, -1 for backward
-    double dir = (initialDistance >= 0) ? 1.0 : -1.0;
+    // Snapshot initial distance for progress tracking
+    double initialDistanceToTarget = distanceToTarget;
+    
+    // Determine direction (+1 Forward, -1 Backward) based on simple logic:
+    // This assumes forward movement. If you need reverse, pass a negative maxSpeed
+    // or add a specific parameter. Here we assume standard forward behavior.
+    double dir = 1.0; 
     
     // Convert speed percentages to voltages
     double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, dir);
     double minSpeedVoltage = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, dir);
     double launchVoltage = std::copysign(LAUNCH_VOLTAGE, dir);
     double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), dir);
-    
+        
     // Motor voltage arrays
     double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
     double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
     
-    // Motion phase tracking
+    // State Tracking
     bool decel = false;
     bool decelCompleted = false;
     bool accelCompleted = false;
     int consecutiveAtTarget = 0;
     
-    // RPM tracking
+    // Heading Lock State
+    bool headingLocked = false;
+    double lockedHeading = targetHeading;
+
+    // Overshoot State
+    double prevDistanceToTarget = distanceToTarget + 5.0; // Init higher to prevent false trigger on frame 1
+    int risingDistanceCounter = 0;
+
+    // Timeout Safety
+    vex::timer safetyTimer;
+    safetyTimer.reset();
+    // Allow 2 seconds + (distance / speed approx)
+    // Conservatively: 20cm/sec minimum avg speed
+    double timeoutMs = 2000.0 + (initialDistanceToTarget / 20.0 * 1000.0);
+
+    // RPM / Traction setup
     double minDriveMotorRPM = (minSpeed * 0.01) * absoluteMaxRPM;
     double maxEncoderRPM = 0;
     double leftEncoderRollingAverage = 0;
     double rightEncoderRollingAverage = 0;
     
-    // Create traction control and ABS instances (from original)
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
     // ═══════════════════════════════════════════════════════════════════
-    // MAIN CLOSED-LOOP CONTROL
-    // Continuously recalculates distance and heading to target
+    // MAIN CONTROL LOOP
     // ═══════════════════════════════════════════════════════════════════
     while (true) 
     {
-        // ───────────────────────────────────────────────────────────────
-        // UPDATE ODOMETRY AND RECALCULATE PATH TO TARGET
-        // ───────────────────────────────────────────────────────────────
+        // 1. UPDATE STATE
         updateOdometry();
-        
-        double distanceToTarget, targetHeading;
         calculatePathToTarget(globalX, globalY, targetX_standard, targetY_standard, distanceToTarget, targetHeading);
-        
-        // Exit condition - close enough to target
-        if (std::fabs(distanceToTarget) <= distanceTolerance) {
+
+        // 2. TIMEOUT CHECK
+        if (safetyTimer.time(vex::msec) > timeoutMs) {
+            Brain.Screen.printAt(1, 100, "MOVE TIMEOUT");
+            break; 
+        }
+
+        // 3. OVERSHOOT CHECK (The Anti-Violence Safety)
+        // If we are getting further away, we missed. STOP.
+        // We require consecutive frames to filter sensor noise.
+        // We also ignore this check during the very first phase of movement (first 10% or 5cm)
+        // to prevent false triggers if the robot slips backward at start.
+        if (distanceToTarget > prevDistanceToTarget) {
+            risingDistanceCounter++;
+        } else {
+            risingDistanceCounter = 0;
+        }
+        prevDistanceToTarget = distanceToTarget;
+
+        if (risingDistanceCounter > OVERSHOOT_FRAMES) {
+            // Only trigger if we have left the starting zone (e.g., traveled > 5cm)
+            if ((initialDistanceToTarget - distanceToTarget) > 5.0) {
+                 // Brain.Screen.printAt(1, 120, "OVERSHOOT STOP");
+                 break; 
+            }
+        }
+
+        // 4. STANDARD EXIT (Success)
+        if (distanceToTarget <= distanceTolerance) {
             break;
+        }
+
+        // 5. HEADING LOCK (Singularity Prevention)
+        if (distanceToTarget > HEADING_LOCK_DISTANCE) {
+            // Far away: Track the target normally
+            lockedHeading = targetHeading;
+            headingLocked = false;
+        } else {
+            // Close: Freeze heading to prevent 90-degree whip
+            if (!headingLocked) {
+                headingLocked = true;
+                // Optional: Force lock to current heading if you want purely straight finish
+                // lockedHeading = getContinuousStandardHeading(); 
+            }
+            targetHeading = lockedHeading;
         }
         
         // ───────────────────────────────────────────────────────────────
-        // HEADING WRAP-AROUND PROTECTION (from V3)
+        // HEADING WRAP & PID
         // ───────────────────────────────────────────────────────────────
         double currentHeading = getContinuousStandardHeading();
         double rotationsDiff = std::round((currentHeading - targetHeading) / 360.0);
         targetHeading += rotationsDiff * 360.0;
         
-        // Calculate heading correction
         double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
         
         // ───────────────────────────────────────────────────────────────
-        // GET MOTOR AND ENCODER SPEEDS
+        // MOTOR & ENCODER DATA
         // ───────────────────────────────────────────────────────────────
         double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
         double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * 
-                                (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * 
-                                 (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2.0;
 
         // ───────────────────────────────────────────────────────────────
-        // PHASE 1: LAUNCH / ACCELERATION (from original)
+        // PHASE 1: LAUNCH
         // ───────────────────────────────────────────────────────────────
-        if (std::fabs(distanceToTarget) > breakDistance && !accelCompleted && !decel) 
+        if (distanceToTarget > breakDistance && !accelCompleted && !decel) 
         {
-            // Traction control from original
             double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(
                 motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
             double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
                 motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
             
-            // Synchronized control - use lower magnitude for both sides
             double syncedMotorVoltage = (std::fabs(leftTractionVoltage) < std::fabs(rightTractionVoltage)) 
-                ? leftTractionVoltage 
-                : rightTractionVoltage;
+                ? leftTractionVoltage : rightTractionVoltage;
             
-            // Apply to all motors with heading correction
-            for (int i = 0; i < 3; i++) 
-            {
+            for (int i = 0; i < 3; i++) {
                 motorVoltageLeft[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
                 motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
             }
             
             maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
             
-            // Check if acceleration complete
-            double avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + 
-                                     motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2]) / 6.0;
+            double avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageRight[0]) / 2.0; // Simplified check
             if (fabs(avgMotorVoltage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE)) {
                 accelCompleted = true;
             }
@@ -2198,111 +2441,80 @@ void moveOdometry(double targetX,
         // ───────────────────────────────────────────────────────────────
         // PHASE 2: CRUISE
         // ───────────────────────────────────────────────────────────────
-        else if (std::fabs(distanceToTarget) > breakDistance && accelCompleted) 
+        else if (distanceToTarget > breakDistance && accelCompleted) 
         {
-            for (int i = 0; i < 3; i++) 
-            {
+            for (int i = 0; i < 3; i++) {
                 motorVoltageLeft[i] = maxSpeedVoltage + headingCorrection;
                 motorVoltageRight[i] = maxSpeedVoltage - headingCorrection;
             }
         }
         
         // ───────────────────────────────────────────────────────────────
-        // PHASE 3: DECELERATION WITH ADAPTIVE ABS (from original)
+        // PHASE 3: DECELERATION (ABS)
         // ───────────────────────────────────────────────────────────────
-        else if (std::fabs(distanceToTarget) <= breakDistance && !decelCompleted) 
+        else if (distanceToTarget <= breakDistance && !decelCompleted) 
         {
-            // First entry - initialize ABS
             if (!decel) {
                 adaptiveABSLeft.initialize(motorVoltageLeft[1]);
                 adaptiveABSRight.initialize(motorVoltageRight[1]);
                 decel = true;
             }
             
-            // Calculate brake voltages using adaptive ABS
             double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
             double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
             
-            // Get brake modes from ABS
             vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
             vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
             
-            // SYNC brake mode: if EITHER side is locking up, BOTH coast
             vex::brakeType syncedBrakeMode = (leftBrakeMode == vex::coast || rightBrakeMode == vex::coast) 
-                ? vex::coast 
-                : vex::brake;
+                ? vex::coast : vex::brake;
             
-            // SYNC voltage: use minimum magnitude for both sides
             double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
-                ? leftDecelVoltage
-                : rightDecelVoltage;
+                ? leftDecelVoltage : rightDecelVoltage;
             
-            // Calculate steering correction scaled for decel phase
             double steeringCorrection = headingCorrection * decelHeadingScaling;
             
-            // Apply synced voltage with heading correction
             for (int i = 0; i < 3; i++) 
             {
-                if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0) 
-                {
+                if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0) {
                     double correctedLeft = syncedDecelVoltage + steeringCorrection;
                     double correctedRight = syncedDecelVoltage - steeringCorrection;
                     
-                    // Clamp toward zero - don't let steering reverse motor direction
-                    if (syncedDecelVoltage > 0) {
-                        motorVoltageLeft[i] = std::max(0.0, correctedLeft);
-                        motorVoltageRight[i] = std::max(0.0, correctedRight);
-                    } else {
-                        motorVoltageLeft[i] = std::min(0.0, correctedLeft);
-                        motorVoltageRight[i] = std::min(0.0, correctedRight);
-                    }
-                } 
-                else 
-                {
+                    motorVoltageLeft[i] = (syncedDecelVoltage > 0) ? std::max(0.0, correctedLeft) : std::min(0.0, correctedLeft);
+                    motorVoltageRight[i] = (syncedDecelVoltage > 0) ? std::max(0.0, correctedRight) : std::min(0.0, correctedRight);
+                } else {
                     motorVoltageLeft[i] = 0.0;
                     motorVoltageRight[i] = 0.0;
                 }
-                
                 leftMotor[i].setBrake(syncedBrakeMode);
                 rightMotor[i].setBrake(syncedBrakeMode);
             }
             
-            // Update rolling averages for exit detection
             leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
             
-            // Exit when BOTH sides slowed to minimum speed
             if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
-                fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM)) 
-            {
+                fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM)) {
                 consecutiveAtTarget++;
-                if (consecutiveAtTarget >= REQUIRED_CONSECUTIVE) {
-                    decelCompleted = true;
-                }
-            } 
-            else 
-            {
+                if (consecutiveAtTarget >= REQUIRED_CONSECUTIVE) decelCompleted = true;
+            } else {
                 consecutiveAtTarget = 0;
             }
         }
         
         // ───────────────────────────────────────────────────────────────
-        // PHASE 4: APPROACH / FINAL SETTLING
+        // PHASE 4: APPROACH
         // ───────────────────────────────────────────────────────────────
         else if (decelCompleted) 
         {
-            for (int i = 0; i < 3; i++) 
-            {
+            for (int i = 0; i < 3; i++) {
                 motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
                 motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
             }
         }
 
-        // ───────────────────────────────────────────────────────────────
-        // APPLY VOLTAGES TO MOTORS
-        // ───────────────────────────────────────────────────────────────
-        for (int i = 0; i < 3; i++) 
-        {
+        // Apply Voltages
+        for (int i = 0; i < 3; i++) {
             leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
             rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
         }
@@ -2311,10 +2523,9 @@ void moveOdometry(double targetX,
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // MOVEMENT COMPLETE - STOP ALL MOTORS
+    // STOP
     // ═══════════════════════════════════════════════════════════════════
-    for (int i = 0; i < 3; i++) 
-    {
+    for (int i = 0; i < 3; i++) {
         leftMotor[i].stop(brakeMode);
         rightMotor[i].stop(brakeMode);
     }

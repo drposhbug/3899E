@@ -406,6 +406,31 @@ void visionDriveMinimal(
  * @param approachHeadingScaling Heading correction scaling during approach
  * @param maxSpeed             Maximum speed (0-100%)
  */
+
+
+void visionDriveV2(
+    vex::aivision::colordesc targetSignature,
+    vex::aivision::tagdesc* aiObjectSignature = nullptr,
+    int targetPixelWidth = 60,
+    double targetHeading = 0.0,
+    double minSpeedPct = 24.0,
+    double maxSpeedPct = 75.0,
+    double timeoutDistanceCM = 100.0,
+    double kp_head = 0.1,
+    double ki_head = 0.0,
+    double kd_head = 0.0,
+    double kp_distToHeadScaling = 0.3,
+    double kp_dist = 1.50,
+    double ki_dist = 0.0,
+    double kd_dist = 0.0,
+    int minX = 0,
+    int maxX = 320,
+    int minY = 0,
+    int maxY = 240,
+    vex::brakeType brakeMode = vex::brakeType::coast,
+    int minObjectWidth = 10
+);
+
 void moveOdometry(double targetX,
                   double targetY, 
                   double breakDistance, 

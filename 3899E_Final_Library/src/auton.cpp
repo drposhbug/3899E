@@ -98,13 +98,33 @@ void autonTest(){
 }
 */
 
+void CoordinateFinderTask(){
+    setStartPosition(0, 0.0, -90);
+    while(true){
+        startCoordinateFinder();
+        vex::task::sleep(500);
+    }
+}
+
+
 void autonTest() {
     // Initialize sensor
-    initializeOpticalSensor();
-    setStartPosition(40, 0.0, -90.0);
-    startOdometryTask();
+    //initializeOpticalSensor();
+    setStartPosition(0, 0.0, -90);
+    //startOdometryTask();
+ 
+    moveOdometry(41, 82, 10, 20, 2, 2.0, 0.0, 0.0, brakeType::brake, 1.0, 1.0, 1.0, 100);
+    //moveOdometry(-18, 87.9, 10, 20, 2, 2, 0.0, 0.0, brakeType::brake, 0.05, 0.05, 0.05, 100); 
+
+
+
+
+
+
+
+      
+    //forwardToPoint(0, -75, 20, 16, 2.0, 2, 0.0, 0.0, 0.1, 0.1, 0.1, 60); 
     startCoordinateFinder();
-    moveOdometry(40, 10, 20); 
     // Set starting position in Standard Cartesian
     // Starting at East (0° Standard)
     //robotStartingHeadingStandard = 0.0;
@@ -251,8 +271,7 @@ Brain.Screen.printAt(10, 120, "Pos=(%.1f,%.1f)", globalX, globalY);
     robotStartingHeading = 0;
     setStartPosition(0.0, 0.0, 0.0);
     startOdometryTask();
-    forwardToPoint(200, 0, 20);
-
+    forwardToPoint(200, 0, 
 }*/
 
 
@@ -695,31 +714,84 @@ void skillsAuton(){
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
     wingPneumatics.set(true);
+
+    /*
+    //Intake from match load
     driveForwardV3(35,0,-90);
     turnRight(-135,0,24,100,22);
     smartStop(5, 10, 300, false);
     smartStraight(47, 0, -180, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
+    
+
+    //Bottom Middle Right 4 Cubes
+    //setStartPosition(0.0, 0, -180.0); //******TEMP COMMENT OUT********
     driveBackwardV3(13.5,0,-180);
     turnRight(45,0,25,100,70);
     wait(350, msec);
-    visionDriveMinimal(// not bad for first 3 center balls
-        AIVision20__blueCube, 
+
+    visionDriveV2(
+        AIVision20__redCube,           // Custom color signature
+        &AIVision20__redBlock,         // AI object fallback
+        60,                            // Target pixel width
+        45,                           // Target heading
+        24.0, 75.0,                    // Min and max speed
+        100.0,                         // Timeout distance (cm)
+        0.1, 0.0, 0.0,                 // Heading PID (kp, ki, kd)
+        0.3,                           // Distance-to-heading scaling
+        1.5, 0.0, 0.0,                // Distance PID (kp, ki, kd)
+        0, 320,                     // Bounding box X (minX, maxX)
+        0, 240,                     // Bounding box Y (minY, maxY)
+        vex::brakeType::hold,          // Brake mode
+        10                             // Min object width
+    );   
+       
+    matchLoadPneumatics.set(true);
+    driveForwardV3(50,20,45,24,5,0.5,0,0.1,10.1,0.3,50);
+    */
+    
+
+    //Top Middle Right 4 Cubes
+    setStartPosition(0.0, 0, 45); //******TEMP COMMENT OUT********/
+    turnRight(-45,0,25,100,70);
+
+        visionDriveV2(
+        AIVision20__blueCube,           // Custom color signature
+        &AIVision20__blueBlock,         // AI object fallback
+        60,                            // Target pixel width
+        45,                           // Target heading
+        24.0, 75.0,                    // Min and max speed
+        100.0,                         // Timeout distance (cm)
+        0.1, 0.0, 0.0,                 // Heading PID (kp, ki, kd)
+        0.3,                           // Distance-to-heading scaling
+        1.5, 0.0, 0.0,                // Distance PID (kp, ki, kd)
+        0, 320,                     // Bounding box X (minX, maxX)
+        0, 240,                     // Bounding box Y (minY, maxY)
+        vex::brakeType::hold,          // Brake mode
+        10                             // Min object width
+    );   
+       
+
+     /*   
+    visionDriveMinimal(
+        AIVision20__redCube, 
         60,                    
         0.0,                    
         24.0, 75.0,             
         brakeType::hold,       
         .1, 0.0, 0.0, 
         0.3,       
-        1.50, 0.0, 0.0        
-    );
-    matchLoadPneumatics.set(true);
-    driveForwardV3(50,20,45,24,5,0.5,0,0.1,10.1,0.3,50);
+        1.50, 0.0, 0.0    
+     ); 
+*/
+//wait(15000, msec);
+
+
 }
 
 void soloAWP(){
     setStartPosition(0.0, 0, -90.0);
     //startOdometryTask();
-    startCoordinateFinder();
+    //startCoordinateFinder();
     initializeOpticalSensor();    
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
@@ -727,14 +799,19 @@ void soloAWP(){
     wingPneumatics.set(true);
 
     //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
-    driveForwardV3(35,0,-90);
+    matchLoadPneumatics.set(true);
+    wait(200, msec);
+    driveForwardV3(36,0,-90);
     turnRight(-135,0,24,100,22);
     smartStop(5, 10, 300, false);
-    smartStraight(47, 0, -180, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
+    smartStraight(47, 0, -180, 15, 220, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
+    intakeStart (600, 100, true);
+    wait(600, msec);
     driveBackwardV3(12,0,-180);
-    turnRight(0,0,25,100,86);
+    turnRight(0,0,25,100,84);
     smartStop(5, 10, 300, false);
-    smartStraight(60, 0, 0, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
+    smartStraight(60, 0, 0, 15, 150, 0, 0, 0.05, 0.2, 0.2, 0.2, 35);
+    score(3000, 100);
     driveBackwardV3(22,0,0);
     turnLeft(-330,0,25,100,20);
     wait(200, msec);

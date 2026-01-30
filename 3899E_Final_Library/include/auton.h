@@ -22,6 +22,6 @@ void leftSidemiddle();
 void soloAWPMiddle();
 void visionSensorTest();
 void skillsAuton();
-
+void CoordinateFinderTask();
 
 #endif // AUTON_H
