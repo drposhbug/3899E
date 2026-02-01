@@ -37,13 +37,14 @@ void runAuton(void) {
   //soloAWPMiddle();
   //leftSideLong();
   //leftSidemiddle();
-  //nothing();
-  soloAwp2();
+  nothing();
+  //soloAwp2();
   //rightMiddleAuto();
   //calibration();
   //doubleDoinkerBlue();
   //skills();
   //odomTest();
+  //skillsAutonGateway();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 

@@ -136,7 +136,7 @@ void intake(double time, bool pistonState) //time in milliseconds, true for pist
     intakeTime.reset();
 
     if (pistonState == true){
-        frontHoodPneumatics.set(true); //close front hood and open back hood
+        frontHoodPneumatics.set(true); //opebn front hood
         backHoodPneumatics.set(false);
     }
     else {
@@ -149,7 +149,6 @@ void intake(double time, bool pistonState) //time in milliseconds, true for pist
         intakeMotor2.spin(reverse, 12.0, voltageUnits::volt);
         vex::task::sleep(10);
     }
-    backHoodPneumatics.set(false); //close back hood after intake
     intakeMotor1.stop();
     intakeMotor2.stop();
 }
@@ -216,7 +215,7 @@ int intakeTaskEntry(void*) {
             resetColorDetection();
             vex::task::sleep(50);
 
-            if (g_intakePistonState) {
+            if (g_intakePistonState = true) {
                 frontHoodPneumatics.set(true);
                 backHoodPneumatics.set(false);
             } else {
@@ -286,6 +285,7 @@ void score(double time, double power) //skibidi score
     frontHoodPneumatics.set(false); //open front hood and close back hood
     backHoodPneumatics.set(true);
     ptoPneumatics.set(true); //engage pto for scoring
+    indexPneumatics.set(true);
 
     double voltagePower = (power / 8.34); //convert power percentage to voltage
 
@@ -300,6 +300,7 @@ void score(double time, double power) //skibidi score
     intakeMotor1.stop();
     intakeMotor2.stop();
     ptoPneumatics.set(false); //disengage pto after scoring
+    indexPneumatics.set(false);
 }
 
 void stopScore(){

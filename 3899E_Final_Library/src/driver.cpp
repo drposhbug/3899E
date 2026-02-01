@@ -215,7 +215,6 @@ void driverControl()
             {
                 intakeMotor1.stop();
                 intakeMotor2.stop();
-                indexPneumatics.set(false);
                 wasRightPressed = false;
             }
         }
@@ -229,7 +228,7 @@ void driverControl()
                 frontHoodPneumatics.set(false);      // Open front hood
                 backHoodPneumatics.set(true);      // Open back hood
                 ptoPneumatics.set(true);
-                indexPneumatics.set(false);
+                indexPneumatics.set(true);
                 wasL1Pressed = true;
             }
             
@@ -247,6 +246,8 @@ void driverControl()
                 //intakeMotor2.spinFor(forward, 90, rotationUnits::deg, 100, velocityUnits::pct, false);
                 
                 spinForInProgress = true;
+                intakeMotor1.stop();
+                intakeMotor2.stop();
                 wasL1Pressed = false;
             }
         }

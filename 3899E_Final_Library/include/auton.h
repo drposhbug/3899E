@@ -25,6 +25,7 @@ void skillsAuton();
 void CoordinateFinderTask();
 void nothing();
 void soloAwp2();
-
+void runEverything();
+void skillsAutonGateway();
 
 #endif // AUTON_H
