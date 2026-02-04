@@ -23,7 +23,7 @@ void runAuton(void) {
   
   // Start heading display task
   //visionSensorTest(); 
-  //autonTest();  
+  autonTest();  
   //CoordinateFinderTask();  
   //autonLeft(); 
   //autonRight();
@@ -37,7 +37,7 @@ void runAuton(void) {
   //soloAWPMiddle();
   //leftSideLong();
   //leftSidemiddle();
-  nothing();
+  //nothing();
   //soloAwp2();
   //rightMiddleAuto();
   //calibration();

@@ -339,7 +339,7 @@ int headingDisplayTask(void *params) {
     
     while (p->isRunning) {
         // 1. Read Sensors
-        double heading = getAdjustedRotation(); 
+        double heading = getNormalizedHeading(); 
         double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
         double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
         // VERIFY NAME: Check your robot_config.h for the exact name of your X/Center/Aux encoder
@@ -501,12 +501,12 @@ int coordinateFinderTask(void *params) {
         
         // Position data (large font)
         Brain.Screen.setFont(vex::fontType::mono40);
-        Brain.Screen.printAt(10, 80, "X: %.1f cm", globalY);
-        Brain.Screen.printAt(10, 130, "Y: %.1f cm", globalX);
+        Brain.Screen.printAt(10, 80, "X: %.1f cm", globalX);
+        Brain.Screen.printAt(10, 130, "Y: %.1f cm", globalY);
         
         // Heading (medium font)
         Brain.Screen.setFont(vex::fontType::mono30);
-        Brain.Screen.printAt(10, 180, "H: %.1f deg", getNormalizedModifiedHeading());
+        Brain.Screen.printAt(10, 180, "H: %.1f deg", getNormalizedHeading());
         
         // Instructions (small font)
         Brain.Screen.setFont(vex::fontType::mono15);

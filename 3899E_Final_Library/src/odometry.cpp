@@ -30,18 +30,18 @@ RobotState currentState = STATIONARY;
 // Converted once to Standard Cartesian for internal calculations
 // Tares gyro and resets encoders
 // ======================================================================
-void setStartPosition(double startX, double startY, double startHeading_Modified) {
-    // 1. Set Global Coordinates
-    globalX = startY;  // User's Y (East/West) → Standard X
-    globalY = startX;  // User's X (North/South) → Standard Y
+void setStartPosition(double startX, double startY, double startHeading) {
+    // 1. Set Global Coordinates - Standard Cartesian (X=East/West, Y=North/South)
+    globalX = startX;  
+    globalY = startY;
 
     // 2. Save Display Heading (The "North" heading for the screen)
     // FIX: Don't do math with uninitialized variables. Just save the input.
-    robotStartingHeading = startHeading_Modified; 
+    robotStartingHeading = startHeading; 
     
     // 3. Set Internal Math Heading (The "East" heading for Odometry)
     // FIX: This calls the function (adds 90). We do NOT add extra offsets here.
-    robotStartingHeadingStandard = modifiedToStandardCartesian(startHeading_Modified);
+    robotStartingHeadingStandard = startHeading;
     
     // 4. Reset Sensors
     // This tells the gyro "0 change has happened since we started"
@@ -131,7 +131,7 @@ void updateOdometry() {
 
     // Debug: Print position to screen (converted back to North-Up for readability)
     Brain.Screen.printAt(10, 20, "X: %.2f, Y: %.2f, H: %.2f",
-                         globalX, globalY, getNormalizedModifiedHeading());
+                         globalX, globalY, getNormalizedHeading());
 }
 
 // ======================================================================

@@ -40,7 +40,6 @@ vex::motor leftMotor[] = {LeftMotor3, LeftMotor2, LeftMotor1};
 vex::motor rightMotor[] = {RightMotor3, RightMotor2, RightMotor1};
 // Define Constants
 // Coordinate system constants
-constexpr double MODIFIED_TO_STANDARD_OFFSET = 90.0;
 const double numberDriveMotor = 6;
 const double accelerationFactor = 1.05; // Adjust this factor globally
 const double absoluteMaxRPM = 600;
@@ -66,7 +65,8 @@ const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
 
 // Color signatures calibrated for our field conditions
 vex::aivision::colordesc AIVision20__blueCube(1, 63, 130, 192, 20, 0.25);
-vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
+//vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
+vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 40, 1);
 vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
 
 // Push Back AI classification objects

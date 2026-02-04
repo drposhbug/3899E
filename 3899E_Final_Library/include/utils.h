@@ -5,20 +5,19 @@
 #include "robot_config.h"
 
 // Math Helpers (Must be declared here to be visible to navigation.cpp)
-double modifiedToStandardCartesian(double modifiedAngle);
-double standardToModifiedCartesian(double standardAngle);
+// Converts from VEX coordinate system (CW+) to Standard Cartesian (CCW+)
 double vexToStandardCartesian(double vexAngle);
 
 
-// ───────────────────────────────────────────────
-// Core heading access functions (all return Standard Cartesian)
+// ───────────────────────────────────────────────────────────────────
+// Core heading access functions (all return Standard Cartesian: East=0°, CCW+)
 // Use getContinuousStandardHeading() for internal math, odometry, turns, PID
-// ───────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────
 double getContinuousStandardHeading();      // UNBOUNDED / continuous (preferred for most calculations)
 double getNormalizedStandardHeading();      // wrapped -180..+180 Standard Cartesian
-double getNormalizedModifiedHeading();      // wrapped -180..+180 Modified Cartesian (North=0) – UI/printing
+double getNormalizedHeading();              // wrapped -180..+180 Standard Cartesian (alias for UI/printing)
 
-// The Core Rotation Function
+// Legacy rotation function - returns normalized Standard Cartesian (alias for getNormalizedHeading)
 double getAdjustedRotation();
 
 // Motor/Speed detection

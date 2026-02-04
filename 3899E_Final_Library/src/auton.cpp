@@ -68,38 +68,10 @@ void visionSensorTest() {
     }
 }
 
-/*
-void autonTest(){
-   initializeOpticalSensor();
-    InertialSensor.setRotation(0, degrees);
-    robotStartingHeading = 0;
-    //visionDrive(AIVision20__blueCube, 50.0, 0.0);
-    visionDriveMinimal(AIVision20__blueCube, 150, 0, 22, 40);
 
-    
-
-
-
-    //visionSensorTest();
-    //matchloadStart(800,100,0,true);
-    //wait(200, msec);
-    //smartMove(100, 30, forward, 150); //for matchload smart wall stop, no pid
-    //wait(950, msec);
-    //driveBackward(20, 15, 0);
-      //driveBackward(40, 20, 0);
-   turnLeft(90, 80);
-   driveBackward(40, 20, 90);
-   turnLeft(180,80); 
-   driveBackward(40, 20, 180);
-   turnLeft(270, 80); 
-   driveBackward(40, 20, 270);
-   turnLeft(360, 80); 
-   driveBackward(40, 20, 360);
-}
-*/
 
 void CoordinateFinderTask(){
-    setStartPosition(0, 0.0, -90);
+    setStartPosition(0, 36, 0.0);
     while(true){
         startCoordinateFinder();
         vex::task::sleep(500);
@@ -107,13 +79,46 @@ void CoordinateFinderTask(){
 }
 
 
+
 void autonTest() {
     // Initialize sensor
     //initializeOpticalSensor();
-    setStartPosition(0, 0.0, -90);
+    setStartPosition(0, 36, 0);
+    
+    /*
+    visionDriveMinimal(
+        AIVision20__orangeGoal, 
+        110,                    
+        0.0,                    
+        20.0, 80.0,             
+        brakeType::hold,       
+        .5, 0.0, 0.0, 
+        0.5,       
+        1.50, 0.0, 0.0    
+     ); 
+    */
+/*
+    visionDriveV2(
+    AIVision20__orangeGoal, 
+    nullptr,              // aiObjectSignature (not used for color signatures)
+    120,                  // targetPixelWidth
+    0.0,                  // targetHeading (fallback)
+    20.0,                 // minSpeedPct
+    75.0,                 // maxSpeedPct (Reduced slightly for voltage headroom)
+    0.0,                  // timeoutDistanceCM (optional logic)
+    0.5, 0.0, 0.25,       // Heading PID (Kp, Ki, Kd) - Scaled for normalized error
+    0.2,                 // kp_distToHeadScaling - Lowered to prevent twitchiness
+    1.2, 0.0, 0.15,       // Distance PID (Kp, Ki, Kd) - Added Kd for smooth arrival
+    0, 320,               // minX, maxX (Full camera width)
+    0, 240,               // minY, maxY (Full camera height)
+    brakeType::hold,      // brakeMode
+    25                    // minObjectWidth (filters noise)
+);
+*/
+
     //startOdometryTask();
  
-    moveOdometry(41, 82, 10, 20, 2, 2.0, 0.0, 0.0, brakeType::brake, 1.0, 1.0, 1.0, 100);
+    //moveOdometry(41, 82, 10, 20, 2, 2.0, 0.0, 0.0, brakeType::brake, 1.0, 1.0, 1.0, 100);
     //moveOdometry(-18, 87.9, 10, 20, 2, 2, 0.0, 0.0, brakeType::brake, 0.05, 0.05, 0.05, 100); 
 
 
@@ -125,6 +130,63 @@ void autonTest() {
       
     //forwardToPoint(0, -75, 20, 16, 2.0, 2, 0.0, 0.0, 0.1, 0.1, 0.1, 60); 
     startCoordinateFinder();
+
+    // moveOdometry(targetX, targetY, breakDist, minSpeed, tolerance, kP, kI, kD, brakeType, accelScale, decelScale, approachScale, maxSpeed)
+
+moveOdometry(
+    80.0,              // targetX (North/South distance in cm)
+    35.0,              // targetY (East/West distance in cm)
+    25.0,              // breakDistance (Start slowing down 25cm from target)
+    15.0,              // minSpeed (15% power for final approach)
+    2.5,               // distanceTolerance (Stop when within 2.5cm of target)
+    0.15,              // kp_heading (Proportional gain for staying on path)
+    0.0,               // ki_heading (Integral gain)
+    0.01,              // kd_heading (Derivative gain to prevent oscillation)
+    vex::brakeType::coast, // brakeMode (Lock motors after stopping)
+    0.5,               // accelHeadingScaling (Half correction strength during launch)
+    1.0,               // decelHeadingScaling (Full correction strength during braking)
+    0.3,               // approachHeadingScaling (Gentle correction during creep)
+    45.0               // maxSpeed (85% power cruise speed)
+);
+
+
+moveOdometry(
+    85.0,              // targetX (North/South distance in cm)
+    17.0,              // targetY (East/West distance in cm)
+    25.0,              // breakDistance (Start slowing down 25cm from target)
+    15.0,              // minSpeed (15% power for final approach)
+    2.5,               // distanceTolerance (Stop when within 2.5cm of target)
+    0.15,              // kp_heading (Proportional gain for staying on path)
+    0.0,               // ki_heading (Integral gain)
+    0.01,              // kd_heading (Derivative gain to prevent oscillation)
+    vex::brakeType::coast, // brakeMode (Lock motors after stopping)
+    0.5,               // accelHeadingScaling (Half correction strength during launch)
+    1.0,               // decelHeadingScaling (Full correction strength during braking)
+    0.3,               // approachHeadingScaling (Gentle correction during creep)
+    45.0               // maxSpeed (85% power cruise speed)
+);
+
+moveOdometry(
+    91.0,              // targetX (North/South distance in cm)
+    75.0,              // targetY (East/West distance in cm)
+    25.0,              // breakDistance (Start slowing down 25cm from target)
+    15.0,              // minSpeed (15% power for final approach)
+    2.5,               // distanceTolerance (Stop when within 2.5cm of target)
+    0.15,              // kp_heading (Proportional gain for staying on path)
+    0.0,               // ki_heading (Integral gain)
+    0.01,              // kd_heading (Derivative gain to prevent oscillation)
+    vex::brakeType::coast, // brakeMode (Lock motors after stopping)
+    0.5,               // accelHeadingScaling (Half correction strength during launch)
+    1.0,               // decelHeadingScaling (Full correction strength during braking)
+    0.3,               // approachHeadingScaling (Gentle correction during creep)
+    45.0               // maxSpeed (85% power cruise speed)
+);
+
+/*
+(80, 35)
+(85, 17)
+(91,75)
+*/
     // Set starting position in Standard Cartesian
     // Starting at East (0° Standard)
     //robotStartingHeadingStandard = 0.0;

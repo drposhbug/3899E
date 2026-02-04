@@ -6,14 +6,12 @@
 
 using namespace vex;
 
-double modifiedToStandardCartesian(double modifiedAngle) {
-    return modifiedAngle + 90.0;
-}
-
-double standardToModifiedCartesian(double standardAngle) {
-    return standardAngle - 90.0;
-}
-
+/**
+ * Converts VEX coordinate system angle to Standard Cartesian
+ * VEX: 0° = East, increases Clockwise (CW+)
+ * Standard: 0° = East, increases Counter-Clockwise (CCW+)
+ * Formula: Negate to flip direction, then add 90° offset
+ */
 double vexToStandardCartesian(double vexAngle) {
     return -vexAngle + 90.0;
 }
@@ -31,6 +29,15 @@ double vexToStandardCartesian(double vexAngle) {
 // =========================================================
 const double GYRO_SCALE = 1.009017; 
 
+/**
+ * Returns continuous (unbounded) robot heading in Standard Cartesian coordinates
+ * Does NOT wrap - can return values like 720°, -450°, etc.
+ * Reference: East = 0°, North = 90°, West = 180°, South = 270°
+ * Direction: Counter-clockwise positive (CCW+)
+ * 
+ * Used for: Internal calculations, odometry tracking, preventing wrap-around in PID
+ */
+
 double getContinuousStandardHeading() {
     // 1. Get raw rotation from sensor
     double currentSensorRotation = InertialSensor.rotation(degrees);
@@ -38,13 +45,14 @@ double getContinuousStandardHeading() {
     // 2. Calculate the raw change since start
     double unscaledDelta = currentSensorRotation - gyroReadingAtStart;
 
-    // 3. APPLY SCALAR to the Delta
-    // This fixes the rotation magnitude
+    // 3. Apply gyro calibration scalar to fix rotation magnitude
     double scaledDelta = unscaledDelta * GYRO_SCALE;
 
-    // 4. Return result (Standard Math: Start - Change)
-    return robotStartingHeadingStandard - scaledDelta;
+    // 4. Return continuous heading: Starting heading - rotation change
+    // Note: Subtraction because VEX gyro increases CW, we want CCW+
+    return robotStartingHeading - scaledDelta;
 }
+
 
 // Normalized -180..+180 Standard Cartesian (shortest path friendly)
 double getNormalizedStandardHeading() {
@@ -52,10 +60,17 @@ double getNormalizedStandardHeading() {
     return fmod(continuous + 540.0, 360.0) - 180.0;
 }
 
-// Normalized -180..+180 Modified Cartesian (North=0) – best for UI/printing
-double getNormalizedModifiedHeading() {
-    double standardNorm = getNormalizedStandardHeading();
-    return standardToModifiedCartesian(standardNorm);
+/**
+ * Returns the robot's current heading in Standard Cartesian coordinates
+ * Range: -180 to +180 degrees (normalized for shortest path calculations)
+ * Reference: East = 0°, North = 90°, West = ±180°, South = -90°
+ * Direction: Counter-clockwise positive (CCW+)
+ * 
+ * Used for: UI display, printing, telemetry, and user-facing angle values
+ * This is an alias for getNormalizedStandardHeading() for convenience
+ */
+double getNormalizedHeading() {
+    return getNormalizedStandardHeading();
 }
 
 // Minimum threshold for division operations to prevent divide by zero errors
@@ -65,18 +80,15 @@ extern double robotStartingHeading;
 extern double gyroReadingAtStart;
 
 /**
- * Calculate the shortest path error between target and current heading.
- * Ensures the error is always in the range of -180 to +180 degrees for smooth PID control.
- *
- * This ensures:
- * 1. PID gets continuous error values with no discontinuities at 0/360
- * 2. Robot always takes the shortest path to target heading
- * 3. Error magnitude never exceeds 180 degrees
+ * Returns the robot's current heading in Standard Cartesian coordinates
+ * Range: -180 to +180 degrees (normalized for shortest path calculations)
+ * Reference: East = 0°, North = 90°, West = ±180°, South = -90°
+ * Direction: Counter-clockwise positive (CCW+)
+ * 
+ * Alias for getNormalizedHeading() - both names are valid and return the same value
  */
-
-// Legacy / existing rotation function (normalized Modified Cartesian)
 double getAdjustedRotation() {
-    return getNormalizedModifiedHeading();  // Now consistent with new system
+    return getNormalizedHeading();
 }
 
 // Implement slip detection logic

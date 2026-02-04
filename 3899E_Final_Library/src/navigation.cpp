@@ -465,8 +465,8 @@ void straightOdometry(double targetDistance,
             // Apply to all 3 motors on both sides with PID correction - CORRECTED SIGNS
             for (int i = 0; i < 3; i++)
             {
-                motorVoltageLeft[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
-                motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
+                motorVoltageLeft[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
+                motorVoltageRight[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
             }
 
             maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
@@ -499,8 +499,8 @@ void straightOdometry(double targetDistance,
             for (int i = 0; i < 3; i++)
             {
                 // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection);
-                motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection);
+                motorVoltageLeft[i] = maxSpeedVoltage - (headingCorrection);
+                motorVoltageRight[i] = maxSpeedVoltage + (headingCorrection);
                 // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
             }
 
@@ -575,8 +575,8 @@ void straightOdometry(double targetDistance,
                 // Only apply voltage if we're actively braking AND have voltage to apply
                 if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0)
                 {
-                    double correctedLeft = syncedDecelVoltage + steeringCorrection;
-                    double correctedRight = syncedDecelVoltage - steeringCorrection;
+                    double correctedLeft = syncedDecelVoltage - steeringCorrection;
+                    double correctedRight = syncedDecelVoltage + steeringCorrection;
                     
                     // Clamp toward zero - don't let steering correction reverse motor direction
                     // Forward (positive voltage): use max(0, x) to prevent negative values
@@ -631,8 +631,8 @@ void straightOdometry(double targetDistance,
             for (int i = 0; i < 3; i++)
             {
                 // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageLeft[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
                 // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
             }
         }
@@ -848,8 +848,12 @@ void straightOdometryV2(double targetDistance,
         Brain.Screen.setCursor(2, 1);
         Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
 
-        double currentHeading = getAdjustedRotation();
-        double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
+        // Use continuous heading to prevent wrap-around discontinuities at ±180°
+        double currentHeading = getContinuousStandardHeading();
+        // Adjust target heading to match current rotation count (prevents wrap-around jumps)
+        double rotationsDiff = std::round((currentHeading - targetHeading) / 360.0);
+        double adjustedTargetHeading = targetHeading + (rotationsDiff * 360.0);
+        double headingCorrection = headingPID.calculate(adjustedTargetHeading, currentHeading);
 
         double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
@@ -870,8 +874,8 @@ void straightOdometryV2(double targetDistance,
 
             for (int i = 0; i < 3; i++)
             {
-                motorVoltageLeft[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
-                motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
+                motorVoltageLeft[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
+                motorVoltageRight[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
             }
 
             maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
@@ -886,8 +890,8 @@ void straightOdometryV2(double targetDistance,
         {
             for (int i = 0; i < 3; i++)
             {
-                motorVoltageLeft[i] = maxSpeedVoltage + (headingCorrection);
-                motorVoltageRight[i] = maxSpeedVoltage - (headingCorrection);
+                motorVoltageLeft[i] = maxSpeedVoltage - (headingCorrection);
+                motorVoltageRight[i] = maxSpeedVoltage + (headingCorrection);
             }
         }
         // Deceleration phase with adaptive ABS
@@ -928,8 +932,8 @@ void straightOdometryV2(double targetDistance,
             {
                 if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0)
                 {
-                    double correctedLeft = syncedDecelVoltage + steeringCorrection;
-                    double correctedRight = syncedDecelVoltage - steeringCorrection;
+                    double correctedLeft = syncedDecelVoltage - steeringCorrection;
+                    double correctedRight = syncedDecelVoltage + steeringCorrection;
                     
                     if (syncedDecelVoltage > 0) {
                         motorVoltageLeft[i] = std::max(0.0, correctedLeft);
@@ -971,8 +975,8 @@ void straightOdometryV2(double targetDistance,
         {
             for (int i = 0; i < 3; i++)
             {
-                motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageLeft[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
             }
         }
 
@@ -1041,7 +1045,7 @@ void straightOdometryV2(double targetDistance,
  */
 void straightOdometryV3(double targetDistance, 
                         double breakDistance, 
-                        double targetHeading, 
+                        double targetHeading,  // ← Clean name
                         double minSpeed,
                         double distanceTolerance,
                         double kp_heading, 
@@ -1228,7 +1232,7 @@ void straightOdometryV3(double targetDistance,
 // Smart straight drive with heading PID
 // FIXED: Converts input from Modified (North=0) to Standard (East=0)
 // ======================================================================
-void smartStraight(double targetDistance, double breakDistance, double targetHeading_Modified, 
+void smartStraight(double targetDistance, double breakDistance, double targetHeading, 
                    double minSpeed, double wallStalledTimeMs, 
                    double kp_heading, double ki_heading, double kd_heading,
                    double accelHeadingScaling, double decelHeadingScaling,
@@ -1243,7 +1247,8 @@ void smartStraight(double targetDistance, double breakDistance, double targetHea
     
     // 1. CONVERT HEADING: Modified (North=0) -> Standard (East=0)
     // This aligns the input target with the system used by getContinuousStandardHeading()
-    double targetHeadingStandard = modifiedToStandardCartesian(targetHeading_Modified);
+   // Target heading is already in Standard Cartesian (East=0°, CCW+)
+    double targetHeadingStandard = targetHeading;
 
     // 2. SNAP TO NEAREST ROTATION
     // If the robot is at 360° and target is 0°, this makes the target 360° instead of 0°
@@ -1306,8 +1311,8 @@ void smartStraight(double targetDistance, double breakDistance, double targetHea
     }
 }
 
-void forwardMP(double targetDistance, double breakDistance, double targetHeading_modified, double minSpeed, double kp_heading, double ki_heading, double kd_heading, double accelHeadingScaling, double decelHeadingScaling, double approachHeadingScaling, double maxSpeed) {
-    straightOdometry(targetDistance, breakDistance, modifiedToStandardCartesian(targetHeading_modified), minSpeed, kp_heading, ki_heading, kd_heading, accelHeadingScaling, decelHeadingScaling, approachHeadingScaling, maxSpeed);
+void forwardMP(double targetDistance, double breakDistance, double targetHeading, double minSpeed, double kp_heading, double ki_heading, double kd_heading, double accelHeadingScaling, double decelHeadingScaling, double approachHeadingScaling, double maxSpeed) {
+    straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed, kp_heading, ki_heading, kd_heading, accelHeadingScaling, decelHeadingScaling, approachHeadingScaling, maxSpeed);
 }
 
 // In backwardMP (wrapper for profiled straight backward)
@@ -1324,7 +1329,7 @@ void backwardMP(double targetDistance,
                 double maxSpeed) {
 
     // Convert once to Standard Cartesian for internal use
-    double targetHeadingStandard = modifiedToStandardCartesian(targetHeading);
+    double targetHeadingStandard = targetHeading;
 
     // NEGATE distance for reverse travel, but DO NOT add 180° to heading
     double negativeDistance = -fabs(targetDistance);
@@ -1634,9 +1639,6 @@ void driveBackward(double targetDistance,
 {
     targetDistance = -std::fabs(targetDistance);
 
-    // No conversion needed - both use Modified Cartesian
-    double internalHeading = -targetHeading; // âœ… WITH FLIPPING
-
     straightOdometryV3(targetDistance, breakDistance, targetHeading, minSpeed,
                      kp_heading, ki_heading, kd_heading,
                      accelHeadingScaling, decelHeadingScaling,
@@ -1657,7 +1659,7 @@ void driveBackward(double targetDistance,
  * 
  * @param targetDistance Distance to travel forward in cm (positive values only)
  * @param breakDistance Distance before target to begin deceleration (cm)
- * @param targetHeading_modified Desired heading in Modified Cartesian (North=0°, 0-360°)
+ * @param targetHeading Desired heading in Modified Cartesian (North=0°, 0-360°)
  * @param minSpeed Minimum motor speed during final approach (0-100%)
  * @param distanceTolerance How close to target before stopping (cm, smaller = more precise)
  * @param kp_heading Proportional gain for heading PID correction
@@ -1668,13 +1670,13 @@ void driveBackward(double targetDistance,
  * @param approachHeadingScaling Scales heading correction during final approach (0-1)
  * @param maxSpeed Maximum motor speed during cruise phase (0-100%)
  */
-void driveForwardV3(double targetDistance, double breakDistance, double targetHeading_modified, 
+void driveForwardV3(double targetDistance, double breakDistance, double targetHeading, 
                   double minSpeed, double distanceTolerance,
                   double kp_heading, double ki_heading, double kd_heading, 
                   double accelHeadingScaling, double decelHeadingScaling, 
                   double approachHeadingScaling, double maxSpeed) {
     // Convert heading from Modified Cartesian (North=0°) to Standard Cartesian (East=0°)
-    straightOdometryV3(targetDistance, breakDistance, modifiedToStandardCartesian(targetHeading_modified), 
+                straightOdometryV3(targetDistance, breakDistance, targetHeading, 
                       minSpeed, distanceTolerance, kp_heading, ki_heading, kd_heading, 
                       accelHeadingScaling, decelHeadingScaling, approachHeadingScaling, maxSpeed);
 }
@@ -1690,8 +1692,9 @@ void driveBackwardV3(double targetDistance, double breakDistance, double targetH
                    double kp_heading, double ki_heading, double kd_heading, 
                    double accelHeadingScaling, double decelHeadingScaling, 
                    double approachHeadingScaling, double maxSpeed) {
-    // Convert heading and force distance negative for backward movement
-    straightOdometryV3(-std::fabs(targetDistance), breakDistance, modifiedToStandardCartesian(targetHeading_modified), 
+    // Target heading is already in Standard Cartesian (East=0°, CCW+)
+    // Force distance negative for backward movement
+    straightOdometryV3(-std::fabs(targetDistance), breakDistance, targetHeading_modified,  // ← Use correct parameter name
                       minSpeed, distanceTolerance, kp_heading, ki_heading, kd_heading, 
                       accelHeadingScaling, decelHeadingScaling, approachHeadingScaling, maxSpeed);
 }
@@ -1706,7 +1709,7 @@ void driveBackwardV3(double targetDistance, double breakDistance, double targetH
  * The direction forcing loop adds 360° to the target until target > current,
  * creating positive heading error that drives clockwise motor rotation.
  *
- * @param absoluteTargetHeading_modified Desired heading in Modified Cartesian (North=0°, 0-360°)
+ * @param absolutetargetHeading Desired heading in Modified Cartesian (North=0°, 0-360°)
  * @param breakDistance Distance before target to begin deceleration (degrees)
  * @param minSpeed Minimum motor speed during approach phase (0-100%)
  * @param maxSpeed Maximum motor speed during turn (0-100%)
@@ -1714,7 +1717,7 @@ void driveBackwardV3(double targetDistance, double breakDistance, double targetH
  */
 void turnRight(double absoluteTargetHeading_modified, double breakDistance, double minSpeed, double maxSpeed, double exitTolerance) {
     // Convert from Modified Cartesian (North=0°) to Standard Cartesian (East=0°)
-    double target = modifiedToStandardCartesian(absoluteTargetHeading_modified);
+    double target = absoluteTargetHeading_modified;
     
     // Get current continuous heading
     double current = getContinuousStandardHeading();
@@ -1741,7 +1744,7 @@ void turnRight(double absoluteTargetHeading_modified, double breakDistance, doub
  */
 void turnLeft(double absoluteTargetHeading_modified, double breakDistance, double minSpeed, double maxSpeed, double exitTolerance) {
     // Convert from Modified Cartesian to Standard Cartesian
-    double target = modifiedToStandardCartesian(absoluteTargetHeading_modified);
+     double target = absoluteTargetHeading_modified;
     
     // Get current continuous heading
     double current = getContinuousStandardHeading();
@@ -1794,9 +1797,6 @@ void driveBackwardV1(double targetDistance,
 {
     targetDistance = -std::fabs(targetDistance);
 
-    // No conversion needed - both use Modified Cartesian
-    double internalHeading = -targetHeading; // âœ… WITH FLIPPING
-
     straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed,
                      kp_heading, ki_heading, kd_heading,
                      accelHeadingScaling, decelHeadingScaling,
@@ -1848,8 +1848,6 @@ void driveBackwardV2(double targetDistance,
                    double maxSpeed)
 {
     targetDistance = -std::fabs(targetDistance);
-
-    double internalHeading = -targetHeading;
 
     straightOdometryV2(targetDistance, breakDistance, targetHeading, minSpeed,
                      distanceTolerance, kp_heading, ki_heading, kd_heading,
@@ -2047,6 +2045,12 @@ void visionDriveMinimal(
     }
 }
 
+/**
+ * visionDriveV2 - Advanced AI Vision tracking with Priority Scaling
+ * * Drives the robot toward a detected signature while centering it.
+ * Uses a Priority Scaler to ensure steering is preserved at max power 
+ * and a grace period to handle momentary sensor drops.
+ */
 void visionDriveV2(
     vex::aivision::colordesc targetSignature,
     vex::aivision::tagdesc* aiObjectSignature,
@@ -2064,180 +2068,118 @@ void visionDriveV2(
     int minObjectWidth
 ) {
     // ========================================
-    // INITIALIZATION
+    // CONFIGURATION & PID SETUP
     // ========================================
-    
-    // Maximum steering correction as percentage (0-100)
-    double maxSteeringPct = 25.0;  // SET THIS VALUE HERE
-    
-    // Maximum number of objects to check for filtering
+    double maxSteeringPct = 25.0;  // Max steering authority (0-100)
     const int MAX_OBJECTS_TO_CHECK = 3;
+    const int MAX_LOST_FRAMES = 5; // 100ms grace period at 50Hz
     
-    // Create PID controllers for heading (centering) and distance (forward movement)
-    PID headingPID(kp_head, ki_head, kd_head);  // Controls left/right turn to center object
-    PID distancePID(kp_dist, ki_dist, kd_dist);  // Controls forward speed based on object size
-    
-    // Reset PID accumulators to start fresh
+    PID headingPID(kp_head, ki_head, kd_head);
+    PID distancePID(kp_dist, ki_dist, kd_dist);
     headingPID.pidReset();
     distancePID.pidReset();
     
-    // Convert steering cap to voltage
     double maxSteeringVoltage = maxSteeringPct * 0.12;
     
-    // SNAP TARGET HEADING TO NEAREST CONTINUOUS EQUIVALENT
-    // Only matters in fallback mode, but adds safety/consistency
-    double currentHeadingInitial = getContinuousStandardHeading();
-    double rotationsDiff = std::round((currentHeadingInitial - targetHeading) / 360.0);
-    targetHeading += rotationsDiff * 360.0;
-
-    // ========================================
-    // FALLBACK TRACKING VARIABLES
-    // ========================================
-    
-    // Track last known good values
+    // State Tracking
     bool hasDetectedBefore = false;
-    double lastPixelOffsetFromCenter = 0.0;
+    double lastNormalizedOffset = 0.0;
     int lastDetectedWidth = 0;
+    int lostFrameCounter = 0;
 
     // ========================================
     // MAIN VISION TRACKING LOOP
     // ========================================
-    
     while (true) {
-        // Capture a frame and detect objects matching the target signature
         AIVision20.takeSnapshot(targetSignature);
         
-        // ========================================
-        // FILTER AND SELECT BEST OBJECT
-        // ========================================
-        
-        int bestObjectIndex = -1;  // -1 means no valid object found
+        int bestObjectIndex = -1;
         int largestWidth = 0;
-        
-        // Check up to MAX_OBJECTS_TO_CHECK objects
         int objectsToCheck = std::min((int)AIVision20.objectCount, MAX_OBJECTS_TO_CHECK);
         
+        // --- SECTION 1: FILTERING ---
         for (int i = 0; i < objectsToCheck; i++) {
             auto& obj = AIVision20.objects[i];
-            
-            // Calculate bottom edge Y coordinate
             int bottomY = obj.centerY + (obj.height / 2);
             
-            // Apply filters:
-            // 1. Minimum width check
-            if (obj.width < minObjectWidth) {
-                continue;  // Skip this object
-            }
+            if (obj.width < minObjectWidth) continue;
+            if (bottomY < minY || bottomY > maxY) continue;
+            if (obj.centerX < minX || obj.centerX > maxX) continue;
             
-            // 2. Bounding box check (bottom Y and center X)
-            if (bottomY < minY || bottomY > maxY) {
-                continue;  // Bottom Y out of bounds
-            }
-            if (obj.centerX < minX || obj.centerX > maxX) {
-                continue;  // Center X out of bounds
-            }
-            
-            // Object passed filters - check if it's the largest so far
             if (obj.width > largestWidth) {
                 largestWidth = obj.width;
                 bestObjectIndex = i;
             }
         }
         
-        // Declare variables that will be used regardless of detection
-        double pixelOffsetFromCenter;
+        double currentNormalizedOffset;
         int currentWidth;
         
-        // ========================================
-        // VISION DETECTION OR FALLBACK
-        // ========================================
-        
+        // --- SECTION 2: DETECTION & FALLBACK ---
         if (bestObjectIndex == -1) {
-            // No valid object detected after filtering
-            if (!hasDetectedBefore) {
-                // First iteration and no detection - can't continue
-                break;
-            }
-            // Use last known values (fallback mode)
-            pixelOffsetFromCenter = lastPixelOffsetFromCenter;
+            lostFrameCounter++;
+            // If we've never seen the target or lost it too long, exit
+            if (!hasDetectedBefore || lostFrameCounter > MAX_LOST_FRAMES) break;
+            
+            // Use fallback memory
+            currentNormalizedOffset = lastNormalizedOffset;
             currentWidth = lastDetectedWidth;
         } else {
-            // Valid object detected - use current values
+            lostFrameCounter = 0;
             auto& detectedObject = AIVision20.objects[bestObjectIndex];
             
-            pixelOffsetFromCenter = detectedObject.centerX - VISION_CENTER_X;
+            // Normalize offset: -1.0 (left edge) to 1.0 (right edge)
+            currentNormalizedOffset = (detectedObject.centerX - 160) / 160.0;
             currentWidth = detectedObject.width;
             
-            // Update last known values
-            lastPixelOffsetFromCenter = pixelOffsetFromCenter;
-            lastDetectedWidth = detectedObject.width;
+            // Update fallback memory
+            lastNormalizedOffset = currentNormalizedOffset;
+            lastDetectedWidth = currentWidth;
             hasDetectedBefore = true;
             
-            // ========================================
-            // EXIT CONDITION CHECK (only when we have detection)
-            // ========================================
-            
-            if (detectedObject.width >= targetPixelWidth) {
-                break;
-            }
+            // Success Exit
+            if (currentWidth >= targetPixelWidth) break;
         }
         
-        // ========================================
-        // CALCULATE DISTANCE-BASED HEADING SCALING
-        // ========================================
+        // --- SECTION 3: CALCULATIONS ---
         
-        // Calculate how far we are from the target distance (in pixels)
+        // Distance-based Heading Scaling: 0.2 floor prevents steering loss at target
         double distanceErrorPixels = (double)targetPixelWidth - (double)currentWidth;
+        double headingScalingFactor = 0.2 + (kp_distToHeadScaling * distanceErrorPixels);
+        headingScalingFactor = std::max(0.2, std::min(3.0, headingScalingFactor));
         
-        // P-only scaling factor based on distance error
-        double headingScalingFactor = 1.0 + (kp_distToHeadScaling * distanceErrorPixels);
+        // Base correction from Normalized PID (error is -1.0 to 1.0)
+        double steeringCorrection = (headingPID.calculate(0.0, currentNormalizedOffset) * 12.0) * headingScalingFactor;
+        steeringCorrection = std::max(-maxSteeringVoltage, std::min(maxSteeringVoltage, steeringCorrection));
         
-        // Clamp scaling factor to prevent negative or excessive values
-        headingScalingFactor = std::max(0.1, std::min(3.0, headingScalingFactor));
-        
-        // ========================================
-        // CALCULATE STEERING CORRECTION
-        // ========================================
-        
-        // Base heading correction from PID
-        double baseHeadingCorrectionVoltage = headingPID.calculate(0.0, pixelOffsetFromCenter) * 0.12;
-        
-        // Apply distance-based scaling to heading correction
-        double steeringCorrectionVoltage = baseHeadingCorrectionVoltage * headingScalingFactor;
-        
-        // Clamp steering to maximum allowed value
-        steeringCorrectionVoltage = std::max(-maxSteeringVoltage, std::min(maxSteeringVoltage, steeringCorrectionVoltage));
-        
-        // ========================================
-        // CALCULATE FORWARD DRIVE SPEED
-        // ========================================
-        
-        // PID outputs base drive voltage (larger error = faster approach)
+        // Drive speed calculation
         double baseDriveVoltage = distancePID.calculate((double)targetPixelWidth, (double)currentWidth) * 0.12;
+        double clampedDrive = std::max(minSpeedPct * 0.12, std::min(maxSpeedPct * 0.12, baseDriveVoltage));
         
-        // Clamp drive voltage between min and max speeds (converted to voltage)
-        double minDriveVoltage = minSpeedPct * 0.12;
-        double maxDriveVoltage = maxSpeedPct * 0.12;
-        double clampedDriveVoltage = std::max(minDriveVoltage, std::min(maxDriveVoltage, baseDriveVoltage));
+        // --- SECTION 4: PRIORITY SCALER (Symmetry Fix) ---
+        double leftRequest = clampedDrive - steeringCorrection;
+        double rightRequest = clampedDrive + steeringCorrection;
         
-        // ========================================
-        // APPLY MOTOR COMMANDS
-        // ========================================
+        // Calculate the maximum magnitude requested across both motors
+        double maxRequest = std::max(std::fabs(leftRequest), std::fabs(rightRequest));
         
-        // Apply differential drive: base speed ± steering correction
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward, clampedDriveVoltage - steeringCorrectionVoltage, volt);
-            rightMotor[i].spin(forward, clampedDriveVoltage + steeringCorrectionVoltage, volt);
+        // If exceeding 12V, scale BOTH sides down to preserve the turn ratio
+        if (maxRequest > 12.0) {
+            double scaleFactor = 12.0 / maxRequest;
+            leftRequest *= scaleFactor;
+            rightRequest *= scaleFactor;
         }
         
-        // Wait 20ms before next iteration (50Hz update rate)
+        // --- SECTION 5: MOTOR OUTPUT ---
+        for (int i = 0; i < 3; i++) {
+            leftMotor[i].spin(forward, leftRequest, volt);
+            rightMotor[i].spin(forward, rightRequest, volt);
+        }
+        
         vex::task::sleep(20);
     }
     
-    // ========================================
-    // CLEANUP - STOP ALL MOTORS
-    // ========================================
-    
+    // --- CLEANUP ---
     for (int i = 0; i < 3; i++) {
         leftMotor[i].stop(brakeMode);
         rightMotor[i].stop(brakeMode);
@@ -2276,9 +2218,9 @@ void moveOdometry(double targetX,
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════
     
-    // Coordinate Conversion: User's Modified → Standard Cartesian
-    double targetX_standard = targetY;  // User's Y (East/West) → Standard X
-    double targetY_standard = targetX;  // User's X (North/South) → Standard Y
+    // Coordinate Conversion: Standard Cartesian
+    double targetX_standard = targetX;  
+    double targetY_standard = targetY; 
 
     // Initialize PID controller
     PID headingPID(kp_heading, ki_heading, kd_heading);
@@ -2424,10 +2366,10 @@ void moveOdometry(double targetX,
             
             double syncedMotorVoltage = (std::fabs(leftTractionVoltage) < std::fabs(rightTractionVoltage)) 
                 ? leftTractionVoltage : rightTractionVoltage;
-            
+        
             for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
-                motorVoltageRight[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
+                motorVoltageLeft[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
+                motorVoltageRight[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
             }
             
             maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
@@ -2444,8 +2386,8 @@ void moveOdometry(double targetX,
         else if (distanceToTarget > breakDistance && accelCompleted) 
         {
             for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i] = maxSpeedVoltage + headingCorrection;
-                motorVoltageRight[i] = maxSpeedVoltage - headingCorrection;
+                motorVoltageLeft[i] = maxSpeedVoltage - headingCorrection;
+                motorVoltageRight[i] = maxSpeedVoltage + headingCorrection;
             }
         }
         
@@ -2477,8 +2419,8 @@ void moveOdometry(double targetX,
             for (int i = 0; i < 3; i++) 
             {
                 if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0) {
-                    double correctedLeft = syncedDecelVoltage + steeringCorrection;
-                    double correctedRight = syncedDecelVoltage - steeringCorrection;
+                    double correctedLeft = syncedDecelVoltage - steeringCorrection;
+                    double correctedRight = syncedDecelVoltage + steeringCorrection;
                     
                     motorVoltageLeft[i] = (syncedDecelVoltage > 0) ? std::max(0.0, correctedLeft) : std::min(0.0, correctedLeft);
                     motorVoltageRight[i] = (syncedDecelVoltage > 0) ? std::max(0.0, correctedRight) : std::min(0.0, correctedRight);
@@ -2508,8 +2450,8 @@ void moveOdometry(double targetX,
         else if (decelCompleted) 
         {
             for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageLeft[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
             }
         }
 
