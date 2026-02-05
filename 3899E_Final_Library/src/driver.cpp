@@ -28,6 +28,13 @@ int applyDeadzone(int value)
     return value;
 }
 
+// Custom exponential curve function (tunable)
+int applyCustomCurve(int input, double exponent) {
+    if (input == 0) return 0;
+    int sign = (input > 0) ? 1 : -1;
+    return sign * (int)(pow(abs(input) / 100.0, exponent) * 100);
+}
+
 // Main driver control function
 void driverControl()
 {
@@ -61,18 +68,32 @@ void driverControl()
 
     while (true)
     {
-        // Get joystick values with deadzone applied
-        int targetPowerLeft = applyDeadzone(Controller.Axis3.position());
-        int targetPowerRight = applyDeadzone(Controller.Axis2.position());
+        // Drive curve exponents (tune based on driver preference)
+        const double DRIVE_EXPONENT =2.0;  // 1.0=linear, 1.5=mild, 2.0=squared, 2.5=aggressive precision
+        const double TURN_EXPONENT = 2.5;   // Separate tuning for turn if desired
 
-        // Reduce turning sensitivity at high speeds (exponential scaling)
-        double scaleFactor = pow(0.55, abs(targetPowerLeft - targetPowerRight) / (double)maxSpeed);
+        // Get joystick values with deadzone applied
+        int forward = applyDeadzone(Controller.Axis3.position());  // Left stick Y (forward/back)
+        int turn = applyDeadzone(Controller.Axis1.position());     // Right stick X (turn)
+
+        // Apply custom curve to both axes
+        forward = applyCustomCurve(forward, DRIVE_EXPONENT);
+        turn = applyCustomCurve(turn, TURN_EXPONENT);
+
+        // Calculate motor powers for split arcade
+        int targetPowerLeft = forward + turn;
+        int targetPowerRight = forward - turn;
+
+        // Clamp to [-100, 100] to prevent overflow
+        if (targetPowerLeft > 100) targetPowerLeft = 100;
+        if (targetPowerLeft < -100) targetPowerLeft = -100;
+        if (targetPowerRight > 100) targetPowerRight = 100;
+        if (targetPowerRight < -100) targetPowerRight = -100;
 
         // Convert joystick percent to motor speed (cm/s)
-        double targetSpeedLeft = ((targetPowerLeft * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
-        double targetSpeedRight = ((targetPowerRight * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
+        double targetSpeedLeft = (targetPowerLeft / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
+        double targetSpeedRight = (targetPowerRight / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
 
-        
         // Apply speeds to all motors
         motorPowerLeft[0] = targetSpeedLeft;
         motorPowerLeft[1] = targetSpeedLeft;
@@ -144,16 +165,16 @@ void driverControl()
             }
             
             spinForInProgress = false;
-            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
         }
         // ==================== BUTTON RIGHT: REVERSE INTAKE ====================
         // Eject cubes without changing hood position
         else if (Controller.ButtonRight.pressing())
         {
             spinForInProgress = false;
-            intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(vex::reverse, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(vex::reverse, 12, vex::voltageUnits::volt);
         }
         // Stop intake motors when no intake buttons pressed (and no other intake active)
         else
@@ -180,8 +201,8 @@ void driverControl()
             }
             
             spinForInProgress = false;
-            intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(vex::reverse, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(vex::reverse, 12, vex::voltageUnits::volt);
         }
         else
         {
@@ -206,8 +227,8 @@ void driverControl()
                 wasRightPressed = true;
             }
             spinForInProgress = false;
-            intakeMotor1.spin(reverse, 8, vex::voltageUnits::volt);
-            intakeMotor2.spin(reverse, 8, vex::voltageUnits::volt);
+            intakeMotor1.spin(vex::reverse, 8, vex::voltageUnits::volt);
+            intakeMotor2.spin(vex::reverse, 8, vex::voltageUnits::volt);
         }
         else
         {
@@ -233,8 +254,8 @@ void driverControl()
             }
             
             spinForInProgress = false;
-            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
         }
         else
         {
@@ -337,14 +358,14 @@ void driverControl()
         }
 
         // ==================== APPLY DRIVE MOTOR POWERS ====================
-        LeftMotor1.spin(forward, motorPowerLeft[0], percent);
-        RightMotor1.spin(forward, motorPowerRight[0], percent);
+        LeftMotor1.spin(vex::forward, motorPowerLeft[0], vex::velocityUnits::pct);
+        RightMotor1.spin(vex::forward, motorPowerRight[0], vex::velocityUnits::pct);
 
-        LeftMotor2.spin(forward, motorPowerLeft[1], percent);
-        RightMotor2.spin(forward, motorPowerRight[1], percent);
+        LeftMotor2.spin(vex::forward, motorPowerLeft[1], vex::velocityUnits::pct);
+        RightMotor2.spin(vex::forward, motorPowerRight[1], vex::velocityUnits::pct);
 
-        LeftMotor3.spin(forward, motorPowerLeft[2], percent);
-        RightMotor3.spin(forward, motorPowerRight[2], percent);
+        LeftMotor3.spin(vex::forward, motorPowerLeft[2], vex::velocityUnits::pct);
+        RightMotor3.spin(vex::forward, motorPowerRight[2], vex::velocityUnits::pct);
 
         // Loop delay (20ms = 50Hz update rate)
         task::sleep(20);

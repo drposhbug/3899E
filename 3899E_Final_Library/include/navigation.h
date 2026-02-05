@@ -478,6 +478,6 @@ void moveVisionOdometry(double targetX,
                         double decelHeadingScaling,
                         double approachHeadingScaling, 
                         double maxSpeed,
-                        const vex::aivision::colordesc* targetSignature,  // ← FIXED: pointer
+                        vex::aivision::colordesc targetSignature,
                         double kp_distanceToHeadingScaling,
                         int minObjectWidth);

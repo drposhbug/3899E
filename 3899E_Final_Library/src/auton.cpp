@@ -94,19 +94,84 @@ void testVisionOnly() {
     vex::task(visionTrackingTask);
     vex::wait(50, vex::msec);
     
-    // Print vision data for 4 seconds
-    for (int i = 0; i < 200; i++) {
-        Brain.Screen.clearScreen();
-        Brain.Screen.printAt(10, 20, true, "Tracked: %s", visionTargetTracked.load() ? "YES" : "NO");
-        Brain.Screen.printAt(10, 40, true, "Offset: %.3f", visionHorizontalNormalizedOffset.load());
-        Brain.Screen.printAt(10, 60, true, "Width: %d px", visionCurrentObjectWidth.load());
-        Brain.Screen.printAt(10, 80, true, "Count: %d", AIVision20.objectCount);
+    Brain.Screen.clearScreen();
+    
+    while (!Brain.Screen.pressing()) {
+        Brain.Screen.clearScreen();  // Full clear every loop
         
-        vex::wait(20, vex::msec);
+        Brain.Screen.printAt(10, 20, true, "=== VISION TEST ===");
+        Brain.Screen.printAt(10, 40, true, "Press to exit");
+        Brain.Screen.printAt(10, 60, true, "");
+        Brain.Screen.printAt(10, 80, true, "Tracked: %s", visionTargetTracked.load() ? "**YES**" : "NO");
+        Brain.Screen.printAt(10, 100, true, "Width: %d px", visionCurrentObjectWidth.load());
+        Brain.Screen.printAt(10, 120, true, "Offset: %.3f", visionHorizontalNormalizedOffset.load());
+        Brain.Screen.printAt(10, 140, true, "");
+        Brain.Screen.printAt(10, 160, true, "Raw Count: %d", AIVision20.objectCount);
+        Brain.Screen.printAt(10, 180, true, "Min Filter: %d", currentMinObjectWidth);
+        
+        vex::wait(200, vex::msec);  // Slower update so you can read
     }
     
     visionTaskShouldRun = false;
     vex::wait(50, vex::msec);
+    Brain.Screen.clearScreen();
+}
+void testVisionDirect() {
+    Brain.Screen.clearScreen();
+    Brain.Screen.printAt(10, 20, true, "Direct Vision Test");
+    Brain.Screen.printAt(10, 40, true, "Press screen to exit");
+       
+    while (!Brain.Screen.pressing()) {
+        // Take snapshot directly (no task)
+        AIVision20.takeSnapshot(AIVision20__orangeGoal);
+        
+        Brain.Screen.clearLine(3);
+        Brain.Screen.clearLine(4);
+        Brain.Screen.clearLine(5);
+        Brain.Screen.clearLine(6);
+        
+        Brain.Screen.printAt(10, 60, true, "Object Count: %d", AIVision20.objectCount);
+        
+        if (AIVision20.objectCount > 0) {
+            Brain.Screen.printAt(10, 80, true, "X: %d  Y: %d", 
+                AIVision20.objects[0].centerX, 
+                AIVision20.objects[0].centerY);
+            Brain.Screen.printAt(10, 100, true, "Width: %d  Height: %d",
+                AIVision20.objects[0].width,
+                AIVision20.objects[0].height);
+        } else {
+            Brain.Screen.printAt(10, 80, true, "NO OBJECTS DETECTED");
+        }
+        
+        vex::wait(100, vex::msec);
+    }
+    
+    Brain.Screen.clearScreen();
+}
+
+void testVisionBasic() {
+    Brain.Screen.clearScreen();
+    Brain.Screen.printAt(10, 20, true, "BASIC VISION TEST");
+    Brain.Screen.printAt(10, 40, true, "Press to exit");
+    
+    while (!Brain.Screen.pressing()) {
+        AIVision20.takeSnapshot(AIVision20__orangeGoal);
+        
+        Brain.Screen.clearLine(4);
+        Brain.Screen.clearLine(5);
+        Brain.Screen.clearLine(6);
+        
+        Brain.Screen.printAt(10, 80, true, "Count: %d", AIVision20.objectCount);
+        
+        if (AIVision20.objectCount > 0) {
+            Brain.Screen.printAt(10, 100, true, "Width: %d", AIVision20.objects[0].width);
+            Brain.Screen.printAt(10, 120, true, "X: %d Y: %d", 
+                AIVision20.objects[0].centerX,
+                AIVision20.objects[0].centerY);
+        }
+        
+        vex::wait(100, vex::msec);
+    }
 }
 
 void autonTest() {
@@ -152,31 +217,31 @@ void autonTest() {
 
 
 
-    testVisionOnly();
+    //testVisionOnly();
+    //testVisionDirect(); 
+   // testVisionBasic();
 
       
     //forwardToPoint(0, -75, 20, 16, 2.0, 2, 0.0, 0.0, 0.1, 0.1, 0.1, 60); 
-    startCoordinateFinder();
+    //startCoordinateFinder();
 
     // moveOdometry(targetX, targetY, breakDist, minSpeed, tolerance, kP, kI, kD, brakeType, accelScale, decelScale, approachScale, maxSpeed)
-/*
+
 moveVisionOdometry(
     40.0,                   // targetX
     0.0,                    // targetY
     30.0,                   // breakDistance
     15.0,                   // minSpeed
     2.0,                    // distanceTolerance
-    0.45, 0.0, 0.15,        // Heading PID (kp, ki, kd)
-    vex::brakeType::hold,   // brakeMode
-    1.2,                    // accelHeadingScaling
-    0.8,                    // decelHeadingScaling
-    0.5,                    // approachHeadingScaling
-    80.0,                   // maxSpeed
-    &AIVision20__orangeGoal, // targetSignature (NOTE THE &)
-    0.15,                   // kp_distanceToHeadingScaling
-    25                      // minObjectWidth
+    0.45, 0.0, 0.15,        // Heading PID
+    vex::brakeType::hold,
+    1.2, 0.8, 0.5,          // Heading scaling
+    60.0,                   // maxSpeed
+    AIVision20__orangeGoal,
+    0.01,                   // kp for lateral offset scaling
+    10
 );
-*/
+
 /*
 moveOdometry(
     80.0,              // targetX (North/South distance in cm)
@@ -193,9 +258,7 @@ moveOdometry(
     0.3,               // approachHeadingScaling (Gentle correction during creep)
     45.0               // maxSpeed (85% power cruise speed)
 );
-
 */
-
 
 /*
 (80, 35)

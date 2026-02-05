@@ -6,56 +6,6 @@
 #include <atomic>
 #include "odometry.h"
 
-// ======================================================================
-// VISION-ODOMETRY FUSION GLOBALS
-// ======================================================================
-// Atomic variables ensure thread-safe communication between task and loop
-std::atomic<double> visionHorizontalNormalizedOffset(0.0);
-std::atomic<int>    visionCurrentObjectWidth(0);
-std::atomic<bool>   visionTargetTracked(false);
-
-// Static variables for vision configuration
-const vex::aivision::colordesc* currentVisionSignature = nullptr;
-int currentMinObjectWidth = 0;
-std::atomic<bool> visionTaskShouldRun(false);
-
-/**
- * visionTrackingTask
- * Background task processing snapshots at ~50Hz.
- */
-int visionTrackingTask() {
-    while (visionTaskShouldRun) {
-        if (currentVisionSignature == nullptr) {
-            vex::task::sleep(20);
-            continue;
-        }
-        
-        AIVision20.takeSnapshot(*currentVisionSignature);
-        
-        int bestObjectIndex = -1;
-        int largestWidthFound = 0;
-
-        for (int i = 0; i < std::min((int)AIVision20.objectCount, 3); i++) {
-            auto& candidate = AIVision20.objects[i];
-            if (candidate.width >= currentMinObjectWidth && candidate.width > largestWidthFound) {
-                largestWidthFound = candidate.width;
-                bestObjectIndex = i;
-            }
-        }
-
-        if (bestObjectIndex != -1) {
-            visionHorizontalNormalizedOffset = (AIVision20.objects[bestObjectIndex].centerX - 160) / 160.0;
-            visionCurrentObjectWidth = AIVision20.objects[bestObjectIndex].width;
-            visionTargetTracked = true; 
-        } else {
-            visionTargetTracked = false; 
-        }
-        vex::task::sleep(20); 
-    }
-    return 0;
-}
-
-
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -2112,27 +2062,17 @@ void moveVisionOdometry(double targetX,
                         double decelHeadingScaling,
                         double approachHeadingScaling, 
                         double maxSpeed,
-                        const vex::aivision::colordesc* targetSignature,
+                        vex::aivision::colordesc targetSignature,
                         double kp_distanceToHeadingScaling,
                         int minObjectWidth)
 {
-    // 1. CRITICAL INITIALIZATION (Must happen BEFORE task starts)
-    currentVisionSignature = targetSignature;
-    currentMinObjectWidth = minObjectWidth;
-    visionTargetTracked = false;
-    visionTaskShouldRun = true;
-    
-    // Start background vision task
-    vex::task backgroundVisionTask(visionTrackingTask);
-    vex::task::sleep(50);  // Allow first snapshot to complete
-
-    // 2. CONFIGURATION (Standardized from moveOdometry)
+    // CONFIGURATION (from moveOdometry)
     const double LAUNCH_VOLTAGE = 12;
     const double ACCEL_FACTOR_LAUNCH = 1.25;
     const double SLIP_THRESHOLD_TRACTION = 0.25;
     const double DECEL_STEP_PERCENT = 20;
     const double LOCK_THRESHOLD_DECEL = 0.25;
-    const double HEADING_LOCK_DISTANCE = 15.0; 
+    const double HEADING_LOCK_DISTANCE = 8.0;
     const int REQUIRED_CONSECUTIVE = 3;
 
     PID headingPID(kp_heading, ki_heading, kd_heading);
@@ -2159,18 +2099,116 @@ void moveVisionOdometry(double targetX,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    // 3. MAIN MOTION LOOP
+    // Vision state (persistent across loops - last known good)
+    double lastVisionHorizontalOffset = 0.0;
+    int lastVisionObjectWidth = 0;
+    bool visionEverTracked = false;
+    
+    // Track last snapshot position to detect new data
+    int lastSnapshotCenterX = -999;
+    int lastSnapshotCenterY = -999;
+    int lastSnapshotWidth = -999;
+
+    // MAIN MOTION LOOP
     while (true) 
     {
         updateOdometry();
-        calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
+
+        // === VISION SNAPSHOT (check for NEW data every loop) ===
+        AIVision20.takeSnapshot(targetSignature);
+        
+        // Check if this is actually NEW data (any change means new frame)
+        bool newVisionData = false;
+        if (AIVision20.objectCount > 0) {
+            int currentCenterX = AIVision20.objects[0].centerX;
+            int currentCenterY = AIVision20.objects[0].centerY;
+            int currentWidth = AIVision20.objects[0].width;
+            
+            // New data if ANY value changed (even 1 pixel difference is real movement)
+            if (currentCenterX != lastSnapshotCenterX || 
+                currentCenterY != lastSnapshotCenterY ||
+                currentWidth != lastSnapshotWidth) {
+                newVisionData = true;
+                lastSnapshotCenterX = currentCenterX;
+                lastSnapshotCenterY = currentCenterY;
+                lastSnapshotWidth = currentWidth;
+            }
+        } else {
+            // No objects detected - also considered "new" if we previously had objects
+            if (lastSnapshotCenterX != -999) {
+                newVisionData = true;
+                lastSnapshotCenterX = -999;
+                lastSnapshotCenterY = -999;
+                lastSnapshotWidth = -999;
+            }
+        }
+        
+        // Only process vision if we got NEW data
+        if (newVisionData) {
+            int bestObjectIndex = -1;
+            int largestWidthFound = 0;
+            
+            for (int i = 0; i < std::min((int)AIVision20.objectCount, 3); i++) {
+                auto& candidate = AIVision20.objects[i];
+                if (candidate.width >= minObjectWidth && candidate.width > largestWidthFound) {
+                    largestWidthFound = candidate.width;
+                    bestObjectIndex = i;
+                }
+            }
+            
+            if (bestObjectIndex != -1) {
+                // Update vision state with new data
+                lastVisionHorizontalOffset = (AIVision20.objects[bestObjectIndex].centerX - 160) / 160.0;
+                lastVisionObjectWidth = AIVision20.objects[bestObjectIndex].width;
+                visionEverTracked = true;
+            }
+        }
+        // If no new data, continue using lastVisionHorizontalOffset from previous snapshot
+
+        // === VISION FUSION - SHIFT TARGET POINT ===
+        double adjustedTargetX = targetX;
+        double adjustedTargetY = targetY;
+
+        if (visionEverTracked && !headingLocked) {
+            // Calculate how much to shift target based on vision offset
+            double scalingFactor = 1.0 / (1.0 + (kp_distanceToHeadingScaling * lastVisionObjectWidth));
+            
+            // Convert vision offset to lateral shift in cm
+            // Negative offset (object left) = shift target left
+            double lateralOffsetCM = lastVisionHorizontalOffset * 30.0 * scalingFactor;  // ±30cm max
+            
+            // Calculate angle perpendicular to path toward original target
+            double pathHeading = atan2(targetY - globalY, targetX - globalX);
+            
+            // Shift target perpendicular to path (90° from path heading)
+            // sin/cos swap creates perpendicular direction
+            adjustedTargetX = targetX + lateralOffsetCM * sin(pathHeading);
+            adjustedTargetY = targetY - lateralOffsetCM * cos(pathHeading);
+            
+            // DEBUG OUTPUT
+            static int debugCount = 0;
+            if (debugCount++ % 10 == 0) {
+                Brain.Screen.clearLine(10);
+                Brain.Screen.clearLine(11);
+                Brain.Screen.clearLine(12);
+                Brain.Screen.printAt(10, 200, true, "VET:%d W:%d Off:%.2f", 
+                    visionEverTracked ? 1 : 0, lastVisionObjectWidth, lastVisionHorizontalOffset);
+                Brain.Screen.printAt(10, 220, true, "LatOff:%.1fcm Scale:%.2f", 
+                    lateralOffsetCM, scalingFactor);
+                Brain.Screen.printAt(10, 240, true, "AdjTgt:(%.1f,%.1f)", 
+                    adjustedTargetX, adjustedTargetY);
+            }
+        }
+
+        // Recalculate path to ADJUSTED target
+        calculatePathToTarget(globalX, globalY, adjustedTargetX, adjustedTargetY, distanceToTarget, targetHeading);
         double currentHeading = getContinuousStandardHeading();
 
-        // --- STEP A: HEADING SNAPPING (From moveOdometry) ---
+        // === HEADING SNAPPING (from moveOdometry) ===
         double rotationsDiff = std::round((currentHeading - targetHeading) / 360.0);
         targetHeading += rotationsDiff * 360.0;
 
-        // --- STEP B: EXIT & LOCK LOGIC (From moveOdometry) ---
+        // === EXIT LOGIC ===
         if (distanceToTarget <= distanceTolerance) {
             consecutiveAtTarget++;
             if (consecutiveAtTarget >= REQUIRED_CONSECUTIVE) break;
@@ -2178,35 +2216,24 @@ void moveVisionOdometry(double targetX,
             consecutiveAtTarget = 0;
         }
 
-        // Lock heading when close to target to prevent the 180 flip
+        // === HEADING LOCK ===
         if (distanceToTarget <= HEADING_LOCK_DISTANCE) {
             if (!headingLocked) {
-                lockedHeading = currentHeading; // Lock to current trajectory
+                lockedHeading = currentHeading;
                 headingLocked = true;
             }
             targetHeading = lockedHeading;
         }
 
-        // --- STEP C: VISION FUSION (From visionDriveV2 logic) ---
-        double fusedTargetHeading = targetHeading;
-        // Only nudge if we have a target and aren't in the final lock zone
-        if (visionTargetTracked && !headingLocked) {
-            // Nudge calculation: error (-1 to 1) * scaling * distance-based dampening
-            double scalingFactor = 1.0 / (1.0 + (kp_distanceToHeadingScaling * visionCurrentObjectWidth));
-            double visionErrorDegrees = visionHorizontalNormalizedOffset * 30.5; // FOV approx
-            fusedTargetHeading = targetHeading + (visionErrorDegrees * scalingFactor);
-        }
+        double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
 
-        double headingCorrection = headingPID.calculate(fusedTargetHeading, currentHeading);
-
-        // --- STEP D: MOTOR SPEED & TRACTION ---
+        // === MOTOR CONTROL (from moveOdometry) ===
         double leftMotorRPM = leftMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
         double rightMotorRPM = rightMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
         double leftEncoderRPM = passiveEncoderLeft.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double rightEncoderRPM = passiveEncoderRight.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2.0;
 
-        // Motion Phases (Simplified integration of moveOdometry logic)
         if (distanceToTarget > breakDistance && !accelCompleted && !decel) {
             double leftT = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
             double rightT = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
@@ -2224,7 +2251,11 @@ void moveVisionOdometry(double targetX,
             }
         } 
         else if (distanceToTarget <= breakDistance && !decelCompleted) {
-            if (!decel) { adaptiveABSLeft.initialize(motorVoltageLeft[1]); adaptiveABSRight.initialize(motorVoltageRight[1]); decel = true; }
+            if (!decel) { 
+                adaptiveABSLeft.initialize(motorVoltageLeft[1]); 
+                adaptiveABSRight.initialize(motorVoltageRight[1]); 
+                decel = true; 
+            }
             double leftD = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
             double rightD = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
             vex::brakeType syncBrake = (adaptiveABSLeft.getBrakeMode() == coast || adaptiveABSRight.getBrakeMode() == coast) ? coast : brake;
@@ -2234,38 +2265,41 @@ void moveVisionOdometry(double targetX,
                 if (syncBrake == brake && std::fabs(syncedD) > 0.0) {
                     motorVoltageLeft[i] = (syncedD > 0) ? std::max(0.0, syncedD - steer) : std::min(0.0, syncedD - steer);
                     motorVoltageRight[i] = (syncedD > 0) ? std::max(0.0, syncedD + steer) : std::min(0.0, syncedD + steer);
-                } else { motorVoltageLeft[i] = 0; motorVoltageRight[i] = 0; }
-                leftMotor[i].setBrake(syncBrake); rightMotor[i].setBrake(syncBrake);
+                } else { 
+                    motorVoltageLeft[i] = 0; 
+                    motorVoltageRight[i] = 0; 
+                }
+                leftMotor[i].setBrake(syncBrake); 
+                rightMotor[i].setBrake(syncBrake);
             }
             if (fabs(avgEncoderRPM) <= (minSpeed * 0.01 * absoluteMaxRPM)) decelCompleted = true;
         } 
-        else { // Final Approach
+        else {
             for (int i = 0; i < 3; i++) {
                 motorVoltageLeft[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
                 motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
             }
         }
 
-        // --- STEP E: PRIORITY SCALER (From visionDriveV2) ---
-        // Prevents saturated motors from skewing the heading nudge
+        // === PRIORITY SCALER ===
         double maxReq = std::max(std::fabs(motorVoltageLeft[0]), std::fabs(motorVoltageRight[0]));
         if (maxReq > 12.0) {
             double scale = 12.0 / maxReq;
-            for (int i = 0; i < 3; i++) { motorVoltageLeft[i] *= scale; motorVoltageRight[i] *= scale; }
+            for (int i = 0; i < 3; i++) { 
+                motorVoltageLeft[i] *= scale; 
+                motorVoltageRight[i] *= scale; 
+            }
         }
 
         for (int i = 0; i < 3; i++) {
             leftMotor[i].spin(forward, motorVoltageLeft[i], volt);
             rightMotor[i].spin(forward, motorVoltageRight[i], volt);
         }
-        vex::task::sleep(10);
+        
+        vex::task::sleep(10);  // 100Hz control loop
     }
 
-    // 4. CLEANUP
-    visionTaskShouldRun = false;  // Signal task to exit cleanly
-    vex::task::sleep(30);  // Let it finish current iteration
-    backgroundVisionTask.stop();
-    
+    // CLEANUP
     for (int i = 0; i < 3; i++) { 
         leftMotor[i].stop(brakeMode); 
         rightMotor[i].stop(brakeMode); 
