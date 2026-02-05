@@ -15,6 +15,13 @@ using namespace vex;
                     approachHeadingScaling, maxSpeed);
 */                    
 
+extern std::atomic<double> visionHorizontalNormalizedOffset;
+extern std::atomic<int>    visionCurrentObjectWidth;
+extern std::atomic<bool>   visionTargetTracked;
+extern const vex::aivision::colordesc* currentVisionSignature;
+extern int currentMinObjectWidth;
+extern std::atomic<bool> visionTaskShouldRun;
+
 void visionSensorTest() {
     // REMOVED: visionSensor.setLight(...) -> This function does not exist for AI Vision
     
@@ -78,12 +85,34 @@ void CoordinateFinderTask(){
     }
 }
 
-
+void testVisionOnly() {
+    currentVisionSignature = &AIVision20__orangeGoal;
+    currentMinObjectWidth = 10;
+    visionTargetTracked = false;
+    visionTaskShouldRun = true;
+    
+    vex::task(visionTrackingTask);
+    vex::wait(50, vex::msec);
+    
+    // Print vision data for 4 seconds
+    for (int i = 0; i < 200; i++) {
+        Brain.Screen.clearScreen();
+        Brain.Screen.printAt(10, 20, true, "Tracked: %s", visionTargetTracked.load() ? "YES" : "NO");
+        Brain.Screen.printAt(10, 40, true, "Offset: %.3f", visionHorizontalNormalizedOffset.load());
+        Brain.Screen.printAt(10, 60, true, "Width: %d px", visionCurrentObjectWidth.load());
+        Brain.Screen.printAt(10, 80, true, "Count: %d", AIVision20.objectCount);
+        
+        vex::wait(20, vex::msec);
+    }
+    
+    visionTaskShouldRun = false;
+    vex::wait(50, vex::msec);
+}
 
 void autonTest() {
     // Initialize sensor
     //initializeOpticalSensor();
-    setStartPosition(0, 36, 0);
+    setStartPosition(0, 0, 0);
     
     /*
     visionDriveMinimal(
@@ -123,16 +152,32 @@ void autonTest() {
 
 
 
-
-
-
+    testVisionOnly();
 
       
     //forwardToPoint(0, -75, 20, 16, 2.0, 2, 0.0, 0.0, 0.1, 0.1, 0.1, 60); 
     startCoordinateFinder();
 
     // moveOdometry(targetX, targetY, breakDist, minSpeed, tolerance, kP, kI, kD, brakeType, accelScale, decelScale, approachScale, maxSpeed)
-
+/*
+moveVisionOdometry(
+    40.0,                   // targetX
+    0.0,                    // targetY
+    30.0,                   // breakDistance
+    15.0,                   // minSpeed
+    2.0,                    // distanceTolerance
+    0.45, 0.0, 0.15,        // Heading PID (kp, ki, kd)
+    vex::brakeType::hold,   // brakeMode
+    1.2,                    // accelHeadingScaling
+    0.8,                    // decelHeadingScaling
+    0.5,                    // approachHeadingScaling
+    80.0,                   // maxSpeed
+    &AIVision20__orangeGoal, // targetSignature (NOTE THE &)
+    0.15,                   // kp_distanceToHeadingScaling
+    25                      // minObjectWidth
+);
+*/
+/*
 moveOdometry(
     80.0,              // targetX (North/South distance in cm)
     35.0,              // targetY (East/West distance in cm)
@@ -149,38 +194,8 @@ moveOdometry(
     45.0               // maxSpeed (85% power cruise speed)
 );
 
+*/
 
-moveOdometry(
-    85.0,              // targetX (North/South distance in cm)
-    17.0,              // targetY (East/West distance in cm)
-    25.0,              // breakDistance (Start slowing down 25cm from target)
-    15.0,              // minSpeed (15% power for final approach)
-    2.5,               // distanceTolerance (Stop when within 2.5cm of target)
-    0.15,              // kp_heading (Proportional gain for staying on path)
-    0.0,               // ki_heading (Integral gain)
-    0.01,              // kd_heading (Derivative gain to prevent oscillation)
-    vex::brakeType::coast, // brakeMode (Lock motors after stopping)
-    0.5,               // accelHeadingScaling (Half correction strength during launch)
-    1.0,               // decelHeadingScaling (Full correction strength during braking)
-    0.3,               // approachHeadingScaling (Gentle correction during creep)
-    45.0               // maxSpeed (85% power cruise speed)
-);
-
-moveOdometry(
-    91.0,              // targetX (North/South distance in cm)
-    75.0,              // targetY (East/West distance in cm)
-    25.0,              // breakDistance (Start slowing down 25cm from target)
-    15.0,              // minSpeed (15% power for final approach)
-    2.5,               // distanceTolerance (Stop when within 2.5cm of target)
-    0.15,              // kp_heading (Proportional gain for staying on path)
-    0.0,               // ki_heading (Integral gain)
-    0.01,              // kd_heading (Derivative gain to prevent oscillation)
-    vex::brakeType::coast, // brakeMode (Lock motors after stopping)
-    0.5,               // accelHeadingScaling (Half correction strength during launch)
-    1.0,               // decelHeadingScaling (Full correction strength during braking)
-    0.3,               // approachHeadingScaling (Gentle correction during creep)
-    45.0               // maxSpeed (85% power cruise speed)
-);
 
 /*
 (80, 35)

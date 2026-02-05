@@ -1,8 +1,24 @@
 #include "vex.h"  // Make sure this is included to use vex:: types
 #include "utils.h"  // Added: Defines Color enum
+#include <atomic>
 
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
+
+
+
+// ======================================================================
+// VISION-ODOMETRY FUSION GLOBALS (Declarations)
+// ======================================================================
+// Thread-safe flags and data shared between the vision task and motion loop
+extern std::atomic<double> visionHorizontalNormalizedOffset;
+extern std::atomic<int>    visionCurrentObjectWidth;
+extern std::atomic<bool>   visionTargetTracked;
+
+/**
+ * Background task that processes AI Vision snapshots at ~50Hz.
+ */
+int visionTrackingTask();
 
 void move(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward);
 void smartMove(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward, double wallStalledTimeMs = -1);
@@ -444,3 +460,24 @@ void moveOdometry(double targetX,
                   double decelHeadingScaling = 0.2,
                   double approachHeadingScaling = 0.2, 
                   double maxSpeed = 100);
+
+
+
+//moveVisionOdometry - Fuses Odometry movement with Vision-based heading correction.
+
+void moveVisionOdometry(double targetX,
+                        double targetY, 
+                        double breakDistance, 
+                        double minSpeed,
+                        double distanceTolerance,
+                        double kp_heading, 
+                        double ki_heading, 
+                        double kd_heading,
+                        vex::brakeType brakeMode,
+                        double accelHeadingScaling, 
+                        double decelHeadingScaling,
+                        double approachHeadingScaling, 
+                        double maxSpeed,
+                        const vex::aivision::colordesc* targetSignature,  // ← FIXED: pointer
+                        double kp_distanceToHeadingScaling,
+                        int minObjectWidth);
