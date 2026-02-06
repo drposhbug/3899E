@@ -1,4 +1,4 @@
-#ifndef PID_H // Include guard to prevent multiple inclusions
+#ifndef PID_H
 #define PID_H
 
 class PID {

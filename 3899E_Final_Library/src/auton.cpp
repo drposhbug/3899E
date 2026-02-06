@@ -944,12 +944,14 @@ void soloAWP(){
 
     intakeStart(1000, 100, false);
     matchloadStart(5500,100,1050,true);
+    turnRight(-16,60,25,90,16);
+    wait(200, msec);
     driveForward(85, 60, -16, 30);
     wait(250, msec);
     turnRight(-148,118,26,80,14);
     wait(200, msec);
        
-    driveForward(105,76,-148,24, 0.3,0.002,0,0.1,1,0.3,90);
+    /*driveForward(105,76,-148,24, 0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnRight(-176,20,26,80); 
     wait(200, msec);
@@ -977,7 +979,7 @@ void soloAWP(){
     driveForward(12,0,6,24,0.3,0.002,0,0.1,1,0.3,90);
     wingPneumatics.set(false);
 
-    driveForwardV2(60,0,6,24,0.3,0.002,0,0.1,1,0.3,30);
+    driveForwardV2(60,0,6,24,0.3,0.002,0,0.1,1,0.3,30);*/
 
 
     //wait(250, msec);
@@ -1292,4 +1294,13 @@ void skillsAutonGateway(){
         1.50, 0.0, 0.0        
     );
         driveForwardV3(44,25,-330);
+}
+
+void soloAwpOdom(){
+    setStartPosition(0, 0, 0);
+    startOdometryTask();
+    startCoordinateFinder();
+    initializeOpticalSensor();
+
+    
 }
