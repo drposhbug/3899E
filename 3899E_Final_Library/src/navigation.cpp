@@ -12,10 +12,8 @@
 
 using namespace vex;
 
-
-const int VISION_CENTER_X = 160;      
-const int MIN_OBJECT_WIDTH = 25;      
-
+const double VISION_CENTER_X = 134;  
+  
 enum MotionPhase { READY, LAUNCH, CRUISE, DECELERATE, APPROACH, STOP };
 
 double getCurrentEncoderDistanceCM() {
@@ -1868,7 +1866,7 @@ void visionDrive(vex::aivision::colordesc targetSignature, int targetPixelWidth,
         int bestIdx = -1; double largestWidth = 0;
         for (int i = 0; i < std::min(maxObjectsToCheck, (int)AIVision20.objectCount); i++) {
             auto& obj = AIVision20.objects[i];
-            if (obj.width >= MIN_OBJECT_WIDTH && obj.centerX >= minX && obj.centerX <= maxX && obj.centerY >= minY && obj.centerY <= maxY && obj.width > largestWidth) { largestWidth = obj.width; bestIdx = i; }
+            if (obj.width >= 24 && obj.centerX >= minX && obj.centerX <= maxX && obj.centerY >= minY && obj.centerY <= maxY && obj.width > largestWidth) { largestWidth = obj.width; bestIdx = i; }
         }
         double turnCorrection = (bestIdx >= 0) ? headingPID.calculate(0.0, AIVision20.objects[bestIdx].centerX - VISION_CENTER_X) : headingPID.calculate(targetHeading, getContinuousStandardHeading());
         double currentWidth = (bestIdx >= 0) ? AIVision20.objects[bestIdx].width : 0;
@@ -2049,6 +2047,150 @@ void visionDriveMinimal(
  * Uses a Priority Scaler to ensure steering is preserved at max power 
  * and a grace period to handle momentary sensor drops.
  */
+void visionDriveV2(
+    vex::aivision::colordesc targetSignature,
+    vex::aivision::tagdesc* aiObjectSignature,
+    int targetPixelWidth,
+    double targetHeading,
+    double minSpeedPct,
+    double maxSpeedPct,
+    double timeoutDistanceCM,
+    double kp_head, double ki_head, double kd_head,
+    double kp_distToHeadScaling,
+    double kp_dist, double ki_dist, double kd_dist,
+    int minX, int maxX,
+    int minY, int maxY,
+    vex::brakeType brakeMode,
+    int minObjectWidth
+) {
+    // ========================================
+    // CONFIGURATION & PID SETUP
+    // ========================================
+    double maxSteeringPct = 25.0;  // Max steering authority (0-100)
+    const int MAX_OBJECTS_TO_CHECK = 3;
+    const int MAX_LOST_FRAMES = 15; // 
+    
+    PID headingPID(kp_head, ki_head, kd_head);
+    PID distancePID(kp_dist, ki_dist, kd_dist);
+    headingPID.pidReset();
+    distancePID.pidReset();
+    
+    double maxSteeringVoltage = maxSteeringPct * 0.12;
+    
+    // State Tracking
+    bool hasDetectedBefore = false;
+    double lastNormalizedOffset = 0.0;
+    int lastDetectedWidth = 0;
+    int lostFrameCounter = 0;
+
+    // ========================================
+    // MAIN VISION TRACKING LOOP
+    // ========================================
+    while (true) {
+        AIVision20.takeSnapshot(targetSignature);
+        
+        int bestObjectIndex = -1;
+        int largestWidth = 0;
+        int objectsToCheck = std::min((int)AIVision20.objectCount, MAX_OBJECTS_TO_CHECK);
+        
+        // --- SECTION 1: FILTERING ---
+        for (int i = 0; i < objectsToCheck; i++) {
+            auto& obj = AIVision20.objects[i];
+            int bottomY = obj.centerY + (obj.height / 2);
+            
+            if (obj.width < minObjectWidth) continue;
+            if (bottomY < minY || bottomY > maxY) continue;
+            if (obj.centerX < minX || obj.centerX > maxX) continue;
+            
+            if (obj.width > largestWidth) {
+                largestWidth = obj.width;
+                bestObjectIndex = i;
+            }
+        }
+        
+        double currentNormalizedOffset;
+        int currentWidth;
+        
+        // --- SECTION 2: DETECTION & FALLBACK ---
+        if (bestObjectIndex == -1) {
+            lostFrameCounter++;
+            
+            // Give up after too many frames without detection
+            if (lostFrameCounter > MAX_LOST_FRAMES) break;
+            
+            // Use fallback memory (only useful if we've detected before)
+            if (hasDetectedBefore) {
+                currentNormalizedOffset = lastNormalizedOffset;
+                currentWidth = lastDetectedWidth;
+            } else {
+                // No detection yet and no memory — wait for next frame
+                vex::task::sleep(20);
+                continue;
+            }
+        } else {
+            lostFrameCounter = 0;  // Reset counter when we see the target
+            auto& detectedObject = AIVision20.objects[bestObjectIndex];
+            
+            // Normalize offset: -1.0 (left edge) to 1.0 (right edge)
+            currentNormalizedOffset = (detectedObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
+            currentWidth = detectedObject.width;
+            
+            // Update fallback memory
+            lastNormalizedOffset = currentNormalizedOffset;
+            lastDetectedWidth = currentWidth;
+            hasDetectedBefore = true;
+            
+            // Success Exit
+            if (currentWidth >= targetPixelWidth) break;
+        }
+        
+        // --- SECTION 3: CALCULATIONS ---
+        
+        // Distance-based Heading Scaling: 0.2 floor prevents steering loss at target
+        double distanceErrorPixels = (double)targetPixelWidth - (double)currentWidth;
+        double headingScalingFactor = 0.2 + (kp_distToHeadScaling * distanceErrorPixels);
+        headingScalingFactor = std::max(0.2, std::min(3.0, headingScalingFactor));
+        
+        // Base correction from Normalized PID (error is -1.0 to 1.0)
+        double steeringCorrection = (headingPID.calculate(0.0, currentNormalizedOffset) * 12.0) * headingScalingFactor;
+        steeringCorrection = std::max(-maxSteeringVoltage, std::min(maxSteeringVoltage, steeringCorrection));
+        
+        // Drive speed calculation
+        double baseDriveVoltage = distancePID.calculate((double)targetPixelWidth, (double)currentWidth) * 0.12;
+        double clampedDrive = std::max(minSpeedPct * 0.12, std::min(maxSpeedPct * 0.12, baseDriveVoltage));
+        
+        // --- SECTION 4: PRIORITY SCALER (Symmetry Fix) ---
+        double leftRequest = clampedDrive - steeringCorrection;
+        double rightRequest = clampedDrive + steeringCorrection;
+        
+        // Calculate the maximum magnitude requested across both motors
+        double maxRequest = std::max(std::fabs(leftRequest), std::fabs(rightRequest));
+        
+        // If exceeding 12V, scale BOTH sides down to preserve the turn ratio
+        if (maxRequest > 12.0) {
+            double scaleFactor = 12.0 / maxRequest;
+            leftRequest *= scaleFactor;
+            rightRequest *= scaleFactor;
+        }
+        
+        // --- SECTION 5: MOTOR OUTPUT ---
+        for (int i = 0; i < 3; i++) {
+            leftMotor[i].spin(forward, leftRequest, volt);
+            rightMotor[i].spin(forward, rightRequest, volt);
+        }
+        
+        vex::task::sleep(20);
+    }
+    
+    // --- CLEANUP ---
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].stop(brakeMode);
+        rightMotor[i].stop(brakeMode);
+    }
+}
+
+
+
 /**
  * moveVisionOdometry - Advanced vision-fused autonomous movement
  * * Drives the robot to a global (X, Y) coordinate while using the AI Vision sensor
@@ -2168,7 +2310,7 @@ void moveVisionOdometry(double targetX,
             if (primaryObject.width >= minObjectWidth) {
                 // Update vision state only if a new frame is detected
                 if (primaryObject.centerX != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth) {
-                    lastVisionHorizontalOffset = (primaryObject.centerX - 160) / 160.0;
+                    lastVisionHorizontalOffset = (primaryObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
                     lastSnapshotCenterX = primaryObject.centerX;
                     lastSnapshotWidth = primaryObject.width;
                     visionEverTracked = true;

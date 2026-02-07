@@ -78,7 +78,7 @@ void visionSensorTest() {
 
 
 void CoordinateFinderTask(){
-    setStartPosition(0, 36, 0.0);
+    setStartPosition(0, 36.2, 0.0);
     while(true){
         startCoordinateFinder();
         vex::task::sleep(500);
@@ -1129,7 +1129,7 @@ void nothing(){
 }
 
 void soloAwp2(){
-    setStartPosition(0.0, 0, -90.0);
+    setStartPosition(0, 36.2,0);
     //startOdometryTask();
     //startCoordinateFinder();
     //InertialSensor.setRotation(0, degrees);
@@ -1137,11 +1137,14 @@ void soloAwp2(){
     initializeOpticalSensor();
 
     //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
-    matchLoadPneumatics.set(true);
-    wait(200, msec);
-    driveForwardV3(44,25,-90);
-    turnRight(-142,5,2,85,22);
-    smartStop(5, 10, 300, false);
+    //matchLoadPneumatics.set(true);
+    //wait(200, msec);
+    driveForwardV3(42,25,0);
+    //turnRight(-52,5,2,85,22);
+    turnRight(-32.5,0,2,100);
+    smartStop(5, 10, 150, false);
+
+    
     matchloadStart(2700,100,0,true);
     //smartStraight(47, 0, -180, 15, 220, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
     visionDriveMinimal(
@@ -1154,17 +1157,83 @@ void soloAwp2(){
         0.3,       
         1.50, 0.0, 0.0    
     );
-   smartStraight(47, 40, -180, 15, 200, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
+   smartStraight(47, 0, -90, 15, 100, 0.4, 0.0, 0.0, 0.2, 0.2, 0.2, 60);
     wait(200, msec);
-    driveBackward(26, 14, -180,24,1.1,0,0,0.1,0.2,0.3,70);
-    //driveBackwardV3(12,0,-180);
-        wait(400, msec);
+    driveBackward(8, 0, -90,24,1.1,0,0,0.1,0.2,0.3,100);
+        //driveBackwardV3(12,0,-180);
+       // wait(400, msec);
+matchLoadPneumatics.set(false);      
+ turnLeft(20,0,20,100);
+ //turnLeft(86,0,25,85,80);
+  // smartStop(5, 10, 400, false);
+//wait(200, msec);
 
-    turnLeft(-4,0,25,85,80);
-  //  smartStop(5, 10, 300, false);
-  wait(400, msec);
-  smartStraight(50, 48, -4, 24, 150, 0.05, 0, 0., 0.2, 0.2, 0.2, 40);
-    score(1000, 100);
+/*
+visionDriveMinimal(
+        AIVision20__orangeGoal, 
+        130,                    
+        0.0,                    
+        24.0, 40.0,             
+        brakeType::hold,       
+        .06, 0.0, 0.0, 
+        0.3,       
+        1.50, 0.0, 0.0    
+    );
+
+*/    
+/*
+visionDriveV2(
+    AIVision20__orangeGoal,   // 1. targetSignature (colordesc)
+    nullptr,                  // 2. aiObjectSignature (tagdesc* - MUST be nullptr for color)
+    130,                      // 3. targetPixelWidth (int)
+    0.0,                      // 4. targetHeading (double)
+    24.0,                     // 5. minSpeedPct (double)
+    40.0,                     // 6. maxSpeedPct (double)
+    100.0,                    // 7. timeoutDistanceCM (double - NEW param in V2)
+    0.1,                     // 8. kp_head
+    0.0,                      // 9. ki_head
+    0.0,                      // 10. kd_head
+    0.3,                      // 11. kp_distToHeadScaling
+    1.50,                     // 12. kp_dist
+    0.0,                      // 13. ki_dist
+    0.0,                      // 14. kd_dist
+    0,                        // 15. minX
+    320,                      // 16. maxX
+    120,                        // 17. minY
+    240,                      // 18. maxY
+    brakeType::hold,          // 19. brakeMode
+    50                        // 20. minObjectWidth
+);    
+*/
+
+// Replacing Vision tracking with Odometry-based movement to (100, 200)
+// Replacing visionDriveV2 with moveVisionOdometry
+moveVisionOdometry(
+    100.0,                    // 1. targetX
+    200.0,                    // 2. targetY
+    15.0,                     // 3. breakDistance (Distance to start slowing down)
+    24.0,                     // 4. minSpeed (from visionDriveV2 minSpeedPct)
+    2.0,                      // 5. distanceTolerance (cm error allowed at target)
+    0.1,                      // 6. kp_heading (from visionDriveV2 kp_head)
+    0.0,                      // 7. ki_heading (from visionDriveV2 ki_head)
+    0.0,                      // 8. kd_heading (from visionDriveV2 kd_head)
+    brakeType::hold,          // 9. brakeMode (from visionDriveV2 brakeMode)
+    1.0,                      // 10. accelHeadingScaling (Standard multiplier)
+    1.0,                      // 11. decelHeadingScaling (Standard multiplier)
+    0.3,                      // 12. approachHeadingScaling (Standard multiplier)
+    40.0,                     // 13. maxSpeed (from visionDriveV2 maxSpeedPct)
+    AIVision20__orangeGoal,   // 14. targetSignature (Vision color description)
+    0.3,                      // 15. kp_distanceToHeadingScaling (from visionDriveV2 kp_distToHeadScaling)
+    50                        // 16. minObjectWidth (from visionDriveV2 minObjectWidth)
+);
+
+
+//smartStraight(50, 48, 86, 24, 150, 0.05, 0, 0., 0.2, 0.2, 0.2, 40);
+ // score(1000, 100);
+
+
+
+
   //  driveBackward(10, -4, -180,24,1.1,0,0,0.1,0.2,0.3,70);
     
 

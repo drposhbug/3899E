@@ -56,7 +56,8 @@ const double wheelCircumferenceCM = 32.0;        // circumference of the motoriz
 const double encoderWheelCircumferenceCM = 15.96; // Circumference of the encoder wheel in cm
 const double DISTANCE_TO_WHEEL = 15.25;           // distance between left and right wheels in cm
 const double DISTANCE_TO_ENCODER = 8.3;
-const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
+const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;    
+
 
 
 // ========================================
@@ -66,7 +67,7 @@ const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
 // Color signatures calibrated for our field conditions
 vex::aivision::colordesc AIVision20__blueCube(1, 63, 130, 192, 20, 0.25);
 //vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
-vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 40, 1);
+vex::aivision::colordesc AIVision20__orangeGoal(2, 213, 135, 100, 16, 0.31);
 vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
 
 // Push Back AI classification objects
