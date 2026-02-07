@@ -23,7 +23,7 @@ void runAuton(void) {
   
   // Start heading display task
   //visionSensorTest(); 
-  //autonTest();  
+  autonTest();  
   //CoordinateFinderTask();  
   //autonLeft(); 
   //autonRight();
@@ -45,7 +45,7 @@ void runAuton(void) {
   //skills();
   //odomTest();
   //skillsAutonGateway();
-  soloAwpOdom();
+  //soloAwpOdom();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 

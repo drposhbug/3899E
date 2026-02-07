@@ -227,19 +227,20 @@ void autonTest() {
 
     // moveOdometry(targetX, targetY, breakDist, minSpeed, tolerance, kP, kI, kD, brakeType, accelScale, decelScale, approachScale, maxSpeed)
 
+// Example: Driving 60cm forward while centering the Orange Goal
 moveVisionOdometry(
-    40.0,                   // targetX
-    0.0,                    // targetY
-    30.0,                   // breakDistance
-    15.0,                   // minSpeed
-    2.0,                    // distanceTolerance
-    0.45, 0.0, 0.15,        // Heading PID
-    vex::brakeType::hold,
-    1.2, 0.8, 0.5,          // Heading scaling
-    60.0,                   // maxSpeed
-    AIVision20__orangeGoal,
-    0.01,                   // kp for lateral offset scaling
-    10
+    40.0,                   // targetX (cm)
+    0.0,                    // targetY (cm)
+    25.0,                   // breakDistance (cm)
+    15.0,                   // minSpeed (%)
+    2.0,                    // distanceTolerance (cm)
+    0.45, 0.0, 0.15,        // Heading PID (kp, ki, kd)
+    vex::brakeType::hold,   // brakeMode
+    1.2, 0.8, 0.5,          // Accel/Decel/Approach Heading Scaling
+    40.0,                   // maxSpeed (%)
+    AIVision20__orangeGoal, // targetSignature
+    0.4,                   // kp_headingFusionWeight (45% Vision / 55% Odo)
+    25                      // minObjectWidth (pixels)
 );
 
 /*
