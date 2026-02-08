@@ -285,22 +285,35 @@ void PIDVoltageCapCorrection(double &leftVoltage, double &rightVoltage, double a
 }
 
 /**
- * Calculates slip ratio between wheel and robot speeds
- * @param wheelSpeed Individual wheel speed in RPM
- * @param robotSpeed Robot's ground speed in RPM
- * @return Slip ratio from 0 to 1: 0 = no slip, 1 = full slip
+ * Calculates slip ratio using SAE J670 standard formula
+ * 
+ * Slip ratio quantifies the difference between wheel speed and actual ground speed:
+ * - During acceleration: Detects wheel spin (wheelSpeed > robotSpeed)
+ * - During braking: Detects wheel lock (wheelSpeed < robotSpeed)
+ * 
+ * @param wheelSpeed Motor-driven wheel speed in RPM (from motor.velocity())
+ * @param robotSpeed Actual ground speed in RPM (from tracking wheel encoder)
+ * @return Slip ratio from 0.0 to 1.0, where:
+ *         0.0 = perfect traction (no slip/lock)
+ *         1.0 = complete slip or lock
+ * 
+ * Formula: |wheelSpeed - robotSpeed| / max(|wheelSpeed|, |robotSpeed|)
+ * The larger speed becomes the reference to ensure the ratio stays within 0-1 range
  */
 double calculateSlipRatio(double wheelSpeed, double robotSpeed)
 {
-    // If robot isn't moving
-    if (std::fabs(robotSpeed) < DIV_BY_ZERO_THRESHOLD)
+    // Use the larger of the two speeds as the reference denominator
+    // This ensures slip ratio is always between 0.0 and 1.0
+    double referenceSpeed = std::max(std::fabs(wheelSpeed), std::fabs(robotSpeed));
+    
+    // Prevent division by zero when robot is stationary
+    if (referenceSpeed < DIV_BY_ZERO_THRESHOLD)
     {
-        // Both stopped = no slip, wheels spinning = full slip
-        return (std::fabs(wheelSpeed) < DIV_BY_ZERO_THRESHOLD) ? 0.0 : 1.0;
+        return 0.0;  // No slip when both speeds are zero
     }
     
-    // Unified formula with absolute value
-    return std::fabs((wheelSpeed - robotSpeed) / robotSpeed);
+    // Calculate slip as percentage of reference speed
+    return std::fabs((wheelSpeed - robotSpeed) / referenceSpeed);
 }
 
 // Calculate wheel lockup ratio for ABS braking

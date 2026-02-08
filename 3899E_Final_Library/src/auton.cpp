@@ -1139,12 +1139,12 @@ void soloAwp2(){
     //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
     //matchLoadPneumatics.set(true);
     //wait(200, msec);
-    driveForwardV3(42,25,0);
-    //turnRight(-52,5,2,85,22);
-    turnRight(-32.5,0,2,100);
-    smartStop(5, 10, 150, false);
-
+    driveForwardV3(36.5,0,0);
     
+    //turnRight(-52,5,2,85,22);
+    turnRight(-29.2,0,2,100);
+    //wait(20000, msec);
+    smartStop(5, 10, 150, false);
     matchloadStart(2700,100,0,true);
     //smartStraight(47, 0, -180, 15, 220, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
     visionDriveMinimal(
@@ -1159,7 +1159,7 @@ void soloAwp2(){
     );
    smartStraight(47, 0, -90, 15, 100, 0.4, 0.0, 0.0, 0.2, 0.2, 0.2, 60);
     wait(200, msec);
-    driveBackward(8, 0, -90,24,1.1,0,0,0.1,0.2,0.3,100);
+    driveBackwardV3(8, 0, -90,24,1,1.1,0,0,0.1,0.2,0.3,100);
         //driveBackwardV3(12,0,-180);
        // wait(400, msec);
 matchLoadPneumatics.set(false);      
