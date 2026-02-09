@@ -19,6 +19,7 @@ vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
 vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
 vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
 vex::pneumatics wingPneumatics = vex::pneumatics(Brain.ThreeWirePort.C);
+vex::pneumatics indexPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
 // Define Sensors
 vex::inertial InertialSensor = vex::inertial(vex::PORT16);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT20, true);  // Initialize the encoder on PORT10
@@ -39,7 +40,6 @@ vex::motor leftMotor[] = {LeftMotor3, LeftMotor2, LeftMotor1};
 vex::motor rightMotor[] = {RightMotor3, RightMotor2, RightMotor1};
 // Define Constants
 // Coordinate system constants
-constexpr double MODIFIED_TO_STANDARD_OFFSET = 90.0;
 const double numberDriveMotor = 6;
 const double accelerationFactor = 1.05; // Adjust this factor globally
 const double absoluteMaxRPM = 600;
@@ -56,29 +56,37 @@ const double wheelCircumferenceCM = 32.0;        // circumference of the motoriz
 const double encoderWheelCircumferenceCM = 15.96; // Circumference of the encoder wheel in cm
 const double DISTANCE_TO_WHEEL = 15.25;           // distance between left and right wheels in cm
 const double DISTANCE_TO_ENCODER = 8.3;
-const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
+const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;    
+
 
 
 // ========================================
-// AI Vision Sensor Configuration (from Vision Utility)
+// AI Vision Sensor Configuration
 // ========================================
-// Individual Color Signatures
-//vex::aivision::colordesc AIVision20__blueCube(1, 38, 121, 172, 25, 1);//Fist one picks up a lot of dark bluish grey including mat
+
+// Color signatures calibrated for our field conditions
 vex::aivision::colordesc AIVision20__blueCube(1, 63, 130, 192, 20, 0.25);
-vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
+//vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
+vex::aivision::colordesc AIVision20__orangeGoal(2, 213, 135, 100, 16, 0.31);
 vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
 
-// Color Codes (combinations)
+// Push Back AI classification objects
+vex::aivision::tagdesc AIVision20__blueBlock(1);  
+vex::aivision::tagdesc AIVision20__redBlock(2);   
+
+// Color codes for detecting combinations
 vex::aivision::codedesc AIVision20__redLoad(1, AIVision20__orangeGoal, AIVision20__blueCube, AIVision20__redCube);
 vex::aivision::codedesc AIVision20__blueLoad(2, AIVision20__orangeGoal, AIVision20__redCube, AIVision20__blueCube);
 
-// Sensor initialization with all descriptors
+// Initialize sensor with all descriptors
 vex::aivision AIVision20(vex::PORT14, 
-                         AIVision20__blueCube, 
-                         AIVision20__orangeGoal, 
-                         AIVision20__redCube, 
-                         AIVision20__redLoad, 
-                         AIVision20__blueLoad);
+                         AIVision20__blueCube,      
+                         AIVision20__orangeGoal,    
+                         AIVision20__redCube,       
+                         AIVision20__redLoad,       
+                         AIVision20__blueLoad,      
+                         AIVision20__blueBlock,     
+                         AIVision20__redBlock);
 
 double headingOffset = 0.0;
 
@@ -102,10 +110,11 @@ void vexcodeInit(void)
     Brain.Screen.printAt(10, 20, "Calibrating Inertial Sensor...");
     while (InertialSensor.isCalibrating())
     {
-        vex::task::sleep(100); // Wait for calibration to complete
+        vex::task::sleep(100);
     }
-    InertialSensor.resetHeading(); // Reset heading to 0
+    InertialSensor.resetHeading();
     Brain.Screen.printAt(10, 40, "Calibration Complete");
+       
     wait(500, vex::msec);
     Brain.Screen.clearScreen();
 

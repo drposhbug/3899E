@@ -23,7 +23,8 @@ void runAuton(void) {
   
   // Start heading display task
   //visionSensorTest(); 
-  //autonTest();    
+  //autonTest();  
+  //CoordinateFinderTask();  
   //autonLeft(); 
   //autonRight();
   //autonFwdRight();
@@ -31,16 +32,19 @@ void runAuton(void) {
   //SpeedwayAutonLeft();
   //SevenBallRight();
   //SevenBallLeft();
-  soloAWP();
+  //soloAWP();
   //soloAWPMiddle();
- //leftSideLong();
-    //leftSidemiddle();
-
+  //leftSideLong();
+  //leftSidemiddle();
+  //nothing();
+  soloAwp2();
   //rightMiddleAuto();
   //calibration();
   //doubleDoinkerBlue();
   //skills();
   //odomTest();
+  //skillsAutonGateway();
+  //soloAwpOdom();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 

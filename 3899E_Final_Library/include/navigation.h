@@ -1,8 +1,24 @@
 #include "vex.h"  // Make sure this is included to use vex:: types
 #include "utils.h"  // Added: Defines Color enum
+#include <atomic>
 
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
+
+
+
+// ======================================================================
+// VISION-ODOMETRY FUSION GLOBALS (Declarations)
+// ======================================================================
+// Thread-safe flags and data shared between the vision task and motion loop
+extern std::atomic<double> visionHorizontalNormalizedOffset;
+extern std::atomic<int>    visionCurrentObjectWidth;
+extern std::atomic<bool>   visionTargetTracked;
+
+/**
+ * Background task that processes AI Vision snapshots at ~50Hz.
+ */
+int visionTrackingTask();
 
 void move(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward);
 void smartMove(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward, double wallStalledTimeMs = -1);
@@ -406,6 +422,31 @@ void visionDriveMinimal(
  * @param approachHeadingScaling Heading correction scaling during approach
  * @param maxSpeed             Maximum speed (0-100%)
  */
+
+
+void visionDriveV2(
+    vex::aivision::colordesc targetSignature,
+    vex::aivision::tagdesc* aiObjectSignature = nullptr,
+    int targetPixelWidth = 60,
+    double targetHeading = 0.0,
+    double minSpeedPct = 24.0,
+    double maxSpeedPct = 75.0,
+    double timeoutDistanceCM = 100.0,
+    double kp_head = 0.1,
+    double ki_head = 0.0,
+    double kd_head = 0.0,
+    double kp_distToHeadScaling = 0.3,
+    double kp_dist = 1.50,
+    double ki_dist = 0.0,
+    double kd_dist = 0.0,
+    int minX = 0,
+    int maxX = 320,
+    int minY = 0,
+    int maxY = 240,
+    vex::brakeType brakeMode = vex::brakeType::coast,
+    int minObjectWidth = 10
+);
+
 void moveOdometry(double targetX,
                   double targetY, 
                   double breakDistance, 
@@ -419,3 +460,24 @@ void moveOdometry(double targetX,
                   double decelHeadingScaling = 0.2,
                   double approachHeadingScaling = 0.2, 
                   double maxSpeed = 100);
+
+
+
+//moveVisionOdometry - Fuses Odometry movement with Vision-based heading correction.
+
+void moveVisionOdometry(double targetX,
+                        double targetY, 
+                        double breakDistance, 
+                        double minSpeed,
+                        double distanceTolerance,
+                        double kp_heading, 
+                        double ki_heading, 
+                        double kd_heading,
+                        vex::brakeType brakeMode,
+                        double accelHeadingScaling, 
+                        double decelHeadingScaling,
+                        double approachHeadingScaling, 
+                        double maxSpeed,
+                        vex::aivision::colordesc targetSignature,
+                        double kp_distanceToHeadingScaling,
+                        int minObjectWidth);

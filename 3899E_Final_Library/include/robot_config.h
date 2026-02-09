@@ -25,6 +25,7 @@ extern vex::pneumatics backHoodPneumatics;
 extern vex::pneumatics matchLoadPneumatics;
 extern vex::pneumatics ptoPneumatics;
 extern vex::pneumatics wingPneumatics;
+extern vex::pneumatics indexPneumatics;
 // Declare Sensors
 extern vex::inertial InertialSensor;
 
@@ -130,6 +131,8 @@ extern vex::aivision::colordesc AIVision20__redCube;
 extern vex::aivision::codedesc AIVision20__redLoad;
 extern vex::aivision::codedesc AIVision20__blueLoad;
 
-extern vex::aivision AIVision20;
+extern vex::aivision::tagdesc AIVision20__blueBlock;
+extern vex::aivision::tagdesc AIVision20__redBlock;
 
+extern vex::aivision AIVision20;
 #endif

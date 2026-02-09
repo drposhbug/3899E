@@ -21,6 +21,12 @@ void leftSideLong();
 void leftSidemiddle();
 void soloAWPMiddle();
 void visionSensorTest();
-
+void skillsAuton();
+void CoordinateFinderTask();
+void nothing();
+void soloAwp2();
+void runEverything();
+void skillsAutonGateway();
+void soloAwpOdom();
 
 #endif // AUTON_H
