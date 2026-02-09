@@ -687,17 +687,17 @@ void rightMiddleAuto(){
 }
 
 void soloAWP(){
-    setStartPosition(0.0, 25, -90.0);
-    startOdometryTask();
-    startCoordinateFinder();
-    initializeOpticalSensor();    
+    //setStartPosition(0.0, 25, -90.0);
+    //startOdometryTask();
+    //startCoordinateFinder();
+    //initializeOpticalSensor();    
     ptoPneumatics.set(false);
     backHoodPneumatics.set(false);
     frontHoodPneumatics.set(false);
     wingPneumatics.set(true);
 
-    forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
-    //driveForwardV3(36,0,-90);
+    //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
+    driveForwardV3(36,0,-90);
     turnRight(-135,0,24,100,20);
     smartStop(5, 10, 300, false);
     smartStraight(47, 0, -180, 15, 200, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
