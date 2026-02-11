@@ -33,7 +33,6 @@ void runAuton(void) {
   //SevenBallRight();
   //SevenBallLeft();
   //soloAWP();
-  //skillsAuton();
   //soloAWPMiddle();
   //leftSideLong();
   //leftSidemiddle();
