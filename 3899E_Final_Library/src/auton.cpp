@@ -1311,9 +1311,8 @@ moveVisionOdometry(
 
 smartStraight(50, 48, 90, 24, 150, 0.05, 0, 0., 0.2, 0.2, 0.2, 40);
 score(1000, 100);
-wait(200, msec);
 driveBackwardV3(10, -4, 90,24,1.1,0,0,0.1,0.2,0.3,70);
-turnLeft(135,0,25,100,20);
+turnLeft(135,0,25,100,30);
 visionDriveV2(
     AIVision20__redCube,   // 1. targetSignature
     60,                      // 2. targetPixelWidth
