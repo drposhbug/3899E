@@ -1239,7 +1239,6 @@ visionDriveV2(
 
     
    smartStraight(47, 0, -90, 15, 100, 0.4, 0.0, 0.0, 0.2, 0.2, 0.2, 60);
-    wait(200, msec);
     driveBackwardV3(8, 0, -90,24,1,1.1,0,0,0.1,0.2,0.3,100);
         //driveBackwardV3(12,0,-180);
        // wait(400, msec);
@@ -1339,15 +1338,15 @@ matchloadStart(600,100,300,true);
 driveForwardV3(30,15,135);
 wait(200, msec);
 matchLoadPneumatics.set(false);
-smartStraight(47, 40, -330, 15, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
+smartStraight(47, 40, 135, 15, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
 outtake(1000, 100);
 
 driveBackwardV3(35, 20, 135,24,1.1,0,0,0.1,0.2,0.3,70);
 turnLeft(150,60,25,100,2);
 visionDriveV2(
     AIVision20__redCube,   // 1. targetSignature
-    60,                      // 2. targetPixelWidth
-    135,                      // 3. targetHeading
+    50,                      // 2. targetPixelWidth
+    180,                      // 3. targetHeading
     brakeType::hold,          // 4. brakeMode
     75.0,                     // 5. maxSpeedPct
     0.1,                      // 6. kp_head
