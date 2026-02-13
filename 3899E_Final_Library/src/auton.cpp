@@ -1309,20 +1309,15 @@ moveVisionOdometry(
 );
 */
 
-smartStraight(50, 48, 86, 24, 150, 0.05, 0, 0., 0.2, 0.2, 0.2, 40);
- // score(1000, 100);
-
+smartStraight(50, 48, 90, 24, 150, 0.05, 0, 0., 0.2, 0.2, 0.2, 40);
+score(1000, 100);
 wait(200, msec);
-
-
-driveBackward(10, -4, -180,24,1.1,0,0,0.1,0.2,0.3,70);
-    
-
-turnLeft(-330,0,25,100,20);
+driveBackwardV3(10, -4, 90,24,1.1,0,0,0.1,0.2,0.3,70);
+turnLeft(135,0,25,100,20);
 visionDriveV2(
     AIVision20__redCube,   // 1. targetSignature
     60,                      // 2. targetPixelWidth
-    0.0,                      // 3. targetHeading
+    135,                      // 3. targetHeading
     brakeType::hold,          // 4. brakeMode
     75.0,                     // 5. maxSpeedPct
     0.1,                      // 6. kp_head
@@ -1341,11 +1336,36 @@ visionDriveV2(
     0.0                       // 19. kd_dist
 ); 
 
-matchloadStart(800,100,300,true);
-driveForwardV3(45,15,-330);
+matchloadStart(600,100,300,true);
+driveForwardV3(30,15,135);
+wait(200, msec);
+matchLoadPneumatics.set(false);
 smartStraight(47, 40, -330, 15, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
 outtake(1000, 100);
 
+driveBackwardV3(35, 20, 135,24,1.1,0,0,0.1,0.2,0.3,70);
+turnLeft(150,60,25,100,2);
+visionDriveV2(
+    AIVision20__redCube,   // 1. targetSignature
+    60,                      // 2. targetPixelWidth
+    135,                      // 3. targetHeading
+    brakeType::hold,          // 4. brakeMode
+    75.0,                     // 5. maxSpeedPct
+    0.1,                      // 6. kp_head
+    0.0,                      // 7. ki_head
+    0.0,                      // 8. kd_head
+    1.75,                      // 9. kp_distToHeadScaling
+    20,                       // 10. minObjectWidth
+    0,                        // 11. minX
+    320,                      // 12. maxX
+    120,                      // 13. minY
+    240,                      // 14. maxY
+    24.0,                     // 15. minSpeedPct
+    100.0,                    // 16. timeoutDistanceCM
+    1.50,                     // 17. kp_dist
+    0.0,                      // 18. ki_dist
+    0.0                       // 19. kd_dist
+); 
 
 
 
