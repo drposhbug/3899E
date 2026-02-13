@@ -229,18 +229,28 @@ void autonTest() {
 
 // Example: Driving 60cm forward while centering the Orange Goal
 moveVisionOdometry(
-    40.0,                   // targetX (cm)
-    0.0,                    // targetY (cm)
-    25.0,                   // breakDistance (cm)
-    15.0,                   // minSpeed (%)
-    2.0,                    // distanceTolerance (cm)
-    0.45, 0.0, 0.15,        // Heading PID (kp, ki, kd)
-    vex::brakeType::hold,   // brakeMode
-    1.2, 0.8, 0.5,          // Accel/Decel/Approach Heading Scaling
-    40.0,                   // maxSpeed (%)
-    AIVision20__orangeGoal, // targetSignature
-    0.4,                   // kp_headingFusionWeight (45% Vision / 55% Odo)
-    25                      // minObjectWidth (pixels)
+    AIVision20__orangeGoal, // 1. targetSignature (NOW FIRST!)
+    40.0,                   // 2. targetX (cm)
+    0.0,                    // 3. targetY (cm)
+    25.0,                   // 4. breakDistance (cm)
+    vex::brakeType::hold,   // 5. brakeMode
+    40.0,                   // 6. maxSpeed (%)
+    0.45,                   // 7. kp_head
+    0.0,                    // 8. ki_head
+    0.15,                   // 9. kd_head
+    0.4,                    // 10. kp_distToHeadScaling
+    25,                     // 11. minObjectWidth (pixels)
+    0,                      // 12. minX (NEW)
+    320,                    // 13. maxX (NEW)
+    0,                      // 14. minY (NEW)
+    240,                    // 15. maxY (NEW)
+    15.0,                   // 16. minSpeed (%)
+    2.0,                    // 17. distanceTolerance (cm)
+    1.2,                    // 18. accelHeadingScaling
+    0.8,                    // 19. decelHeadingScaling
+    0.5,                    // 20. approachHeadingScaling
+    3.0,                    // 21. timeout (default)
+    8.0                     // 22. headingLockDistance (default)
 );
 
 /*
@@ -850,7 +860,9 @@ void skillsAuton(){
     setStartPosition(0.0, 0, -90.0);
     //startOdometryTask();
     startCoordinateFinder();
-    initializeOpticalSensor();    
+    initializeOpticalSensor(); 
+}
+    
 void soloAWP(){
     //setStartPosition(0.0, 25, -90.0);
     //startOdometryTask();
@@ -875,45 +887,57 @@ void soloAWP(){
     wait(350, msec);
 
     visionDriveV2(
-        AIVision20__redCube,           // Custom color signature
-        &AIVision20__redBlock,         // AI object fallback
-        60,                            // Target pixel width
-        45,                           // Target heading
-        24.0, 75.0,                    // Min and max speed
-        100.0,                         // Timeout distance (cm)
-        0.1, 0.0, 0.0,                 // Heading PID (kp, ki, kd)
-        0.3,                           // Distance-to-heading scaling
-        1.5, 0.0, 0.0,                // Distance PID (kp, ki, kd)
-        0, 320,                     // Bounding box X (minX, maxX)
-        0, 240,                     // Bounding box Y (minY, maxY)
-        vex::brakeType::hold,          // Brake mode
-        10                             // Min object width
-    );   
+        AIVision20__redCube,           // 1. targetSignature
+        60,                            // 2. targetPixelWidth
+        45,                            // 3. targetHeading
+        vex::brakeType::hold,          // 4. brakeMode
+        75.0,                          // 5. maxSpeedPct
+        0.1,                           // 6. kp_head
+        0.0,                           // 7. ki_head
+        0.0,                           // 8. kd_head
+        0.3,                           // 9. kp_distToHeadScaling
+        10,                            // 10. minObjectWidth
+        0,                             // 11. minX
+        320,                           // 12. maxX
+        0,                             // 13. minY
+        240,                           // 14. maxY
+        24.0,                          // 15. minSpeedPct
+        100.0,                         // 16. timeoutDistanceCM
+        1.5,                           // 17. kp_dist
+        0.0,                           // 18. ki_dist
+        0.0                            // 19. kd_dist
+    );
        
     matchLoadPneumatics.set(true);
     driveForwardV3(50,20,45,24,5,0.5,0,0.1,10.1,0.3,50);
-    */
+    
     
 
     //Top Middle Right 4 Cubes
     setStartPosition(0.0, 0, 45); //******TEMP COMMENT OUT********/
     turnRight(-45,0,25,100,70);
 
-        visionDriveV2(
-        AIVision20__blueCube,           // Custom color signature
-        &AIVision20__blueBlock,         // AI object fallback
-        60,                            // Target pixel width
-        45,                           // Target heading
-        24.0, 75.0,                    // Min and max speed
-        100.0,                         // Timeout distance (cm)
-        0.1, 0.0, 0.0,                 // Heading PID (kp, ki, kd)
-        0.3,                           // Distance-to-heading scaling
-        1.5, 0.0, 0.0,                // Distance PID (kp, ki, kd)
-        0, 320,                     // Bounding box X (minX, maxX)
-        0, 240,                     // Bounding box Y (minY, maxY)
-        vex::brakeType::hold,          // Brake mode
-        10                             // Min object width
-    );   
+       visionDriveV2(
+        AIVision20__blueCube,          // 1. targetSignature
+        60,                            // 2. targetPixelWidth
+        45,                            // 3. targetHeading
+        vex::brakeType::hold,          // 4. brakeMode
+        75.0,                          // 5. maxSpeedPct
+        0.1,                           // 6. kp_head
+        0.0,                           // 7. ki_head
+        0.0,                           // 8. kd_head
+        0.3,                           // 9. kp_distToHeadScaling
+        10,                            // 10. minObjectWidth
+        0,                             // 11. minX
+        320,                           // 12. maxX
+        0,                             // 13. minY
+        240,                           // 14. maxY
+        24.0,                          // 15. minSpeedPct
+        100.0,                         // 16. timeoutDistanceCM
+        1.5,                           // 17. kp_dist
+        0.0,                           // 18. ki_dist
+        0.0                            // 19. kd_dist
+    );
        
 
      /*   
@@ -933,6 +957,7 @@ void soloAWP(){
 
 }
 
+/*
 void soloAWP(){
     //setStartPosition(0.0, 0, -90.0);
     //startOdometryTask();
@@ -956,7 +981,7 @@ void soloAWP(){
     turnRight(-148,118,26,80,14);
     wait(200, msec);
        
-    /*driveForward(105,76,-148,24, 0.3,0.002,0,0.1,1,0.3,90);
+    driveForward(105,76,-148,24, 0.3,0.002,0,0.1,1,0.3,90);
     wait(200, msec);
     turnRight(-176,20,26,80); 
     wait(200, msec);
@@ -984,7 +1009,7 @@ void soloAWP(){
     driveForward(12,0,6,24,0.3,0.002,0,0.1,1,0.3,90);
     wingPneumatics.set(false);
 
-    driveForwardV2(60,0,6,24,0.3,0.002,0,0.1,1,0.3,30);*/
+    driveForwardV2(60,0,6,24,0.3,0.002,0,0.1,1,0.3,30);
 
 
     //wait(250, msec);
@@ -1005,8 +1030,10 @@ void soloAWP(){
     //wait(300, msec);
     //driveForward(126, 75, -315);
     //outtake(1000);
-    //driveBackward(20, 15, -315);*/
+    //driveBackward(20, 15, -315);
+    
 }
+*/
 
 void colourTest(){
     initializeOpticalSensor();
@@ -1133,25 +1160,51 @@ void nothing(){
 }
 
 void soloAwp2(){
-    setStartPosition(0, 36.2,0);
+    setStartPosition(0, 36.2, 0);
     //startOdometryTask();
     //startCoordinateFinder();
     //InertialSensor.setRotation(0, degrees);
     //robotStartingHeading = -90;
     initializeOpticalSensor();
+/*
+moveVisionOdometry(
+    AIVision20__redCube,
+    100.0,
+    36.2,
+    12.0,
+    brakeType::hold,
+    40.0,
+    0.15,                     // 7. kp_head (reduced - gentler corrections)
+    0.0,                      // 8. ki_head
+    0.2,                      // 9. kd_head (more damping to smooth oscillations)
+    0.9,                      // 10. kp_distToHeadScaling (very high - trust vision early)
+    10,                       // 11. minObjectWidth
+    0,                        // 12. minX
+    320,                      // 13. maxX
+    120,                      // 14. minY
+    240,                      // 15. maxY
+    24.0,                     // 16. minSpeed
+    2.0,                      // 17. distanceTolerance
+    1.2,                      // 18. accelHeadingScaling (moderate strength)
+    0.5,                      // 19. decelHeadingScaling
+    1.2,                      // 20. approachHeadingScaling
+    5.0,                      // 21. timeout
+    25.0                      // 22. headingLockDistance (even longer - don't lock early)
+);
+*/
 
     //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
     //matchLoadPneumatics.set(true);
     //wait(200, msec);
-    driveForwardV3(36.5,0,0);
+    driveForwardV3(33,0,0);
     
     //turnRight(-52,5,2,85,22);
-    turnRight(-29.2,0,2,100);
-    //wait(20000, msec);
+    //turnRight(-29.2,0,2,100,22);
+    turnRight(-30,0);
     smartStop(5, 10, 150, false);
     matchloadStart(2700,100,0,true);
     //smartStraight(47, 0, -180, 15, 220, 0, 0, 0.05, 0.2, 0.2, 0.2, 40);
-    visionDriveMinimal(
+    /*visionDriveMinimal(
         AIVision20__redCube, 
         70,                    
         0.0,                    
@@ -1160,7 +1213,31 @@ void soloAwp2(){
         .06, 0.0, 0.0, 
         0.3,       
         1.50, 0.0, 0.0    
-    );
+    );*/
+    
+visionDriveV2(
+    AIVision20__redCube,   // 1. targetSignature
+    70,                      // 2. targetPixelWidth
+    0.0,                      // 3. targetHeading
+    brakeType::hold,          // 4. brakeMode
+    40.0,                     // 5. maxSpeedPct
+    0.06,                      // 6. kp_head
+    0.0,                      // 7. ki_head
+    0.0,                      // 8. kd_head
+    0.3,                      // 9. kp_distToHeadScaling
+    40,                       // 10. minObjectWidth
+    0,                        // 11. minX
+    320,                      // 12. maxX
+    120,                      // 13. minY
+    240,                      // 14. maxY
+    24.0,                     // 15. minSpeedPct
+    100.0,                    // 16. timeoutDistanceCM
+    1.50,                     // 17. kp_dist
+    0.0,                      // 18. ki_dist
+    0.0                       // 19. kd_dist
+); 
+
+    
    smartStraight(47, 0, -90, 15, 100, 0.4, 0.0, 0.0, 0.2, 0.2, 0.2, 60);
     wait(200, msec);
     driveBackwardV3(8, 0, -90,24,1,1.1,0,0,0.1,0.2,0.3,100);
@@ -1168,6 +1245,7 @@ void soloAwp2(){
        // wait(400, msec);
 matchLoadPneumatics.set(false);      
  turnLeft(20,0,20,100);
+ 
  //turnLeft(86,0,25,85,80);
   // smartStop(5, 10, 400, false);
 //wait(200, msec);
@@ -1185,31 +1263,30 @@ visionDriveMinimal(
     );
 
 */    
-/*
-visionDriveV2(
-    AIVision20__orangeGoal,   // 1. targetSignature (colordesc)
-    nullptr,                  // 2. aiObjectSignature (tagdesc* - MUST be nullptr for color)
-    130,                      // 3. targetPixelWidth (int)
-    0.0,                      // 4. targetHeading (double)
-    24.0,                     // 5. minSpeedPct (double)
-    40.0,                     // 6. maxSpeedPct (double)
-    100.0,                    // 7. timeoutDistanceCM (double - NEW param in V2)
-    0.1,                     // 8. kp_head
-    0.0,                      // 9. ki_head
-    0.0,                      // 10. kd_head
-    0.3,                      // 11. kp_distToHeadScaling
-    1.50,                     // 12. kp_dist
-    0.0,                      // 13. ki_dist
-    0.0,                      // 14. kd_dist
-    0,                        // 15. minX
-    320,                      // 16. maxX
-    120,                        // 17. minY
-    240,                      // 18. maxY
-    brakeType::hold,          // 19. brakeMode
-    50                        // 20. minObjectWidth
-);    
-*/
 
+visionDriveV2(
+    AIVision20__orangeGoal,   // 1. targetSignature
+    130,                      // 2. targetPixelWidth
+    0.0,                      // 3. targetHeading
+    brakeType::hold,          // 4. brakeMode
+    40.0,                     // 5. maxSpeedPct
+    0.1,                      // 6. kp_head
+    0.0,                      // 7. ki_head
+    0.0,                      // 8. kd_head
+    0.3,                      // 9. kp_distToHeadScaling
+    40,                       // 10. minObjectWidth
+    0,                        // 11. minX
+    320,                      // 12. maxX
+    120,                      // 13. minY
+    240,                      // 14. maxY
+    24.0,                     // 15. minSpeedPct
+    100.0,                    // 16. timeoutDistanceCM
+    1.50,                     // 17. kp_dist
+    0.0,                      // 18. ki_dist
+    0.0                       // 19. kd_dist
+); 
+
+/*
 // Replacing Vision tracking with Odometry-based movement to (100, 200)
 // Replacing visionDriveV2 with moveVisionOdometry
 moveVisionOdometry(
@@ -1230,19 +1307,50 @@ moveVisionOdometry(
     0.3,                      // 15. kp_distanceToHeadingScaling (from visionDriveV2 kp_distToHeadScaling)
     50                        // 16. minObjectWidth (from visionDriveV2 minObjectWidth)
 );
+*/
 
-
-//smartStraight(50, 48, 86, 24, 150, 0.05, 0, 0., 0.2, 0.2, 0.2, 40);
+smartStraight(50, 48, 86, 24, 150, 0.05, 0, 0., 0.2, 0.2, 0.2, 40);
  // score(1000, 100);
 
+wait(200, msec);
 
 
-
-  //  driveBackward(10, -4, -180,24,1.1,0,0,0.1,0.2,0.3,70);
+driveBackward(10, -4, -180,24,1.1,0,0,0.1,0.2,0.3,70);
     
 
-  ///  turnLeft(-330,0,25,100,20);
+turnLeft(-330,0,25,100,20);
+visionDriveV2(
+    AIVision20__redCube,   // 1. targetSignature
+    60,                      // 2. targetPixelWidth
+    0.0,                      // 3. targetHeading
+    brakeType::hold,          // 4. brakeMode
+    75.0,                     // 5. maxSpeedPct
+    0.1,                      // 6. kp_head
+    0.0,                      // 7. ki_head
+    0.0,                      // 8. kd_head
+    1.75,                      // 9. kp_distToHeadScaling
+    20,                       // 10. minObjectWidth
+    0,                        // 11. minX
+    320,                      // 12. maxX
+    120,                      // 13. minY
+    240,                      // 14. maxY
+    24.0,                     // 15. minSpeedPct
+    100.0,                    // 16. timeoutDistanceCM
+    1.50,                     // 17. kp_dist
+    0.0,                      // 18. ki_dist
+    0.0                       // 19. kd_dist
+); 
+
+matchloadStart(800,100,300,true);
+driveForwardV3(45,15,-330);
+smartStraight(47, 40, -330, 15, 150, 0.4, 0.01, 0.05, 0.2, 0.2, 0.2, 40);
+outtake(1000, 100);
+
+
+
+
     //wait(200, msec);
+
   //  visionDriveMinimal(// not bad for first 3 center balls
    //     AIVision20__redCube, 
      //   60,                    
@@ -1254,7 +1362,7 @@ moveVisionOdometry(
     //    1.50, 0.0, 0.0        
 //    );
     
-  //  driveForwardV3(45,15,-330);
+
 //
   /*visionDriveMinimal(
         AIVision20__orangeGoal, 

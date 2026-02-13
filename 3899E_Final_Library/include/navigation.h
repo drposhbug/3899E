@@ -428,25 +428,24 @@ void visionDriveMinimal(
 
 void visionDriveV2(
     vex::aivision::colordesc targetSignature,
-    vex::aivision::tagdesc* aiObjectSignature = nullptr,
     int targetPixelWidth = 60,
     double targetHeading = 0.0,
-    double minSpeedPct = 24.0,
+    vex::brakeType brakeMode = vex::brakeType::coast,
     double maxSpeedPct = 75.0,
-    double timeoutDistanceCM = 100.0,
     double kp_head = 0.1,
     double ki_head = 0.0,
     double kd_head = 0.0,
     double kp_distToHeadScaling = 0.3,
-    double kp_dist = 1.50,
-    double ki_dist = 0.0,
-    double kd_dist = 0.0,
+    int minObjectWidth = 10,
     int minX = 0,
     int maxX = 320,
     int minY = 0,
     int maxY = 240,
-    vex::brakeType brakeMode = vex::brakeType::coast,
-    int minObjectWidth = 10
+    double minSpeedPct = 16,
+    double timeoutDistanceCM = 100.0,
+    double kp_dist = 1.50,
+    double ki_dist = 0.0,
+    double kd_dist = 0.0
 );
 
 void moveOdometry(double targetX,
@@ -461,26 +460,33 @@ void moveOdometry(double targetX,
                   double accelHeadingScaling = 0.2, 
                   double decelHeadingScaling = 0.2,
                   double approachHeadingScaling = 0.2, 
-                  double maxSpeed = 100);
+                  double maxSpeed = 100,
+                  double headingLockDistance = 8.0,
+                  double timeout = 3.0);
 
 
 
 //moveVisionOdometry - Fuses Odometry movement with Vision-based heading correction.
 
-void moveVisionOdometry(double targetX, 
+void moveVisionOdometry(vex::aivision::colordesc targetSignature,
+                        double targetX, 
                         double targetY, 
-                        double breakDistance, 
-                        double minSpeed = 16, 
-                        double distanceTolerance = 2.0, 
-                        double kp_heading = 0.4, 
-                        double ki_heading = 0.01, 
-                        double kd_heading = 0.05, 
-                        vex::brakeType brakeMode = vex::brakeType::brake, 
-                        double accelHeadingScaling = 0.2, 
-                        double decelHeadingScaling = 0.2, 
-                        double approachHeadingScaling = 0.2, 
-                        double maxSpeed = 100, 
-                        vex::aivision::colordesc targetSignature = vex::aivision::redCubet, 
-                        double kp_distanceToHeadingScaling = 0.3, 
-                        int minObjectWidth = 30,
-                        double timeout = 3.0);
+                        double breakDistance,
+                        vex::brakeType brakeMode = vex::brakeType::coast,
+                        double maxSpeed = 100,
+                        double kp_head = 0.1,
+                        double ki_head = 0.0,
+                        double kd_head = 0.0,
+                        double kp_distToHeadScaling = 0.3,
+                        int minObjectWidth = 10,
+                        int minX = 0,
+                        int maxX = 320,
+                        int minY = 0,
+                        int maxY = 240,
+                        double minSpeed = 16,
+                        double distanceTolerance = 2.0,
+                        double accelHeadingScaling = 0.2,
+                        double decelHeadingScaling = 0.2,
+                        double approachHeadingScaling = 0.2,
+                        double timeout = 3.0,
+                        double headingLockDistance = 8.0);

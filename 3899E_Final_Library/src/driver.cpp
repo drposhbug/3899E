@@ -156,7 +156,7 @@ void driverControl()
             // Only set pneumatics ONCE when button is first pressed (not every frame)
             if (!wasR1Pressed)
             {
-                frontHoodPneumatics.set(true);     // Close front hood for intake
+                frontHoodPneumatics.set(false);     // Close front hood for intake
                 backHoodPneumatics.set(false);    // Open back hood for intake
                 ptoPneumatics.set(false);
                 indexPneumatics.set(true);
@@ -246,7 +246,7 @@ void driverControl()
         {
             if (!wasL1Pressed)
             {
-                frontHoodPneumatics.set(false);      // Open front hood
+                frontHoodPneumatics.set(true);      // Open front hood
                 backHoodPneumatics.set(true);      // Open back hood
                 ptoPneumatics.set(true);
                 indexPneumatics.set(true);
