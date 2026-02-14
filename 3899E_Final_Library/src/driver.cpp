@@ -222,7 +222,7 @@ void driverControl()
             {
                 frontHoodPneumatics.set(false);     // Close front hood for outtake
                 backHoodPneumatics.set(false);      // Close back hood for outtake
-                ptoPneumatics.set(false);
+                ptoPneumatics.set(true);
                 indexPneumatics.set(true);
                 wasRightPressed = true;
             }
