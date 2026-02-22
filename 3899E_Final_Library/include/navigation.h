@@ -507,5 +507,4 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
                         double accelHeadingScaling = 0.2,
                         double decelHeadingScaling = 0.2,
                         double approachHeadingScaling = 0.2,
-                        double timeout = 3.0,
-                        double headingLockDistance = 8.0);
+                        double timeout = 3.0);

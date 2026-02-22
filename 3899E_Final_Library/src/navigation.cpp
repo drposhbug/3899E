@@ -2308,7 +2308,6 @@ void visionDriveV2(
 }
 
 
-
 /**
  * moveVisionOdometry - Advanced vision-fused autonomous movement
  * 
@@ -2359,8 +2358,7 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
                         double accelHeadingScaling,
                         double decelHeadingScaling,
                         double approachHeadingScaling,
-                        double timeout,
-                        double headingLockDistance)
+                        double timeout)
 {
     // ========================================
     // CONFIGURATION CONSTANTS
@@ -2371,7 +2369,6 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
     const double DECEL_STEP_PERCENT = 0.45;         // ABS brake pressure reduction rate
     const double LOCK_THRESHOLD_DECEL = 0.25;       // Wheel lock detection threshold
     const int REQUIRED_CONSECUTIVE_STOPS = 3;       // Frames at target before exit (noise filter)
-    const double DOT_PRODUCT_MAX_DISTANCE = 10.0;   // Max distance for plane-crossing detection
 
     // ========================================
     // INITIALIZATION
@@ -2380,7 +2377,7 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
     double startCoordinateX = globalX;
     double startCoordinateY = globalY;
 
-    // Calculate initial path vector for dot product termination
+    // Calculate initial distance for direction scalar and voltage sign
     double pathVectorX = targetX - startCoordinateX;
     double pathVectorY = targetY - startCoordinateY;
     double initialDistance = sqrt(pathVectorX * pathVectorX + pathVectorY * pathVectorY);
@@ -2417,10 +2414,24 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
     int consecutiveAtTargetCount = 0;
 
     // Vision-specific state tracking
-    bool headingLocked = false;
-    double lockedHeadingValue = 0;
+    // lastVisionHorizontalOffset: stores the most recent valid horizontal offset (-1.0 to +1.0)
+    //   so that if vision drops mid-run, the last known correction is preserved
+    // visionEverTracked: becomes true the first time a valid detection is received
+    // visionCurrentlyTracked: true only when vision saw a valid object THIS tick
+    // lastFusedHeading: the most recent heading calculated while vision was active —
+    //   used to compute a corrected target XY if vision drops out
+    // distanceTraveled: accumulated odometry distance since function start —
+    //   used to calculate remaining distance to target if vision drops
     double lastVisionHorizontalOffset = 0.0;
     bool visionEverTracked = false;
+    bool visionCurrentlyTracked = false;
+    bool visionDropoutHandled = false;  // Ensures dropout recovery only fires once — prevents
+                                        // targetX/targetY from being recalculated every tick
+                                        // while vision is down, which would keep shifting the target
+    double lastFusedHeading = 0.0;
+    double distanceTraveled = 0.0;
+    double startX = globalX;
+    double startY = globalY;
     int lastSnapshotCenterX = -999;
     int lastSnapshotWidth = -999;
 
@@ -2459,84 +2470,125 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         // ───────────────────────────────────────────────────────────────
         // 3. EXIT CONDITIONS
         // ───────────────────────────────────────────────────────────────
-        
-        // A. Primary: Euclidean distance tolerance (normal success)
+        // Two exit conditions — whichever fires first wins:
+        //
+        // A. Vision pixel width exit (Section 4 below):
+        //    Fires immediately when object width >= targetPixelWidth.
+        //    This is the preferred exit — vision is ground truth for object proximity.
+        //    Handles cases where the object is closer OR farther than the odometry coordinate.
+        //
+        // B. Odometry distance tolerance exit (below):
+        //    Fires when the robot reaches the target XY coordinate within distanceTolerance.
+        //    This is the fallback — handles cases where vision never acquired the object
+        //    or dropped out before the pixel width threshold was reached.
+        //    targetX/targetY may be updated mid-run if vision drops after having corrected
+        //    the path (see Section 5), so this always navigates to the best known destination.
         if (currentDistanceToTarget <= distanceTolerance) {
             consecutiveAtTargetCount++;
+            // Require multiple consecutive frames to filter out momentary odometry noise
             if (consecutiveAtTargetCount >= REQUIRED_CONSECUTIVE_STOPS) break;
         } else {
             consecutiveAtTargetCount = 0;
         }
 
-        // B. Secondary: Dot product plane crossing (overshoot detection)
-        // Detects when robot crosses perpendicular plane through target
-        double vectorToTargetX = targetX - globalX;
-        double vectorToTargetY = targetY - globalY;
-        double progressScalar = (pathVectorX * vectorToTargetX) + (pathVectorY * vectorToTargetY);
-        
-        if (progressScalar < 0 && currentDistanceToTarget < DOT_PRODUCT_MAX_DISTANCE) {
-            break; // Crossed the finish line
-        }
-
         // ───────────────────────────────────────────────────────────────
         // 4. VISION SNAPSHOT
         // ───────────────────────────────────────────────────────────────
-        // Check for new vision data every cycle
+        // Poll the AI Vision sensor every tick. If a valid object is found:
+        //   - Update lastVisionHorizontalOffset with the normalized screen position
+        //   - Fire pixel width exit immediately if object is large enough
+        // If no valid object is found this tick, visionCurrentlyTracked goes false
+        // but lastVisionHorizontalOffset retains the last known value — this allows
+        // the heading fusion below to hold the last correction during brief dropouts.
+        visionCurrentlyTracked = false;
         AIVision20.takeSnapshot(targetSignature);
         if (AIVision20.objectCount > 0) {
             auto& primaryObject = AIVision20.objects[0];
-            // Check if object meets size requirements AND is within vision bounds
+            // Validate: object must meet minimum size AND fall within the allowed screen region
             if (primaryObject.width >= minObjectWidth &&
                 primaryObject.centerX >= minX && primaryObject.centerX <= maxX &&
                 primaryObject.centerY >= minY && primaryObject.centerY <= maxY) {
-                // Update vision state only if new frame detected
+                // Only process if this is a new frame (center or width changed)
                 if (primaryObject.centerX != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth) {
+                    // Normalize horizontal offset: 0.0 = centered, -1.0 = full left, +1.0 = full right
                     lastVisionHorizontalOffset = (primaryObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
                     lastSnapshotCenterX = primaryObject.centerX;
                     lastSnapshotWidth = primaryObject.width;
                     visionEverTracked = true;
+                    visionCurrentlyTracked = true;
 
-                    // Vision exit: robot is close enough when the object fills the target pixel width.
-                    // This fires independently of the odometry exits below — whichever condition
-                    // is satisfied first ends the move, avoiding overshoot when vision locks early.
+                    // Vision proximity exit: object fills enough of the frame to be at target distance.
+                    // This is the primary exit — fires before odometry distance tolerance in most cases.
                     if (primaryObject.width >= targetPixelWidth) break;
                 }
             }
         }
 
         // ───────────────────────────────────────────────────────────────
-        // 5. HEADING CALCULATION WITH VISION FUSION
+        // 5. HEADING CALCULATION WITH VISION FUSION + DROPOUT RECOVERY
         // ───────────────────────────────────────────────────────────────
-        
-        // Snap target heading to nearest 360° multiple (prevents discontinuity)
+        // Snap odometry target heading to the nearest equivalent in continuous rotation space.
+        // This prevents the heading PID from trying to unwind a full 360° when the robot
+        // has rotated past a multiple of 360°.
         double rotationsDifference = std::round((currentGyroHeading - odometryTargetHeading) / 360.0);
         odometryTargetHeading += rotationsDifference * 360.0;
 
-        // Fuse odometry heading with vision correction
-        // Fuse odometry heading with vision correction
-double fusedTargetHeading = odometryTargetHeading;
+        // Start with pure odometry heading as the baseline
+        double fusedTargetHeading = odometryTargetHeading;
 
-// First, apply vision correction if available (do this BEFORE locking)
-        if (visionEverTracked && currentDistanceToTarget > headingLockDistance) {
-            // Mid-range fusion: Gyro baseline with vision nudge
-            // In Standard Cartesian (CCW+), object on right (+offset) requires lower heading (CW turn)
+        if (visionEverTracked) {
+            // Vision has seen the object at least once — use vision as the primary heading source.
+            // lastVisionHorizontalOffset retains the last valid reading even during brief dropouts,
+            // so the robot continues correcting toward the last known object position.
+            //
+            // visualTruthHeading: converts screen offset to an absolute heading correction.
+            //   - Object on right (+offset) means robot needs to turn right (lower heading in CCW+ system)
+            //   - 30.5 scale factor converts normalized pixel offset to degrees of heading correction
             double visualTruthHeading = currentGyroHeading - (lastVisionHorizontalOffset * 30.5);
-            
-            // Blend odometry target with vision correction
-            fusedTargetHeading = odometryTargetHeading + 
+
+            // Blend odometry baseline with vision correction using kp_distToHeadScaling as blend weight:
+            //   0.0 = pure odometry, 1.0 = pure vision, 0.9 = 90% trust in vision
+            fusedTargetHeading = odometryTargetHeading +
                                 ((visualTruthHeading - odometryTargetHeading) * kp_distToHeadScaling);
+
+            // Track the distance traveled from start using current odometry position.
+            // This is used below to compute a corrected fallback target if vision drops permanently.
+            double dx = globalX - startX;
+            double dy = globalY - startY;
+            distanceTraveled = sqrt(dx * dx + dy * dy);
+
+            // Save the current fused heading while vision is active.
+            // If vision drops permanently, lastFusedHeading captures the last direction
+            // the robot was confirmed to be steering toward the object.
+            lastFusedHeading = fusedTargetHeading;
+
+            // If vision reacquires after a dropout, clear the handled flag so a fresh
+            // dropout in the future will trigger a new target recalculation
+            visionDropoutHandled = false;
+
+            // VISION DROPOUT RECOVERY:
+            // If vision was tracking but lost the object this tick, recalculate targetX/targetY
+            // based on the last confirmed vision heading and the remaining distance to travel.
+            // visionDropoutHandled ensures this only fires ONCE per dropout event —
+            // without it, targetX/targetY would shift every tick while vision is down.
+            //
+            // Math: remaining distance = original total distance - how far we've already gone.
+            // New target = current position + (remaining distance in direction of last vision heading).
+            // This gives odometry a corrected destination that reflects where vision was pointing,
+            // not the original field coordinate — which may have been offset by wheel slip or drift.
+            if (!visionCurrentlyTracked && !visionDropoutHandled) {
+                double remainingDistance = initialDistance - distanceTraveled;
+                if (remainingDistance > 0) {
+                    // Convert lastFusedHeading (CCW+ standard cartesian) to X/Y components
+                    double headingRad = lastFusedHeading * M_PI / 180.0;
+                    targetX = globalX + (remainingDistance * cos(headingRad));
+                    targetY = globalY + (remainingDistance * sin(headingRad));
+                }
+                visionDropoutHandled = true;  // Lock — don't recalculate until vision reacquires
+            }
         }
 
-        // Then, lock the heading if close enough (this now locks the vision-corrected value)
-        if (currentDistanceToTarget <= headingLockDistance) {
-            if (!headingLocked) {
-                lockedHeadingValue = fusedTargetHeading;
-                headingLocked = true;
-            }           
-            fusedTargetHeading = lockedHeadingValue;
-        }
-
-        // Calculate heading correction via PID
+        // Calculate the PID heading correction — how much to steer left/right this tick
         double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
 
         // ───────────────────────────────────────────────────────────────
@@ -2680,6 +2732,7 @@ double fusedTargetHeading = odometryTargetHeading;
         rightMotor[i].stop(brakeMode);
     }
 }
+
  
 
 void moveOdometry(double targetX,

@@ -227,32 +227,6 @@ void autonTest() {
 
     // moveOdometry(targetX, targetY, breakDist, minSpeed, tolerance, kP, kI, kD, brakeType, accelScale, decelScale, approachScale, maxSpeed)
 
-// Example: Driving 60cm forward while centering the Orange Goal
-moveVisionOdometry(
-    AIVision20__orangeGoal, // 1. targetSignature (NOW FIRST!)
-    120,                    // 2. targetPixelWidth (Vision exit: stop when object width >= this value (pixels))
-    40.0,                   // 2. targetX (cm)
-    0.0,                    // 3. targetY (cm)
-    25.0,                   // 4. breakDistance (cm)
-    vex::brakeType::hold,   // 5. brakeMode
-    40.0,                   // 6. maxSpeed (%)
-    0.45,                   // 7. kp_head
-    0.0,                    // 8. ki_head
-    0.15,                   // 9. kd_head
-    0.4,                    // 10. kp_distToHeadScaling
-    25,                     // 11. minObjectWidth (pixels)
-    0,                      // 12. minX (NEW)
-    320,                    // 13. maxX (NEW)
-    0,                      // 14. minY (NEW)
-    240,                    // 15. maxY (NEW)
-    15.0,                   // 16. minSpeed (%)
-    2.0,                    // 17. distanceTolerance (cm)
-    1.2,                    // 18. accelHeadingScaling
-    0.8,                    // 19. decelHeadingScaling
-    0.5,                    // 20. approachHeadingScaling
-    3.0,                    // 21. timeout (default)
-    8.0                     // 22. headingLockDistance (default)
-);
 
 /*
 moveOdometry(
@@ -1222,44 +1196,64 @@ void nothing(){
 
 void soloAwp2(){
     setStartPosition(0, 36, 0);
-    //startOdometryTask();
+    startOdometryTask();
     startCoordinateFinder();
     //InertialSensor.setRotation(0, degrees);
     //robotStartingHeading = -90;
     initializeOpticalSensor();
 
-    intakeHopperStart(2000, 100, 500, true); // 500ms delay, then runs intake, non-blocking
-   /*
-    moveVisionOdometry(
+   // intakeHopperStart(2000, 100, 500, true); // 500ms delay, then runs intake, non-blocking
+   
+//intakeStart2(2000, 100, true, false);
+/*
+moveOdometry(
+    70.0,                     // targetX
+    36,                       // targetY
+    12.0,                     // breakDistance
+    24.0,                     // minSpeed
+    2.0,                      // distanceTolerance
+    0.15,                     // kp_heading
+    0.0,                      // ki_heading
+    0.2,                      // kd_heading
+    brakeType::hold,          // brakeMode
+    0.5,                      // accelHeadingScaling
+    0.5,                      // decelHeadingScaling
+    0.5,                      // approachHeadingScaling
+    40.0,                     // maxSpeed
+    8.0,                      // headingLockDistance
+    5.0                       // timeout
+);
+*/
+  
+moveVisionOdometry(
     AIVision20__redCube,
     60,
     70.0,
     36,
-    12.0,
+    25.0,
     brakeType::hold,
     40.0,
-    0.15,
-    0.0,
-    0.2,
-    0.0,                      // 10. kp_distToHeadScaling — VISION OFF (was 0.9)
+    0.15,                      // kp_head — matching forwardToPoint default
+    0.0,                      // ki_head
+    0.5,                      // kd_head — forwardToPoint default
+    0.9,
     10,
     0,
     320,
-    0,
+    150,
     240,
-    24.0,
+    16.0,
     2.0,
-    1.2,
-    0.5,
-    1.2,
-    5.0,
-    25.0
+    0.1,                      // accelHeadingScaling — matching forwardToPoint default
+    0.1,                      // decelHeadingScaling — matching forwardToPoint default
+    0.05,                      // approachHeadingScaling — matching forwardToPoint default
+    5.0
 );
-*/
+
 
     //forwardToPoint(-47, 0, 70, 15, 1, 0.05, 0, 0, 0.2, 0.2, 0.2, 40);
     //matchLoadPneumatics.set(true);
-  //  wait(20000, msec);
+  wait(20000, msec);
     driveForwardV3(27,0,0);
     
     //turnRight(-52,5,2,85,22);
