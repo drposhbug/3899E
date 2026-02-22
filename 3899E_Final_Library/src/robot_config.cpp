@@ -6,7 +6,7 @@ vex::controller Controller;
 // Define Drive Motors
 vex::motor LeftMotor1 = vex::motor(vex::PORT7, vex::gearSetting::ratio6_1,true);
 vex::motor LeftMotor2 = vex::motor(vex::PORT19, vex::gearSetting::ratio6_1);
-vex::motor LeftMotor3 = vex::motor(vex::PORT8, vex::gearSetting::ratio6_1, true);
+vex::motor LeftMotor3 = vex::motor(vex::PORT6, vex::gearSetting::ratio6_1, true);
 vex::motor RightMotor1 = vex::motor(vex::PORT1, vex::gearSetting::ratio6_1);  // reversed
 vex::motor RightMotor2 = vex::motor(vex::PORT5, vex::gearSetting::ratio6_1, true);  // reversed
 vex::motor RightMotor3 = vex::motor(vex::PORT2, vex::gearSetting::ratio6_1); // reversed
@@ -15,18 +15,22 @@ vex::motor intakeMotor1 = vex::motor(vex::PORT10, vex::gearSetting::ratio6_1, tr
 vex::motor intakeMotor2 = vex::motor(vex::PORT9, vex::gearSetting::ratio6_1); 
 // Define Pneumatics
 vex::pneumatics frontHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.G);
-vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.F);
+vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
 vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
 vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
 vex::pneumatics wingPneumatics = vex::pneumatics(Brain.ThreeWirePort.C);
 vex::pneumatics indexPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
+vex::pneumatics leftGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.A);  // Left lane scoring gate
+vex::pneumatics rightGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.F); // Right lane scoring gate
 // Define Sensors
 vex::inertial InertialSensor = vex::inertial(vex::PORT16);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT20, true);  // Initialize the encoder on PORT10
-vex::rotation passiveEncoderRight = vex::rotation(vex::PORT13, true); // Initialize the encoder on PORT10
+vex::rotation passiveEncoderRight = vex::rotation(vex::PORT13, false); // Initialize the encoder on PORT10
 vex::rotation passiveEncoderX = vex::rotation(vex::PORT12, true);     // Initialize the encoder on PORT10
 vex::optical opticalSensor = vex::optical(vex::PORT15);
-vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.A);
+vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.D);
+vex::optical leftLaneOptical = vex::optical(vex::PORT17);   // Left lane ball detection sensor (VEX V5 Optical)
+vex::optical rightLaneOptical = vex::optical(vex::PORT11);  // Right lane ball detection sensor (VEX V5 Optical)
 // Global Variables
 double robotStartingHeading = 0.0; 
 double robotStartingHeadingStandard = 0.0;
@@ -68,7 +72,9 @@ const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
 vex::aivision::colordesc AIVision20__blueCube(1, 63, 130, 192, 20, 0.25);
 //vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
 vex::aivision::colordesc AIVision20__orangeGoal(2, 213, 135, 100, 16, 0.31);
-vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
+//vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
+vex::aivision::colordesc AIVision20__redCube(3, 229, 63, 117, 40, 0.44);
+
 
 // Push Back AI classification objects
 vex::aivision::tagdesc AIVision20__blueBlock(1);  
@@ -77,14 +83,15 @@ vex::aivision::tagdesc AIVision20__redBlock(2);
 // Color codes for detecting combinations
 vex::aivision::codedesc AIVision20__redLoad(1, AIVision20__orangeGoal, AIVision20__blueCube, AIVision20__redCube);
 vex::aivision::codedesc AIVision20__blueLoad(2, AIVision20__orangeGoal, AIVision20__redCube, AIVision20__blueCube);
-
+vex::aivision::codedesc AIVision20__blueRedBlue(3, AIVision20__blueCube, AIVision20__redCube, AIVision20__blueCube);
 // Initialize sensor with all descriptors
 vex::aivision AIVision20(vex::PORT14, 
                          AIVision20__blueCube,      
                          AIVision20__orangeGoal,    
                          AIVision20__redCube,       
                          AIVision20__redLoad,       
-                         AIVision20__blueLoad,      
+                         AIVision20__blueLoad,
+                         AIVision20__blueRedBlue,       
                          AIVision20__blueBlock,     
                          AIVision20__redBlock);
 

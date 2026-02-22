@@ -381,8 +381,26 @@ void visionDrive(
     int    consecutiveRequired  = 3
 );
 
+// visionDriveMinimal accepts single color or color combination descriptors.
+// Both overloads forward to a shared internal implementation in navigation.cpp.
 void visionDriveMinimal(
     vex::aivision::colordesc targetSignature,
+    int    targetPixelWidth,
+    double targetHeading        = 0.0,
+    double minSpeedPct          = 20.0,
+    double maxSpeedPct          = 85.0,
+    vex::brakeType brakeMode    = vex::brakeType::coast,
+    double kp_head              = 0.20,
+    double ki_head              = 0.00,
+    double kd_head              = 0.00,
+    double kp_distToHeadScaling = 0.015,
+    double kp_dist              = 1.30,
+    double ki_dist              = 0.00,
+    double kd_dist              = 0.00
+);
+
+void visionDriveMinimal(
+    vex::aivision::codedesc targetSignature,
     int    targetPixelWidth,
     double targetHeading        = 0.0,
     double minSpeedPct          = 20.0,
@@ -469,6 +487,7 @@ void moveOdometry(double targetX,
 //moveVisionOdometry - Fuses Odometry movement with Vision-based heading correction.
 
 void moveVisionOdometry(vex::aivision::colordesc targetSignature,
+                        int targetPixelWidth,           // Vision exit: stop when object width >= this value (pixels)
                         double targetX, 
                         double targetY, 
                         double breakDistance,

@@ -26,6 +26,8 @@ extern vex::pneumatics matchLoadPneumatics;
 extern vex::pneumatics ptoPneumatics;
 extern vex::pneumatics wingPneumatics;
 extern vex::pneumatics indexPneumatics;
+extern vex::pneumatics leftGatePneumatics;   // Left lane scoring gate
+extern vex::pneumatics rightGatePneumatics;  // Right lane scoring gate
 // Declare Sensors
 extern vex::inertial InertialSensor;
 
@@ -34,6 +36,8 @@ extern vex::rotation passiveEncoderRight;
 extern vex::rotation passiveEncoderX;
 extern vex::optical opticalSensor;
 extern vex::bumper autonBumper;
+extern vex::optical leftLaneOptical;   // Left lane ball detection sensor
+extern vex::optical rightLaneOptical;  // Right lane ball detection sensor
 
 // Declare Global Variables
 extern double robotStartingHeading; //
@@ -130,9 +134,11 @@ extern vex::aivision::colordesc AIVision20__redCube;
 
 extern vex::aivision::codedesc AIVision20__redLoad;
 extern vex::aivision::codedesc AIVision20__blueLoad;
+extern vex::aivision::codedesc AIVision20__blueRedBlue;
 
 extern vex::aivision::tagdesc AIVision20__blueBlock;
 extern vex::aivision::tagdesc AIVision20__redBlock;
+
 
 extern vex::aivision AIVision20;
 #endif

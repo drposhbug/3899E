@@ -36,8 +36,8 @@ int intakeHopperTask(void*) {
     }
 
     // Set hood positions for intake
-    frontHoodPneumatics.set(true);   // Close front hood
-    backHoodPneumatics.set(false);   // Open back hood
+    frontHoodPneumatics.set(false);   // Close front hood
+    //backHoodPneumatics.set(false);   // Open back hood
 
     vex::timer t;
     double voltage = intakeHopperParams.power / 8.34;
@@ -83,8 +83,7 @@ int matchloadTask(void*) {
     }
 
     // Set hood positions for intake
-    frontHoodPneumatics.set(true);   // Close front hood
-    backHoodPneumatics.set(false);   // Open back hood
+    frontHoodPneumatics.set(false);   // Close front hood
 
     // Start intake
     vex::timer t;
@@ -97,6 +96,15 @@ int matchloadTask(void*) {
 
     while (matchloadParams.running.load() && t.time(msec) < matchloadParams.timeMs) {
         vex::task::sleep(10);
+        /*static enum {LANE_LEFT, LANE_RIGHT}{
+            if ()
+            {
+                
+            }
+            
+        }*/
+        intakeMotor1.spin(forward, voltage, voltageUnits::volt);
+        intakeMotor2.spin(forward, voltage, voltageUnits::volt);
     }
 
     // Stop intake first
@@ -137,11 +145,9 @@ void intake(double time, bool pistonState) //time in milliseconds, true for pist
 
     if (pistonState == true){
         frontHoodPneumatics.set(true); //opebn front hood
-        backHoodPneumatics.set(false);
     }
     else {
         frontHoodPneumatics.set(false); //no pistons
-        backHoodPneumatics.set(false);
     }
 
     while (intakeTime.time(timeUnits::msec) < time){
@@ -159,7 +165,7 @@ static double g_intakeTimeMs = 0;
 static double g_intakePct = 100;
 static bool g_intakePistonState = false;
 static bool g_matchLoadState = false;
-static Color g_colourDetectionTarget = Color::RED; // colour to detect defaults to RED
+//static Color g_colourDetectionTarget = Color::RED; // colour to detect defaults to RED
 static bool g_enableColourDetection = false;
 static vex::task g_intakeTaskHandle;
 
@@ -174,10 +180,8 @@ int intakeTaskEntry(void*) {
 
     if (g_intakePistonState) {
         frontHoodPneumatics.set(true);
-        backHoodPneumatics.set(false);
     } else {
         frontHoodPneumatics.set(false);
-        backHoodPneumatics.set(false);
     }
 
     vex::timer t;
@@ -188,7 +192,7 @@ int intakeTaskEntry(void*) {
         intakeMotor2.spin(forward, intakeVoltage, voltageUnits::volt);
 
         // check for colour detection if enabled
-        if (g_enableColourDetection && detectColor(g_colourDetectionTarget)) {
+        /*if (g_enableColourDetection && detectColor(g_colourDetectionTarget)) {
             // stop intake
             intakeMotor1.stop();
             intakeMotor2.stop();
@@ -197,7 +201,6 @@ int intakeTaskEntry(void*) {
             // outtake 300ms
             ptoPneumatics.set(true);
             frontHoodPneumatics.set(false);
-            backHoodPneumatics.set(false);
 
             vex::timer outtakeTimer;
             outtakeTimer.reset();
@@ -212,17 +215,16 @@ int intakeTaskEntry(void*) {
             intakeMotor2.stop();
 
             // Reset colour detection and resume intake
-            resetColorDetection();
+            //resetColorDetection();
             vex::task::sleep(50);
 
             if (g_intakePistonState = true) {
                 frontHoodPneumatics.set(true);
-                backHoodPneumatics.set(false);
+ 
             } else {
                 frontHoodPneumatics.set(false);
-                backHoodPneumatics.set(false);
             }
-        }
+        }*/
 
         vex::task::sleep(10);
     }
@@ -240,7 +242,7 @@ int intakeTaskEntry(void*) {
 }
 
 //asynchronous intake with colour detection
-void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchLoad, Color targetColor) {
+void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
     // if already running, stop previous then start new
     if (g_intakeTaskRunning.load()) {   
         g_intakeTaskRunning.store(false);
@@ -250,9 +252,9 @@ void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchL
     g_intakePistonState = pistonState;
     g_intakePct = intakePct;
     g_matchLoadState = matchLoad;
-    g_colourDetectionTarget = targetColor;
+    /*g_colourDetectionTarget = targetColor;
     g_enableColourDetection = true;
-    resetColorDetection();
+    resetColorDetection();*/
     g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
 }
 
@@ -282,8 +284,8 @@ void score(double time, double power) //skibidi score
     vex::timer scoringTime;
     scoringTime.reset();
 
-    frontHoodPneumatics.set(false); //open front hood and close back hood
-    backHoodPneumatics.set(true);
+    frontHoodPneumatics.set(true); //open front hood and close back hood
+    backHoodPneumatics.set(false);
     ptoPneumatics.set(true); //engage pto for scoring
     indexPneumatics.set(true);
 
@@ -334,6 +336,7 @@ void stopOuttake(){
     intakeMotor2.stop();
 }
 
+/*
 int headingDisplayTask(void *params) {
     HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
     
@@ -376,6 +379,95 @@ int headingDisplayTask(void *params) {
     return 0;
 }
 
+*/
+
+int headingDisplayTask(void *params) {
+    HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
+    
+    while (p->isRunning) {
+        // 1. Read Sensors
+        double heading = getNormalizedHeading(); 
+        double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
+        double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
+        // VERIFY NAME: Check your robot_config.h for the exact name of your X/Center/Aux encoder
+        double centerEnc = passiveEncoderX.position(rotationUnits::deg); 
+        
+        // 2. Convert to CM
+        double leftCM = leftEnc * encoderWheelCircumferenceCM / 360.0;
+        double rightCM = rightEnc * encoderWheelCircumferenceCM / 360.0;
+        double centerCM = centerEnc * encoderWheelCircumferenceCM / 360.0;
+        double avgCM = (leftCM + rightCM) / 2.0;
+        
+        // 3. Print to Controller (Optimized Layout)
+        
+        // Line 1: Encoders (L=Left, R=Right, X=Center)
+        Controller.Screen.setCursor(1, 1);
+        // using %.0f removes decimals to save screen space and make it readable
+        Controller.Screen.print("L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
+        
+        // Line 2: Global Averages
+        Controller.Screen.setCursor(2, 1);
+        Controller.Screen.print("Avg:%.0f  H:%.1f   ", avgCM, heading);
+        
+        // Line 3: Targets
+        Controller.Screen.setCursor(3, 1);
+        Controller.Screen.print("Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
+        
+        // 4. SAFETY DELAY
+        // 250ms = 4 updates/sec. 
+        // Anything faster than 100ms risks disconnecting VEXnet during comps.
+        wait(500, msec);
+    }
+    
+    Controller.Screen.clearScreen();
+    return 0;
+}
+
+/**
+ * Driver Control Display Task
+ * Displays real-time motor RPM for all six drivetrain motors
+ * Shows left and right side motor speeds for diagnostics
+ */
+int driverDisplayTask(void *params) {
+    HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
+    
+    while (p->isRunning) {
+        // Read current RPM from all six drivetrain motors
+        double leftRpm1 = LeftMotor1.velocity(vex::velocityUnits::rpm);
+        double leftRpm2 = LeftMotor2.velocity(vex::velocityUnits::rpm);
+        double leftRpm3 = LeftMotor3.velocity(vex::velocityUnits::rpm);
+        double rightRpm1 = RightMotor1.velocity(vex::velocityUnits::rpm);
+        double rightRpm2 = RightMotor2.velocity(vex::velocityUnits::rpm);
+        double rightRpm3 = RightMotor3.velocity(vex::velocityUnits::rpm);
+        
+ // Display diagnostic information for LeftMotor3 troubleshooting
+        Controller.Screen.clearScreen();
+        
+        // Line 1: LeftMotor3 RPM and connection status
+        Controller.Screen.setCursor(1, 1);
+        Controller.Screen.print("L3 RPM:%.0f OK:%d", 
+            leftRpm3, 
+            LeftMotor3.installed());
+        
+        // Line 2: LeftMotor3 voltage and current draw
+        Controller.Screen.setCursor(2, 1);
+        Controller.Screen.print("V:%.1f A:%.2f", 
+            LeftMotor3.voltage(vex::voltageUnits::volt),
+            LeftMotor3.current(vex::currentUnits::amp));
+        
+        // Line 3: LeftMotor3 temperature
+        Controller.Screen.setCursor(3, 1);
+        Controller.Screen.print("Temp:%.0f%%", 
+            LeftMotor3.temperature(vex::percentUnits::pct));
+        
+        // Update every 500ms for easy reading
+        wait(500, msec);
+    }
+    
+    // Clean up when task stops
+    Controller.Screen.clearScreen();
+    return 0;
+}
 //asynchronous scoring
 static std::atomic<bool> g_scoringTaskRunning(false);
 static double g_scoringTimeMs = 0;
@@ -540,4 +632,49 @@ void stopCoordinateFinder() {
     coordFinderParams.isRunning = false;
     wait(600, msec);  // Wait for task to finish current cycle
     Brain.Screen.clearScreen();
+}
+
+// ===== MATCHLOAD PNEUMATIC ONLY TASK =====
+// Drops the match load piston for a set duration then retracts it
+// No motors - designed to run alongside intakeHopperTask
+static AsyncTaskParams matchloadPneumaticParams;
+
+int matchloadPneumaticTask(void*) {
+    matchloadPneumaticParams.running.store(true);
+
+    // Wait before firing if a delay was requested
+    if (matchloadPneumaticParams.delayMs > 0) {
+        vex::task::sleep(matchloadPneumaticParams.delayMs);
+    }
+
+    // Drop the match load piston
+    matchLoadPneumatics.set(true);
+
+    // Hold piston down for the full duration
+    vex::timer t;
+    while (matchloadPneumaticParams.running.load() && t.time(msec) < matchloadPneumaticParams.timeMs) {
+        vex::task::sleep(10);
+    }
+
+    // Retract piston when time is up
+    matchLoadPneumatics.set(false);
+
+    matchloadPneumaticParams.running.store(false);
+    return 0;
+}
+
+void matchloadPneumaticStart(double timeMs, double delayMs, bool async) {
+    // Stop any previous instance before starting a new one
+    if (matchloadPneumaticParams.running.load()) {
+        matchloadPneumaticParams.running.store(false);
+        vex::task::sleep(20);
+    }
+    matchloadPneumaticParams.timeMs = timeMs;
+    matchloadPneumaticParams.delayMs = delayMs;
+
+    if (async) {
+        matchloadPneumaticParams.handle = vex::task(matchloadPneumaticTask, nullptr);
+    } else {
+        matchloadPneumaticTask(nullptr);
+    }
 }

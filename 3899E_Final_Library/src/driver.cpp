@@ -16,7 +16,7 @@ const double BLUE_HUE_MIN = 215.0;
 const double BLUE_HUE_MAX = 225.0;
 
 // Joystick deadzone threshold (prevent drift)
-static int deadzoneThreshold = 10;
+static int deadzoneThreshold = 20;
 
 // Filters out small joystick movements within deadzone
 int applyDeadzone(int value)
@@ -39,7 +39,7 @@ int applyCustomCurve(int input, double exponent) {
 void driverControl()
 {
     initializeOpticalSensor();
-    headingDisplayParams.isRunning = false;
+    //headingDisplayParams.isRunning = false;
 
     // Motor power arrays for 3 motors per side
     double motorPowerLeft[3] = {0};
@@ -62,12 +62,27 @@ void driverControl()
     bool isMatchLoadPneumaticsActive = false;
     bool intakeRunning = false;
     int intakeDirection = 0;  // 1=forward, -1=reverse, 0=off
+    leftGatePneumatics.set(true);   
+    rightGatePneumatics.set(true);   
 
     int maxSpeed = 100;
 
-
     while (true)
     {
+        /*
+        int targetPowerLeft = applyDeadzone(Controller.Axis3.position());
+        int targetPowerRight = applyDeadzone(Controller.Axis2.position());
+        double scaleFactor = pow(0.55, abs(targetPowerLeft - targetPowerRight) / (double)maxSpeed);
+        double targetSpeedLeft = ((targetPowerLeft * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
+        double targetSpeedRight = ((targetPowerRight * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
+        motorPowerLeft[0] = targetSpeedLeft;
+        motorPowerLeft[1] = targetSpeedLeft;
+        motorPowerLeft[2] = targetSpeedLeft;
+        motorPowerRight[0] = targetSpeedRight;
+        motorPowerRight[1] = targetSpeedRight;
+        motorPowerRight[2] = targetSpeedRight;
+        */
+
         // Drive curve exponents (tune based on driver preference)
         const double DRIVE_EXPONENT =2.0;  // 1.0=linear, 1.5=mild, 2.0=squared, 2.5=aggressive precision
         const double TURN_EXPONENT = 2.5;   // Separate tuning for turn if desired
@@ -94,6 +109,7 @@ void driverControl()
         double targetSpeedLeft = (targetPowerLeft / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
         double targetSpeedRight = (targetPowerRight / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
 
+        // Apply speeds to all motors
         // Apply speeds to all motors
         motorPowerLeft[0] = targetSpeedLeft;
         motorPowerLeft[1] = targetSpeedLeft;
@@ -188,26 +204,34 @@ void driverControl()
             wasR1Pressed = false;
         }
 
-        // ==================== BUTTON R2: CHAMBER INTAKE ====================
+        // ==================== BUTTON R2: RIGHT LANE SCORE ====================
         // Close both hoods to trap cubes in launch chamber
-        if (Controller.ButtonR2.pressing())
+              if (Controller.ButtonR2.pressing())
         {
             if (!wasR2Pressed)
             {
-                frontHoodPneumatics.set(false);     // Close front hood
-                backHoodPneumatics.set(false);     // Close back hood
-                indexPneumatics.set(false);
+                frontHoodPneumatics.set(true);      // Open front hood for scoring
+                backHoodPneumatics.set(true);       // Open back hood for scoring
+                ptoPneumatics.set(true);            // Engage PTO system
+                indexPneumatics.set(true);          // Set indexer position
+                leftGatePneumatics.set(false);
+                rightGatePneumatics.set(true);
+              
                 wasR2Pressed = true;
             }
             
             spinForInProgress = false;
-            intakeMotor1.spin(vex::reverse, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(vex::reverse, 12, vex::voltageUnits::volt);
+            intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
+            intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
         }
         else
         {
             if (wasR2Pressed)
-            {
+            {          
+                leftGatePneumatics.set(true);       // Close left gate (extend to default)
+                rightGatePneumatics.set(true);      // Close right gate (extend to default)
+                
+                spinForInProgress = true;
                 intakeMotor1.stop();
                 intakeMotor2.stop();
                 wasR2Pressed = false;
@@ -225,6 +249,21 @@ void driverControl()
                 ptoPneumatics.set(true);
                 indexPneumatics.set(true);
                 wasRightPressed = true;
+
+                static enum {LANE_LEFT, LANE_RIGHT} currentLane = LANE_LEFT;
+                if (currentLane == LANE_LEFT){
+                    currentLane ==  LANE_RIGHT;
+                } else {
+                    currentLane == LANE_LEFT;
+                }
+
+                if (currentLane == LANE_LEFT){
+                    leftGatePneumatics.set(false);
+                    rightGatePneumatics.set(true);
+                } else {
+                    leftGatePneumatics.set(true);
+                    rightGatePneumatics.set(false);
+                }
             }
             spinForInProgress = false;
             intakeMotor1.spin(vex::reverse, 8, vex::voltageUnits::volt);
@@ -240,31 +279,37 @@ void driverControl()
             }
         }
 
-        // ==================== BUTTON L1: SCORING ====================
-        // Open both hoods, run intake to score, retract on release
+// ==================== BUTTON L1: LEFT LANE SCORE ====================
+        // Press L1 to toggle between left and right lanes
+        // Must hold L1 to keep gate open - releasing closes all gates
+        
         if (Controller.ButtonL1.pressing())
         {
+            // On first press of L1, toggle to next lane
             if (!wasL1Pressed)
             {
-                frontHoodPneumatics.set(true);      // Open front hood
-                backHoodPneumatics.set(true);      // Open back hood
-                ptoPneumatics.set(true);
-                indexPneumatics.set(true);
+                frontHoodPneumatics.set(true);      // Open front hood for scoring
+                backHoodPneumatics.set(true);       // Open back hood for scoring
+                ptoPneumatics.set(true);            // Engage PTO system
+                indexPneumatics.set(true);          // Set indexer position
+                leftGatePneumatics.set(true);
+                rightGatePneumatics.set(false);
+              
                 wasL1Pressed = true;
             }
             
+            // While L1 is held, keep intake running
             spinForInProgress = false;
             intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
             intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
         }
-        else
+        else  // L1 button released
         {
-            // When button released: close front hood and retract cubes
+            // When L1 released, close BOTH gates and stop intake
             if (wasL1Pressed)
             {          
-                // Briefly reverse intake to pull cubes away from hood (non-blocking)
-                //intakeMotor1.spinFor(reverse, 90, rotationUnits::deg, 100, velocityUnits::pct, false);
-                //intakeMotor2.spinFor(forward, 90, rotationUnits::deg, 100, velocityUnits::pct, false);
+                leftGatePneumatics.set(true);       // Close left gate (extend to default)
+                rightGatePneumatics.set(true);      // Close right gate (extend to default)
                 
                 spinForInProgress = true;
                 intakeMotor1.stop();
@@ -370,4 +415,51 @@ void driverControl()
         // Loop delay (20ms = 50Hz update rate)
         task::sleep(20);
     }
+}
+
+// ==================== SIMPLE TANK DRIVE TEST FUNCTION ====================
+// Basic tank steering with no curves, ramping, or special features
+// Left stick controls left side, right stick controls right side
+// Direct 0-100% power mapping for testing and tuning
+void driverControlTankTest()
+{
+    // Main driver loop runs continuously during driver control period
+    while (true)
+    {
+        // Read left joystick Y-axis for left side motors (forward/backward)
+        // Axis3 returns -100 to +100 where positive is forward
+        int leftPower = Controller.Axis3.position();
+        
+        // Read right joystick Y-axis for right side motors (forward/backward)
+        // Axis2 returns -100 to +100 where positive is forward
+        int rightPower = Controller.Axis2.position();
+        
+        // Apply deadzone to prevent motor drift from joystick noise
+        // Small joystick values (±20) are treated as zero
+        if (abs(leftPower) < deadzoneThreshold)
+        {
+            leftPower = 0;
+        }
+        if (abs(rightPower) < deadzoneThreshold)
+        {
+            rightPower = 0;
+        }
+        
+        // Send power directly to all left side motors
+        // All three motors spin together as one unit
+        LeftMotor1.spin(vex::forward, leftPower, vex::velocityUnits::pct);
+        LeftMotor2.spin(vex::forward, leftPower, vex::velocityUnits::pct);
+        LeftMotor3.spin(vex::forward, leftPower, vex::velocityUnits::pct);
+        
+        // Send power directly to all right side motors
+        // All three motors spin together as one unit
+        RightMotor1.spin(vex::forward, rightPower, vex::velocityUnits::pct);
+        RightMotor2.spin(vex::forward, rightPower, vex::velocityUnits::pct);
+        RightMotor3.spin(vex::forward, rightPower, vex::velocityUnits::pct);
+        
+        
+        // Wait 20 milliseconds before next loop iteration
+        // This creates a 50Hz update rate for smooth motor control
+        task::sleep(10);
+}
 }

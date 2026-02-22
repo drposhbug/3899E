@@ -26,9 +26,12 @@ extern HeadingDisplayParams headingDisplayParams;  // extern = declaration only
 extern double g_targetDistance;
 extern double g_targetHeading;
 int headingDisplayTask(void *params);
+int driverDisplayTask(void *params);
 
 // Coordinate Finder - displays robot position for path planning
 void startCoordinateFinder();
 void stopCoordinateFinder();
+
+void matchloadPneumaticStart(double timeMs, double delayMs = 0, bool async = true);
 
 #endif // AUTONTASKS_H

@@ -3,4 +3,6 @@
 
 // Declaration of the driver control function
 void driverControl();
+
+void driverControlTankTest();
 #endif

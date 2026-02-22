@@ -663,3 +663,7 @@ void smartStop(double linearThreshold, double angularThreshold, int timeoutMsec,
         }
     }
 }
+
+/*bool leftGateScore(){
+    leftLaneOptical.objectDetected
+}*/

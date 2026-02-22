@@ -21,7 +21,7 @@ void runAuton(void) {
   vex::task heading_task(headingDisplayTask, &headingDisplayParams);
   wingPneumatics.set(false);
   
-  // Start heading display task
+  //Start heading display task
   //visionSensorTest(); 
   //autonTest();  
   //CoordinateFinderTask();  
@@ -37,7 +37,7 @@ void runAuton(void) {
   //leftSideLong();
   //leftSidemiddle();
   //nothing();
-  soloAwp2();
+  //soloAwp2();
   //rightMiddleAuto();
   //calibration();
   //doubleDoinkerBlue();
@@ -45,6 +45,7 @@ void runAuton(void) {
   //odomTest();
   //skillsAutonGateway();
   //soloAwpOdom();
+  skillsAuton();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 
@@ -52,7 +53,8 @@ void runDriver(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Driver Control Mode...");
   
-  headingDisplayParams.isRunning = false;
+  headingDisplayParams.isRunning = true;
+  vex::task driver_display_task(driverDisplayTask, &headingDisplayParams); 
   Controller.Screen.clearScreen(); // stop controller prints during driver control
   driverControl(); // Start driver control function
 }

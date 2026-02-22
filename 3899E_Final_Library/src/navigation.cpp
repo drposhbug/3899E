@@ -12,7 +12,7 @@
 
 using namespace vex;
 
-const double VISION_CENTER_X = 134;  
+const double VISION_CENTER_X = 160;  
   
 enum MotionPhase { READY, LAUNCH, CRUISE, DECELERATE, APPROACH, STOP };
 
@@ -1964,73 +1964,69 @@ void visionDrive(vex::aivision::colordesc targetSignature, int targetPixelWidth,
 }
 
 /**
- * Vision-guided movement function that drives toward a detected object
- * Uses two PID controllers plus distance-based heading scaling:
- * - Heading PID: Centers the object horizontally in the camera view
- * - Distance PID: Controls forward speed based on object's apparent size (width in pixels)
- * - Distance-to-Heading Scaling: Scales heading correction based on distance (P-only)
- * → Farther away (small pixel width) = larger heading corrections
- * → Closer (large pixel width) = smaller heading corrections (prevents overshoot)
- * * @param targetSignature      AI Vision color signature to detect
- * @param targetPixelWidth     Desired object width in pixels (larger = closer)
- * @param targetHeading        Target heading to maintain (currently unused)
- * @param minSpeedPct          Minimum drive speed (0-100%)
- * @param maxSpeedPct          Maximum drive speed (0-100%)
- * @param brakeMode            Brake mode when stopping (brake/coast/hold)
- * @param kp_head, ki_head, kd_head        Heading PID gains
- * @param kp_distToHeadScaling             Proportional gain for distance-based heading scaling
- * @param kp_dist, ki_dist, kd_dist        Distance PID gains
+ * visionDriveMinimal - Vision-guided approach function
+ *
+ * Drives the robot toward a detected object using two PID controllers:
+ *   - Heading PID:  Steers left/right to keep the object centered in the camera frame
+ *   - Distance PID: Controls forward speed based on the object's apparent pixel width
+ *
+ * Distance-to-Heading Scaling adjusts steering sensitivity based on distance —
+ * stronger corrections when far away, gentler corrections when close to prevent overshooting.
+ *
+ * Accepts colordesc (single color) or codedesc (color combination) descriptors.
+ * Both public overloads share the same internal logic via a static template function.
+ *
+ * @param targetSignature      AI Vision descriptor — colordesc or codedesc
+ * @param targetPixelWidth     Pixel width that means "close enough" (larger = closer)
+ * @param targetHeading        Heading to snap to on startup (prevents wrap-around jumps)
+ * @param minSpeedPct          Minimum forward speed percentage (0-100)
+ * @param maxSpeedPct          Maximum forward speed percentage (0-100)
+ * @param brakeMode            How motors stop: brake / coast / hold
+ * @param kp_head              Heading PID proportional gain
+ * @param ki_head              Heading PID integral gain
+ * @param kd_head              Heading PID derivative gain
+ * @param kp_distToHeadScaling Scales heading correction strength by distance (P-only)
+ * @param kp_dist              Distance PID proportional gain
+ * @param ki_dist              Distance PID integral gain
+ * @param kd_dist              Distance PID derivative gain
  */
-/**
- * Vision-guided movement function that drives toward a detected object
- * Uses two PID controllers plus distance-based heading scaling:
- * - Heading PID: Centers the object horizontally in the camera view
- * - Distance PID: Controls forward speed based on object's apparent size (width in pixels)
- * - Distance-to-Heading Scaling: Scales heading correction based on distance (P-only)
- * → Farther away (small pixel width) = larger heading corrections
- * → Closer (large pixel width) = smaller heading corrections (prevents overshoot)
- * Fixed: continuous heading in fallback mode, target snapping for safety
- * @param targetSignature      AI Vision color signature to detect
- * @param targetPixelWidth     Desired object width in pixels (larger = closer)
- * @param targetHeading        Target heading to maintain (used in fallback)
- * @param minSpeedPct          Minimum drive speed (0-100%)
- * @param maxSpeedPct          Maximum drive speed (0-100%)
- * @param brakeMode            Brake mode when stopping (brake/coast/hold)
- * @param kp_head, ki_head, kd_head        Heading PID gains
- * @param kp_distToHeadScaling             P-only scaling factor for heading based on distance
- * @param kp_dist, ki_dist, kd_dist        Distance PID gains
- */
-void visionDriveMinimal(
-    vex::aivision::colordesc targetSignature, 
-    int targetPixelWidth, 
-    double targetHeading,           // Used only in fallback mode
-    double minSpeedPct, 
-    double maxSpeedPct, 
+
+// ─── INTERNAL SHARED IMPLEMENTATION ───────────────────────────────────────
+// Static template — only visible inside navigation.cpp, not callable externally.
+// The template parameter T accepts any descriptor type that takeSnapshot() supports.
+// The two public overloads below forward their descriptor directly into this function.
+template <typename T>
+static void visionDriveMinimal_impl(
+    T      targetSignature,
+    int    targetPixelWidth,
+    double targetHeading,
+    double minSpeedPct,
+    double maxSpeedPct,
     vex::brakeType brakeMode,
     double kp_head, double ki_head, double kd_head,
-    double kp_distToHeadScaling,    // P-only scaling factor for heading based on distance
-    double kp_dist, double ki_dist, double kd_dist
-) {
+    double kp_distToHeadScaling,
+    double kp_dist, double ki_dist, double kd_dist)
+{
     // ========================================
     // INITIALIZATION
     // ========================================
-    
-    // Maximum steering correction as percentage (0-100)
+
+    // Maximum steering correction as a percentage of full motor power (0-100)
     double maxSteeringPct = 25.0;  // SET THIS VALUE HERE
-    
-    // Create PID controllers for heading (centering) and distance (forward movement)
-    PID headingPID(kp_head, ki_head, kd_head);  // Controls left/right turn to center object
-    PID distancePID(kp_dist, ki_dist, kd_dist);  // Controls forward speed based on object size
-    
-    // Reset PID accumulators to start fresh
+
+    // Create PID controllers — one centers the object, one controls approach speed
+    PID headingPID(kp_head, ki_head, kd_head);   // Controls left/right steering
+    PID distancePID(kp_dist, ki_dist, kd_dist);  // Controls forward drive speed
+
+    // Reset accumulators so old error doesn't carry into this run
     headingPID.pidReset();
     distancePID.pidReset();
-    
-    // Convert steering cap to voltage
+
+    // Convert steering cap from percentage to volts (12V system: 1% = 0.12V)
     double maxSteeringVoltage = maxSteeringPct * 0.12;
-    
-    // SNAP TARGET HEADING TO NEAREST CONTINUOUS EQUIVALENT
-    // Only matters in fallback mode, but adds safety/consistency
+
+    // Snap target heading to the nearest continuous equivalent
+    // Prevents the heading from jumping across the 0/360 boundary mid-run
     double currentHeadingInitial = getContinuousStandardHeading();
     double rotationsDiff = std::round((currentHeadingInitial - targetHeading) / 360.0);
     targetHeading += rotationsDiff * 360.0;
@@ -2038,91 +2034,124 @@ void visionDriveMinimal(
     // ========================================
     // MAIN VISION TRACKING LOOP
     // ========================================
-    
+
     while (true) {
-        // Capture a frame and detect objects matching the target signature
+        // Pass the full descriptor object — takeSnapshot is overloaded for each type
         AIVision20.takeSnapshot(targetSignature);
-        
-        // Exit if no objects detected (fallback not triggered here - just break)
+
+        // If the target disappears, stop immediately rather than driving blind
         if (AIVision20.objectCount == 0) {
             break;
         }
-        
-        // Get the first detected object (assumes sorted by confidence)
+
+        // Use the highest-confidence detected object (index 0)
         auto& detectedObject = AIVision20.objects[0];
-        
+
         // ========================================
         // CALCULATE DISTANCE-BASED HEADING SCALING
         // ========================================
-        
-        // Calculate how far we are from the target distance (in pixels)
+
+        // How many pixels short of the target width are we? (larger value = farther away)
         double distanceErrorPixels = (double)targetPixelWidth - (double)detectedObject.width;
-        
-        // P-only scaling factor based on distance error
+
+        // Scale steering strength by distance — farther away gets stronger corrections
         double headingScalingFactor = 1.0 + (kp_distToHeadScaling * distanceErrorPixels);
-        
-        // Clamp scaling factor to prevent negative or excessive values
+
+        // Clamp to a safe range: never negative, never more than 3x base correction
         headingScalingFactor = std::max(0.1, std::min(3.0, headingScalingFactor));
-        
+
         // ========================================
         // CALCULATE STEERING CORRECTION
         // ========================================
-        
-        // Calculate how far off-center the object is (in pixels)
+
+        // Pixel offset from frame center — positive = object is right of center
         double pixelOffsetFromCenter = detectedObject.centerX - VISION_CENTER_X;
-        
-        // Base heading correction from PID
+
+        // PID output converted from percentage to volts
         double baseHeadingCorrectionVoltage = headingPID.calculate(0.0, pixelOffsetFromCenter) * 0.12;
-        
-        // Apply distance-based scaling to heading correction
+
+        // Apply distance scaling so far objects get steered toward more aggressively
         double steeringCorrectionVoltage = baseHeadingCorrectionVoltage * headingScalingFactor;
-        
-        // Clamp steering to maximum allowed value
+
+        // Clamp steering so it never overwhelms forward drive power
         steeringCorrectionVoltage = std::max(-maxSteeringVoltage, std::min(maxSteeringVoltage, steeringCorrectionVoltage));
-        
+
         // ========================================
         // CALCULATE FORWARD DRIVE SPEED
         // ========================================
-        
-        // PID outputs base drive voltage (larger error = faster approach)
+
+        // PID error = target width minus current width; larger gap = faster approach
         double baseDriveVoltage = distancePID.calculate((double)targetPixelWidth, (double)detectedObject.width) * 0.12;
-        
-        // Clamp drive voltage between min and max speeds (converted to voltage)
-        double minDriveVoltage = minSpeedPct * 0.12;
-        double maxDriveVoltage = maxSpeedPct * 0.12;
+
+        // Convert speed limits from percentage to volts and clamp drive output
+        double minDriveVoltage     = minSpeedPct * 0.12;
+        double maxDriveVoltage     = maxSpeedPct * 0.12;
         double clampedDriveVoltage = std::max(minDriveVoltage, std::min(maxDriveVoltage, baseDriveVoltage));
-        
+
         // ========================================
         // APPLY MOTOR COMMANDS
         // ========================================
-        
-        // Apply differential drive: base speed ± steering correction
+
+        // Differential drive: adding/subtracting steering from each side turns the robot
+        // Left side slower = turn left; right side slower = turn right
         for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward, clampedDriveVoltage - steeringCorrectionVoltage, volt);
+            leftMotor[i].spin(forward,  clampedDriveVoltage - steeringCorrectionVoltage, volt);
             rightMotor[i].spin(forward, clampedDriveVoltage + steeringCorrectionVoltage, volt);
         }
-        
+
         // ========================================
-        // EXIT CONDITION CHECK
+        // EXIT CONDITION
         // ========================================
-        
-        // Stop when object reaches target width (close enough to target)
+
+        // Object has reached target width — robot is close enough, stop the loop
         if (detectedObject.width >= targetPixelWidth) {
             break;
         }
-        
-        // Wait 20ms before next iteration (50Hz update rate)
+
+        // 20ms delay = 50Hz control loop, matches the AI Vision sensor update rate
         vex::task::sleep(20);
     }
-    
+
     // ========================================
-    // CLEANUP - STOP ALL MOTORS
+    // CLEANUP — STOP ALL MOTORS
     // ========================================
-    
+
     for (int i = 0; i < 3; i++) {
         leftMotor[i].stop(brakeMode);
         rightMotor[i].stop(brakeMode);
     }
+}
+
+// ─── PUBLIC OVERLOAD: colordesc (single color object) ─────────────────────
+// Forwards the descriptor directly to the shared template implementation above.
+void visionDriveMinimal(
+    vex::aivision::colordesc targetSignature,
+    int targetPixelWidth, double targetHeading,
+    double minSpeedPct, double maxSpeedPct, vex::brakeType brakeMode,
+    double kp_head, double ki_head, double kd_head,
+    double kp_distToHeadScaling,
+    double kp_dist, double ki_dist, double kd_dist)
+{
+    visionDriveMinimal_impl(targetSignature, targetPixelWidth, targetHeading,
+        minSpeedPct, maxSpeedPct, brakeMode,
+        kp_head, ki_head, kd_head, kp_distToHeadScaling,
+        kp_dist, ki_dist, kd_dist);
+}
+
+// ─── PUBLIC OVERLOAD: codedesc (color combination object) ─────────────────
+// Forwards the descriptor directly to the shared template implementation above.
+void visionDriveMinimal(
+    vex::aivision::codedesc targetSignature,
+    int targetPixelWidth, double targetHeading,
+    double minSpeedPct, double maxSpeedPct, vex::brakeType brakeMode,
+    double kp_head, double ki_head, double kd_head,
+    double kp_distToHeadScaling,
+    double kp_dist, double ki_dist, double kd_dist)
+{
+    visionDriveMinimal_impl(targetSignature, targetPixelWidth, targetHeading,
+        minSpeedPct, maxSpeedPct, brakeMode,
+        kp_head, ki_head, kd_head, kp_distToHeadScaling,
+        kp_dist, ki_dist, kd_dist);
 }
 
 /**
@@ -2310,6 +2339,7 @@ void visionDriveV2(
  * @param minObjectWidth Minimum pixel width to consider a detection valid
  */
 void moveVisionOdometry(vex::aivision::colordesc targetSignature,
+                        int targetPixelWidth,
                         double targetX,
                         double targetY, 
                         double breakDistance,
@@ -2465,6 +2495,11 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
                     lastSnapshotCenterX = primaryObject.centerX;
                     lastSnapshotWidth = primaryObject.width;
                     visionEverTracked = true;
+
+                    // Vision exit: robot is close enough when the object fills the target pixel width.
+                    // This fires independently of the odometry exits below — whichever condition
+                    // is satisfied first ends the move, avoiding overshoot when vision locks early.
+                    if (primaryObject.width >= targetPixelWidth) break;
                 }
             }
         }
@@ -2645,7 +2680,6 @@ double fusedTargetHeading = odometryTargetHeading;
         rightMotor[i].stop(brakeMode);
     }
 }
-
  
 
 void moveOdometry(double targetX,
