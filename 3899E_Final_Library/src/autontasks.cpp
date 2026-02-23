@@ -678,3 +678,32 @@ void matchloadPneumaticStart(double timeMs, double delayMs, bool async) {
         matchloadPneumaticTask(nullptr);
     }
 }
+    
+
+    static std::atomic<bool>g_matchloadPistonTaskRunning(false);
+    static double g_matchloadPistonTimeMs = 0;
+    static double g_matchloadPistonDelayMs = 0;
+    static vex::task g_matchloadPistonTaskHandle;
+int matchloadPistonStart(void*) {
+    vex::timer t;
+    t.reset();
+    while (g_matchloadPistonTaskRunning.load() && t.time(timeUnits::msec) < g_matchloadPistonTimeMs){
+        wait(g_matchloadPistonDelayMs, msec);
+        matchLoadPneumatics.set(true);
+        vex::task::sleep(10);
+    }
+    matchLoadPneumatics.set(false);
+    vex::task::sleep(10);
+    return 0;
+}
+
+void matchloadPistonStart(double timeMs, double delayMs) {
+    if (g_matchloadPistonTaskRunning.load()) {
+        g_matchloadPistonTaskRunning.store(false);
+        vex::task::sleep(10);
+    }
+    g_matchloadPistonDelayMs = delayMs;
+    g_matchloadPistonTaskRunning.store(true);
+    g_matchloadPistonTimeMs = timeMs;
+    g_matchloadPistonTaskHandle = vex::task(matchloadPistonStart, nullptr);
+}

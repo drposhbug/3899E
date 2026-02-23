@@ -135,6 +135,7 @@ extern vex::aivision::colordesc AIVision20__redCube;
 extern vex::aivision::codedesc AIVision20__redLoad;
 extern vex::aivision::codedesc AIVision20__blueLoad;
 extern vex::aivision::codedesc AIVision20__blueRedBlue;
+extern vex::aivision::codedesc AIVision20__redBlue;
 
 extern vex::aivision::tagdesc AIVision20__blueBlock;
 extern vex::aivision::tagdesc AIVision20__redBlock;
