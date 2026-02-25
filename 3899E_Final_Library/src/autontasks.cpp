@@ -684,6 +684,8 @@ void matchloadPneumaticStart(double timeMs, double delayMs, bool async) {
     static double g_matchloadPistonTimeMs = 0;
     static double g_matchloadPistonDelayMs = 0;
     static vex::task g_matchloadPistonTaskHandle;
+
+    
 int matchloadPistonStart(void*) {
     vex::timer t;
     t.reset();
@@ -706,4 +708,13 @@ void matchloadPistonStart(double timeMs, double delayMs) {
     g_matchloadPistonTaskRunning.store(true);
     g_matchloadPistonTimeMs = timeMs;
     g_matchloadPistonTaskHandle = vex::task(matchloadPistonStart, nullptr);
+}
+
+void matchloadPistonStop() {
+    // If the task is running, signal it to stop and retract the piston
+    if (g_matchloadPistonTaskRunning.load()) {
+        g_matchloadPistonTaskRunning.store(false);
+        vex::task::sleep(10);  // Brief wait to let the task exit cleanly
+    }
+    matchLoadPneumatics.set(false);  // Ensure piston is retracted
 }

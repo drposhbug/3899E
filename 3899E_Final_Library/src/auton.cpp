@@ -832,21 +832,27 @@ void rightMiddleAuto(){
 }
 
 void skillsAuton(){
+    //Initialize and set starting position in Standard Cartesian
+    // Starting at East (0° Standard)
     setStartPosition(0, 36, 0);
     startOdometryTask();
     startCoordinateFinder();
     initializeOpticalSensor(); 
 
+    //Testing Area
+    /*
+    wait(15000, msec);
+    */   
+    //End of Testing Area
    
-  //  wait(15000, msec);   
-
+    //Stop 1: South East MatchLoader (6 Blocks + 1 Preload)
     driveForwardV3(36,0,0);
     turnRight(-39,20);
     //wait(10000, msec);
     smartStop(5, 5, 200, false);
     //intakeHopperStart(3000, 100, 0, true);
     //intakeStart(3000, 100, true);
-    matchloadStart(5500,100,0,true);
+    matchloadStart(9500,100,0,true);
     //matchLoadPneumatics.set(true);
     visionDriveMinimal(
         AIVision20__redCube, 
@@ -860,10 +866,14 @@ void skillsAuton(){
     );
     smartStraight(47, 0, -90, 15, 100, 0.4, 0.0, 0.0, 0.2, 0.2, 0.2, 50);
     wait(900, msec);
-    driveBackwardV3(4, 0, -90,24,1,1.1,0,0,0.1,0.2,0.3,100);
+
+    //Stop 2: South West Middle (4 Blocks)
+    //Driving out
+    driveBackwardV3(4, 0, -90,24,1,1.1,0,0,0.1,0.2,0.3,100); 
     matchLoadPneumatics.set(false);   
-    turnRight(-177,40);
-    driveForwardV3(36,0,-225);
+    turnRight(-195,40);
+
+    //driveForwardV3(36,0,-225);
     smartStop(5, 5, 400, false);
     //matchloadPneumaticStart(2000, 350, true);
     /*visionDriveMinimal(
@@ -905,13 +915,54 @@ moveVisionOdometry(
     0.25,                  // approachHeadingScaling
     5.0                   // timeout (seconds)
 );*/
- moveVisionOdometry(
-    AIVision20__redCube,  // targetSignature
-    60,                   // targetPixelWidth — stop when object is this wide in pixels
-    27.0,                 // targetX (cm)
-    75,                   // targetY (cm)
-    70.0,                 // breakDistance — begin decel this many cm from target
-    brakeType::coast,      // brakeMode
+
+    // Going to get the 4 blocks
+    moveVisionOdometry(
+        AIVision20__redCube,  // targetSignature
+        60,                   // targetPixelWidth — stop when object is this wide in pixels
+        27.0,                 // targetX (cm)
+        75,                   // targetY (cm)
+        48.0,                 // breakDistance — begin decel this many cm from target
+        brakeType::coast,      // brakeMode
+        60.0,                // maxSpeed (%)
+        0.43,                  // kp_head
+        0.0,                  // ki_head
+        0.04,                  // kd_head
+        1.05,                    // kp_distToHeadScaling — 1.0 = full vision correction immediately, flat approach
+        10,                   // minObjectWidth — ignore detections narrower than this
+        50,                    // minX — left bound of valid detection region (pixels)
+        215,                  // maxX — right bound of valid detection region (pixels)
+        0,                    // minY — top bound of valid detection region (pixels)
+        240,                  // maxY — bottom bound of valid detection region (pixels)
+        25.0,                 // minSpeed (%)
+        1.0,                  // distanceTolerance — odometry fallback stopping bubble (cm)
+        0.22,                  // accelHeadingScaling
+        0.2,                  // decelHeadingScaling
+        0.25,                  // approachHeadingScaling
+        5.0                   // timeout (seconds)
+    );
+
+
+    matchloadPistonStart(2500, 400);
+    //intakeHopperStart(2000, 100, 0, true);  
+    driveForwardV3(33, 0, -225, 50, 2, 3, 0, 0, 0.2, 0.2, 0.2, 50); //kp good at 2
+    wait(1000, msec);
+
+    //Stop 3: North West (2 Blocks)
+    turnRight(60,20);
+    smartStop(5, 5, 200, false);
+    matchloadPistonStop();
+    //moveOdometry(36.3, 142.5, 50, 20, 2, 0.4, 0, 0, vex::brakeType::coast, 0.2, 0.2, 0.2, 50, 0, 5000);
+    //driveToWall(20, 0, 15, 100, 10, vex::brakeType::hold, 3000, 40);
+    driveForwardV3(60, 20, 60, 50, 2, 0.4, 0, 0, 0.2, 0.2, 0.2, 50);
+    turnRight(0,20);
+    moveVisionOdometry(
+    AIVision20__blueCube,  // targetSignature
+    40,                   // targetPixelWidth — stop when object is this wide in pixels
+    48.1,                 // targetX (cm)
+    161,                   // targetY (cm)
+    12.0,                 // breakDistance — begin decel this many cm from target
+    brakeType::hold,      // brakeMode
     60.0,                // maxSpeed (%)
     0.43,                  // kp_head
     0.0,                  // ki_head
@@ -922,21 +973,17 @@ moveVisionOdometry(
     320,                  // maxX — right bound of valid detection region (pixels)
     0,                    // minY — top bound of valid detection region (pixels)
     240,                  // maxY — bottom bound of valid detection region (pixels)
-    16.0,                 // minSpeed (%)
+    25.0,                 // minSpeed (%)
     1.0,                  // distanceTolerance — odometry fallback stopping bubble (cm)
     0.22,                  // accelHeadingScaling
     0.2,                  // decelHeadingScaling
     0.25,                  // approachHeadingScaling
     5.0                   // timeout (seconds)
 );
+matchloadPistonStart(3000, 400);
+//driveBackwardV3(10, 0, 32, 50, 2, 2, 0, 0, 0.2, 0.2, 0.2, 50);
 
 
- //   wait(30000, msec);
-   matchloadPistonStart(6500, 400);
-    //intakeHopperStart(2000, 100, 0, true);  
-    driveForwardV3(50, 0, -225, 50, 2, 3, 0, 0, 0.2, 0.2, 0.2, 50);
-    wait(3000, msec);
-    turnRight(70,20);
     /*moveVisionOdometry(
     AIVision20__blueCube,
     70,

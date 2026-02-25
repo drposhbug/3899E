@@ -508,3 +508,12 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
                         double decelHeadingScaling = 0.2,
                         double approachHeadingScaling = 0.2,
                         double timeout = 3.0);
+
+void driveToWall(double targetDistance,
+                 double targetHeading     = 0,
+                 double minSpeed          = 15,
+                 double wallStalledTimeMs = 150,
+                 double stalledSidePower  = 0,
+                 vex::brakeType brakeMode = vex::brakeType::brake,
+                 double timeoutMs         = 3000,
+                 double maxSpeed          = 40);                        

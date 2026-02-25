@@ -34,5 +34,6 @@ void stopCoordinateFinder();
 
 void matchloadPneumaticStart(double timeMs, double delayMs = 0, bool async = true);
 void matchloadPistonStart(double timeMs, double delayMs = 0);
+void matchloadPistonStop();
 
 #endif // AUTONTASKS_H

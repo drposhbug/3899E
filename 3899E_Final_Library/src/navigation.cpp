@@ -2983,3 +2983,183 @@ void moveOdometry(double targetX,
         rightMotor[i].stop(brakeMode);
     }
 }
+
+// ======================================================================
+// driveToWall — Wall alignment with per-side independent stall detection
+//
+// Drives the robot into a wall at a set speed and uses left and right
+// encoder readings independently to detect when each side contacts the
+// wall. When one side stalls first (robot approaching at an angle), that
+// side cuts to stalledSidePower while the free side keeps pushing —
+// naturally rotating the robot flush against the wall without any PID.
+// Once both sides are stalled, or a safety exit triggers, all motors stop.
+//
+// Why no heading PID:
+//   Unlike a normal drive function, we WANT the robot to self-correct its
+//   angle by letting one side stall while the other catches up. A heading
+//   PID would fight that process by trying to keep both sides moving equally.
+//
+// Parameters:
+//   targetDistance    — Maximum distance to travel (cm). Safety limit —
+//                       wall contact normally triggers the exit first.
+//   targetHeading     — Approach heading (degrees, Standard Cartesian).
+//                       Used only for the initial heading snap to prevent
+//                       wrap-around. No active PID correction during drive.
+//   minSpeed          — Minimum drive speed percentage (0–100). Reserved
+//                       for future use; not actively used in this flat-speed
+//                       wall align implementation.
+//   wallStalledTimeMs — Time (ms) a side must stay below the RPM threshold
+//                       before it is declared wall-contacted. Filters brief
+//                       slowdowns from carpet bumps or slight obstacles.
+//   stalledSidePower  — Voltage percentage (0–100) applied to a stalled
+//                       side while the other side finishes squaring.
+//                       0 = brakeMode holds it (no active voltage).
+//                       >0 = light pressure into the wall to prevent rollback.
+//   brakeMode         — Motor behavior when a side cuts power and at the
+//                       final stop. coast = freewheel, brake = hold lightly,
+//                       hold = hold position firmly. Set upfront so it takes
+//                       effect the moment voltage drops to 0.
+//   timeoutMs         — Maximum allowed run time (ms). Forces an exit if
+//                       the wall is never reached (missed a turn, field
+//                       obstacle). Prevents motors running indefinitely.
+//   maxSpeed          — Drive speed percentage (0–100) while approaching wall.
+// ======================================================================
+void driveToWall(double targetDistance,
+                 double targetHeading,
+                 double minSpeed,
+                 double wallStalledTimeMs,
+                 double stalledSidePower,
+                 vex::brakeType brakeMode,
+                 double timeoutMs,
+                 double maxSpeed)
+{
+    // ── TUNABLE CONSTANT ──────────────────────────────────────────────
+    // Encoder RPM below which a side is considered stalled against the wall.
+    // Raise this value if false triggers occur on rough carpet.
+    // Lower it if true wall contact is not being detected reliably.
+    const double WALL_THRESHOLD = 5.0;
+    // ─────────────────────────────────────────────────────────────────
+
+    // Convert max speed percentage to voltage.
+    // copysign applies the correct direction — positive for forward,
+    // negative for backward — based on the sign of targetDistance.
+    double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
+
+    // Convert stalledSidePower percentage to voltage, same direction as drive.
+    // When stalledSidePower = 0, this is 0V and brakeMode takes over immediately.
+    // When stalledSidePower > 0, light pressure is maintained against the wall.
+    double stalledSideVoltage = std::copysign(
+        stalledSidePower * 0.01 * absoluteMaxVoltage, targetDistance);
+
+    // ── BRAKE MODE — SET UPFRONT ──────────────────────────────────────
+    // Brake mode is declared here before the loop so that the moment any
+    // motor is commanded to 0V, the correct behavior (coast/brake/hold)
+    // engages instantly without needing extra logic inside the loop.
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].setBrake(brakeMode);
+        rightMotor[i].setBrake(brakeMode);
+    }
+
+    // ── HEADING SNAP ──────────────────────────────────────────────────
+    // Aligns the target heading to the robot's current continuous rotation
+    // frame. Prevents the robot from unwinding if it has rotated past 360°.
+    // Reference only — no PID correction is applied during the drive.
+    double currentHeading       = getContinuousStandardHeading();
+    double rotationsDiff        = std::round((currentHeading - targetHeading) / 360.0);
+    double targetHeadingSnapped = targetHeading + (rotationsDiff * 360.0);
+
+    // ── DISTANCE & STALL TRACKING ─────────────────────────────────────
+    // Record encoder position at entry so we measure relative distance only.
+    double startDist         = getCurrentEncoderDistanceCM();
+    double distanceTravelled = 0;
+
+    // Each side has its own stall flag and timer so they operate completely
+    // independently. Left hitting the wall does not affect the right timer.
+    bool leftStalled       = false;
+    bool leftWallDetected  = false;
+    bool rightStalled      = false;
+    bool rightWallDetected = false;
+
+    vex::timer leftWallTimer;  // Tracks how long the left side has been stalled
+    vex::timer rightWallTimer; // Tracks how long the right side has been stalled
+    vex::timer timeoutTimer;   // Tracks total elapsed time — starts on entry
+
+    // ── MAIN DRIVE LOOP ───────────────────────────────────────────────
+    // Three exit conditions (whichever comes first):
+    //   1. Both sides confirm wall contact — robot is squared, job done
+    //   2. Distance limit reached — wall was never hit, exit safely
+    //   3. Timeout expired — something went wrong, don't run forever
+    while (!(leftWallDetected && rightWallDetected) &&
+           std::fabs(distanceTravelled) <= std::fabs(targetDistance) &&
+           timeoutTimer.time(msec) < timeoutMs)
+    {
+        // Update distance travelled from the starting encoder position
+        distanceTravelled = getCurrentEncoderDistanceCM() - startDist;
+
+        // Read each side's encoder speed independently (RPM)
+        double leftRPM  = std::fabs(passiveEncoderLeft.velocity(rpm));
+        double rightRPM = std::fabs(passiveEncoderRight.velocity(rpm));
+
+        // ── LEFT SIDE STALL DETECTION ─────────────────────────────────
+        // A side must stay below WALL_THRESHOLD for the full wallStalledTimeMs
+        // before it is declared wall-contacted. This prevents a brief bump
+        // or carpet dip from triggering a false wall detection.
+        if (leftRPM < WALL_THRESHOLD) {
+            if (!leftStalled) {
+                // Just dropped below threshold — start the stall timer
+                leftWallTimer.reset();
+                leftStalled = true;
+            } else if (leftWallTimer.time(msec) >= wallStalledTimeMs) {
+                // Stayed stalled long enough — confirmed wall contact
+                leftWallDetected = true;
+            }
+        } else {
+            // Moving again (e.g. bounced off wall) — reset and watch for next stall
+            leftStalled = false;
+        }
+
+        // ── RIGHT SIDE STALL DETECTION ────────────────────────────────
+        if (rightRPM < WALL_THRESHOLD) {
+            if (!rightStalled) {
+                rightWallTimer.reset();
+                rightStalled = true;
+            } else if (rightWallTimer.time(msec) >= wallStalledTimeMs) {
+                rightWallDetected = true;
+            }
+        } else {
+            rightStalled = false;
+        }
+
+        // ── PER-SIDE VOLTAGE OUTPUT ───────────────────────────────────
+        // Once a side confirms wall contact, switch it to stalledSideVoltage.
+        // The other side stays at maxSpeedVoltage and keeps pushing,
+        // rotating the robot flush against the wall.
+        double leftOutput;
+        if (leftWallDetected) {
+            leftOutput = stalledSideVoltage;
+        } else {
+            leftOutput = maxSpeedVoltage;
+        }
+
+        double rightOutput;
+        if (rightWallDetected) {
+            rightOutput = stalledSideVoltage;
+        } else {
+            rightOutput = maxSpeedVoltage;
+        }
+
+        for (int i = 0; i < 3; i++) {
+            leftMotor[i].spin(forward,  leftOutput,  volt);
+            rightMotor[i].spin(forward, rightOutput, volt);
+        }
+
+        vex::task::sleep(10); // 100Hz control loop
+    }
+
+    // ── FINAL STOP ────────────────────────────────────────────────────
+    // Stop all motors. brakeMode was set upfront so stop() uses it cleanly.
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].stop();
+        rightMotor[i].stop();
+    }
+}
