@@ -70,6 +70,11 @@ void intakeHopperStart(double timeMs, double power, double delayMs, bool async) 
     }
 }
 
+void intakeHopperStop() {
+    intakeHopperParams.running.store(false);
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+}
 
 // ===== MATCHLOAD TASK (motors + hood + matchload pneumatic) =====
 static AsyncTaskParams matchloadParams;
@@ -678,14 +683,18 @@ void matchloadPneumaticStart(double timeMs, double delayMs, bool async) {
         matchloadPneumaticTask(nullptr);
     }
 }
-    
+
+void matchloadPneumaticStop() {
+    matchloadPneumaticParams.running.store(false);
+    matchLoadPneumatics.set(false);
+}
 
     static std::atomic<bool>g_matchloadPistonTaskRunning(false);
     static double g_matchloadPistonTimeMs = 0;
     static double g_matchloadPistonDelayMs = 0;
     static vex::task g_matchloadPistonTaskHandle;
 
-    
+
 int matchloadPistonStart(void*) {
     vex::timer t;
     t.reset();

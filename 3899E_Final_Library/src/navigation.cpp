@@ -2471,6 +2471,16 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
             consecutiveAtTargetCount = 0;
         }
 
+        // Dot product plane crossing (overshoot detection)
+        // Detects when robot crosses perpendicular plane through target
+        double vectorToTargetX = targetX - globalX;
+        double vectorToTargetY = targetY - globalY;
+        double progressScalar = (pathVectorX * vectorToTargetX) + (pathVectorY * vectorToTargetY);
+
+        if (progressScalar < 0) {
+            break; // Crossed the finish line
+        }
+
         // ───────────────────────────────────────────────────────────────
         // 4. VISION SNAPSHOT
         // ───────────────────────────────────────────────────────────────
@@ -2714,7 +2724,7 @@ void moveOdometry(double targetX,
     const double DECEL_STEP_PERCENT = 0.45;         // ABS brake pressure reduction rate
     const double LOCK_THRESHOLD_DECEL = 0.25;       // Wheel lock detection threshold
     const int REQUIRED_CONSECUTIVE_STOPS = 3;       // Frames at target before exit (noise filter)
-    const double DOT_PRODUCT_MAX_DISTANCE = 10.0;   // Max distance for plane-crossing detection
+
     
     // ========================================
     // INITIALIZATION
@@ -2813,8 +2823,8 @@ void moveOdometry(double targetX,
         double vectorToTargetY = targetY - globalY;
         double progressScalar = (pathVectorX * vectorToTargetX) + (pathVectorY * vectorToTargetY);
         
-        if (progressScalar < 0 && currentDistanceToTarget < DOT_PRODUCT_MAX_DISTANCE) {
-            break; // Crossed the finish line
+        if (progressScalar < 0) {
+            break; // Robot crossed the perpendicular plane through target — stop, do not chase
         }
 
         // ───────────────────────────────────────────────────────────────

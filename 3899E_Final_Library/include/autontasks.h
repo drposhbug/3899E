@@ -36,4 +36,7 @@ void matchloadPneumaticStart(double timeMs, double delayMs = 0, bool async = tru
 void matchloadPistonStart(double timeMs, double delayMs = 0);
 void matchloadPistonStop();
 
+void intakeHopperStop();
+void matchloadPneumaticStop();
+
 #endif // AUTONTASKS_H
