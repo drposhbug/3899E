@@ -42,6 +42,13 @@ void resetColorDetection();
 void initializeOpticalSensor();
 void ringEjection();
 
+extern const double RED_HUE_MIN_1;
+extern const double RED_HUE_MAX_1;
+extern const double RED_HUE_MIN_2;
+extern const double RED_HUE_MAX_2;
+extern const double BLUE_HUE_MIN;
+extern const double BLUE_HUE_MAX;
+
 // Motor control structs and functions
 struct MotorControlParams {
     vex::motor* targetMotor;

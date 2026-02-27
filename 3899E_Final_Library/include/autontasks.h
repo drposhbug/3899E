@@ -9,8 +9,8 @@ void matchloadStart(double timeMs, double power, double delayMs = 0, bool async 
 
 // Legacy functions
 void intake(double time, bool pistonState);
-void intakeStart(double timeMs, double intakePct, bool pistonState);
-void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchLoad, Color targetColor);
+void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
+void intakeColourStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
 void intakeStop();
 void score(double time, double power);
 void stopScore();

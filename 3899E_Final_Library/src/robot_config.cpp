@@ -15,20 +15,20 @@ vex::motor intakeMotor1 = vex::motor(vex::PORT10, vex::gearSetting::ratio6_1, tr
 vex::motor intakeMotor2 = vex::motor(vex::PORT9, vex::gearSetting::ratio6_1); 
 // Define Pneumatics
 vex::pneumatics frontHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.G);
-vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
+//vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
 vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
 vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
 vex::pneumatics wingPneumatics = vex::pneumatics(Brain.ThreeWirePort.C);
-vex::pneumatics indexPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
+//vex::pneumatics indexPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
 vex::pneumatics leftGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.A);  // Left lane scoring gate
 vex::pneumatics rightGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.F); // Right lane scoring gate
+vex::pneumatics rudderPneumatics = vex::pneumatics(Brain.ThreeWirePort.D); // Rudder for ball control in intake
 // Define Sensors
 vex::inertial InertialSensor = vex::inertial(vex::PORT16);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT20, true);  // Initialize the encoder on PORT10
 vex::rotation passiveEncoderRight = vex::rotation(vex::PORT13, false); // Initialize the encoder on PORT10
 vex::rotation passiveEncoderX = vex::rotation(vex::PORT12, true);     // Initialize the encoder on PORT10
 vex::optical opticalSensor = vex::optical(vex::PORT15);
-vex::bumper autonBumper = vex::bumper(Brain.ThreeWirePort.D);
 vex::optical leftLaneOptical = vex::optical(vex::PORT17);   // Left lane ball detection sensor (VEX V5 Optical)
 vex::optical rightLaneOptical = vex::optical(vex::PORT11);  // Right lane ball detection sensor (VEX V5 Optical)
 // Global Variables

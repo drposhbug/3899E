@@ -485,7 +485,7 @@ void leftSideLong(){
     wingPneumatics.set(false);
 
     wait(50, msec);
-    intakeStart(1000, 100, false);
+    //intakeStart(1000, 100, false);
     matchloadStart(6000,100,1050,true);
     driveForward(83, 60, 16);
     wait(250, msec);
@@ -533,7 +533,7 @@ void leftSidemiddle(){
     wingPneumatics.set(false);
 
     wait(50, msec);
-    intakeStart(300, 100, false);
+    //intakeStart(300, 100, false);
     matchloadStart(1200,100,750,true);
     matchLoadPneumatics.set(true);
     driveForward(70, 60, 16,26);
@@ -677,8 +677,8 @@ void SevenBallRight(){
     wait(200, msec);
     intakeStart(100, 75, true, false);
     wait(200, msec); */
-    intakeStart(1000, 40, true);
-    intakeStart(3500, 75, true);
+    //intakeStart(1000, 40, true);
+    //intakeStart(3500, 75, true);
     driveForward(49, 38, -12);
     wait(300, msec);
     matchLoadPneumatics.set(true);
@@ -729,8 +729,8 @@ void SevenBallLeft(){
     frontHoodPneumatics.set(false);
     wait(50, msec);//necessary in order for matchload pneumatics to engage properly epstein fn
     matchLoadPneumatics.set(false);
-    intakeStart(1000, 35, true);
-    intakeStart(5500, 75, true);
+    //intakeStart(1000, 35, true);
+    //intakeStart(5500, 75, true);
     driveForward(40, 30, 16);
     wait(300, msec);
     //matchLoadPneumatics.set(true);
@@ -761,7 +761,7 @@ void rightMiddleAuto(){
     wingPneumatics.set(false);
 
     wait(50, msec);
-    intakeStart(470, 100, false);
+   // intakeStart(470, 100, false);
     matchloadStart(2000,40,630,true);
     driveForward(91, 58, -16);
     wait(200, msec);
@@ -928,8 +928,11 @@ void skillsAuton(){
     leftGatePneumatics.set(true);   
     rightGatePneumatics.set(true);   
    // startCoordinateFinder();
-    initializeOpticalSensor(); 
-
+    initializeOpticalSensor();
+    leftLaneOptical.setLightPower(100);
+    rightLaneOptical.setLightPower(100); 
+intakeColourStart(19000, 100, false, false);
+wait(50000, msec);
     //Testing Area
     /*
     wait(15000, msec);
@@ -940,14 +943,15 @@ void skillsAuton(){
     //Stop 1: South East MatchLoader (6 Blocks + 1 Preload)
     //********************************************************* */
     driveForwardV3(36,0,0);
-    turnRight(-39,20);
+    turnRight(-42,20);
     //wait(10000, msec);
     smartStop(5, 5, 200, false);
     //intakeHopperStart(3000, 100, 0, true);
     //intakeStart(3000, 100, true);
     //matchloadStart(10500,100,0,true);
-    intakeHopperStart(10500, 100, 0, true);
-    matchloadPneumaticStart(10500, 0, true);
+    //intakeHopperStart(9000, 100, 0, true);
+    intakeColourStart(9000, 100, false, false);
+    matchloadPneumaticStart(9000, 0, true);
     //matchLoadPneumatics.set(true);
 /* //Maybe close to roginal, kp was probably lower and may the 0.3 too
    visionDriveMinimal(
@@ -961,6 +965,7 @@ void skillsAuton(){
         1.0, 0.0, 0.0
     );
 */
+
     visionDriveMinimal(
         AIVision20__redCube, 
         100,                    
@@ -971,9 +976,38 @@ void skillsAuton(){
         1.2,       
         1.0, 0.0, 0.0
     );
-    smartStraight(47, 0, -90, 15, 100, 0.4, 0.0, 0.0, 0.2, 0.2, 0.2, 50);
-    wait(900, msec);
 
+
+ // wait(20000, msec);
+ /*
+    moveVisionOdometry(
+        AIVision20__redCube,  // targetSignature
+        60,                   // targetPixelWidth — stop when object is this wide in pixels
+        82,                 // targetX (cm)
+        27.62,                 // targetY (cm)
+        10.0,                 // breakDistance  
+        brakeType::hold,      // brakeMode
+        40.0,                 // maxSpeed (%)
+        0.43,                 // kp_head
+        0.0,                  // ki_head
+        0.04,                 // kd_head
+        1.05,                 // kp_distToHeadScaling — 1.0 = full vision correction immediately, flat approach
+        10,                   // minObjectWidth — ignore detections narrower than this
+        0,                   // minX — left bound of valid detection region (pixels)
+        320,                  // maxX — right bound of valid detection region (pixels)
+        0,                    // minY — top bound of valid detection region (pixels)
+        240,                  // maxY — bottom bound of valid detection region (pixels)
+        25.0,                 // minSpeed (%)
+        1.0,                  // distanceTolerance — odometry fallback stopping bubble (cm)
+        0.22,                 // accelHeadingScaling
+        0.2,                  // decelHeadingScaling
+        0.25,                 // approachHeadingScaling
+        50,                   // headingLockDistance (cm)
+        12.0                   // timeout (seconds)
+    );
+*/
+    smartStraight(47, 0, -90, 15, 100, 0.4, 0.0, 0.0, 0.2, 0.2, 0.2, 50);
+    wait(2000, msec);
     //********************************************************* 
     //Stop 2: South West Middle (4 Blocks)
     //********************************************************* 
@@ -981,16 +1015,11 @@ void skillsAuton(){
     driveBackwardV3(4, 0, -90,24,1,1.1,0,0,0.1,0.2,0.3,100); 
     //matchLoadPneumatics.set(false);   
     matchloadPneumaticStop();
-    turnRight(-185,40);
+    turnRight(-175,40);
    //wait(30000, msec);
     //driveForwardV3(36,0,-225);
     smartStop(5, 5, 400, false);
     //matchloadPneumaticStart(2000, 350, true);
-
-
-   // wait(500, msec);
-
-
 
     // Going to get the 4 blocks
 
@@ -1027,9 +1056,157 @@ moveOdometry(
     5.0               // timeout (seconds)
 );
 */
+    moveVisionOdometry(
+        AIVision20__redCube,  // targetSignature
+        60,                   // targetPixelWidth — stop when object is this wide in pixels
+        48.1,                 // targetX (cm)
+        67.4,                 // targetY (cm)
+        30.0,                 // breakDistance — 48 worked well before 
+        brakeType::coast,      // brakeMode
+        60.0,                 // maxSpeed (%)
+        0.43,                 // kp_head
+        0.0,                  // ki_head
+        0.04,                 // kd_head
+        1.05,                 // kp_distToHeadScaling — 1.0 = full vision correction immediately, flat approach
+        10,                   // minObjectWidth — ignore detections narrower than this
+        50,                   // minX — left bound of valid detection region (pixels)
+        260,                  // maxX — right bound of valid detection region (pixels)
+        0,                    // minY — top bound of valid detection region (pixels)
+        240,                  // maxY — bottom bound of valid detection region (pixels)
+        25.0,                 // minSpeed (%)
+        1.0,                  // distanceTolerance — odometry fallback stopping bubble (cm)
+        0.22,                 // accelHeadingScaling
+        0.2,                  // decelHeadingScaling
+        0.25,                 // approachHeadingScaling
+        15,                   // headingLockDistance (cm)
+        5.0                   // timeout (seconds)
+    );
+      
+    matchloadPneumaticStart(500, 925, true);
+    //wait(30000, msec);
+    //moveOdometry(26.88, 125.99, 0, 20, 2, 0.75, 0, 0, vex::brakeType::hold, 0.2, 0.2, 0.2, 60, 15, 5000);
+    moveOdometry( 
+    30.31,             // targetX (cm)
+    150,             // targetY (cm)
+    0.0,             // breakDistance
+    25.0,             // minSpeed (%)
+    2.0,              // distanceTolerance (cm)
+    0.75,             // kp_heading // .75 before
+    0.0,              // ki_heading
+    0.04,             // kd_heading
+    brakeType::hold,  // brakeMode
+    0.22,             // accelHeadingScaling
+    0.2,              // decelHeadingScaling
+    0.25,             // approachHeadingScaling
+    60.0,             // maxSpeed (%)
+    20.0,              // headingLockDistance (cm) — this is what we're testing
+    5.0               // timeout (seconds)
+);
+wait(2000, msec);
+moveVisionOdometry(
+        AIVision20__redCube,  // targetSignature
+        60,                   // targetPixelWidth — stop when object is this wide in pixels
+        31.61,                 // targetX (cm)
+        180,                 // targetY (cm)
+        30.0,                 // breakDistance — 48 worked well before 
+        brakeType::hold,      // brakeMode
+        60.0,                 // maxSpeed (%)
+        0.43,                 // kp_head
+        0.0,                  // ki_head
+        0.04,                 // kd_head
+        1.05,                 // kp_distToHeadScaling — 1.0 = full vision correction immediately, flat approach
+        10,                   // minObjectWidth — ignore detections narrower than this
+        50,                   // minX — left bound of valid detection region (pixels)
+        260,                  // maxX — right bound of valid detection region (pixels)
+        0,                    // minY — top bound of valid detection region (pixels)
+        240,                  // maxY — bottom bound of valid detection region (pixels)
+        25.0,                 // minSpeed (%)
+        1.0,                  // distanceTolerance — odometry fallback stopping bubble (cm)
+        0.22,                 // accelHeadingScaling
+        0.2,                  // decelHeadingScaling
+        0.25,                 // approachHeadingScaling
+        15,                   // headingLockDistance (cm)
+        5.0                   // timeout (seconds)
+    );
+
+   wait(30000, msec);
+
+
+    moveOdometry( 
+    30.31,             // targetX (cm)
+    210,             // targetY (cm)
+    0.0,             // breakDistance
+    25.0,             // minSpeed (%)
+    2.0,              // distanceTolerance (cm)
+    0.75,             // kp_heading // .75 before
+    0.0,              // ki_heading
+    0.04,             // kd_heading
+    brakeType::hold,  // brakeMode
+    0.22,             // accelHeadingScaling
+    0.2,              // decelHeadingScaling
+    0.25,             // approachHeadingScaling
+    60.0,             // maxSpeed (%)
+    20.0,              // headingLockDistance (cm) — this is what we're testing
+    5.0               // timeout (seconds)
+);
+   wait(30000, msec);
+    //matchloadPistonStart(2500, 400);
+    //intakeHopperStart(2000, 100, 0, true);  
+    //driveForwardV3(40, 0, -220, 60, 2, 2, 0, 0, 0.2, 0.2, 0.2, 60); //kp good at 2
+   //// driveForwardV3(30, 0, -225, 60, 2, 3, 0, 0, 0.2, 0.2, 0.2, 60); //kp good at 2
+    //wait(1000, msec);
+    smartStop(5, 5, 300, false);
+    wait(30000, msec);
+    //*****************************************************
+    //Stop 3: North West (2 Blocks)
+    //***************************************************** 
+    turnRight(45,20);
+    wingPneumatics.set(true);  
+    
+/*
+for (int i = 0; i < 3; i++)
+    {
+        leftMotor[i].setBrake(brakeType::coast);
+        rightMotor[i].setBrake(brakeType::coast);
+    }
+
+*/
+    
+    //wait(30000, msec);
+    //turnRight(80,20); //Tyler & Justin's
+     smartStop(5, 5, 200, false);
+    //matchloadPistonStop();
+     matchloadPneumaticStop();
+    moveOdometry(
+    59.32,             // targetX (cm)
+    153.35,             // targetY (cm)
+    30,             // breakDistance
+    25.0,             // minSpeed (%)
+    2.0,              // distanceTolerance (cm)
+    0.85,             // kp_heading
+    0.0,              // ki_heading
+    0.04,             // kd_heading
+    brakeType::hold,// brakeMode
+    0.22,             // accelHeadingScaling
+    0.2,              // decelHeadingScaling
+    0.25,             // approachHeadingScaling
+    60.0,             // maxSpeed (%)
+    20.0,              // headingLockDistance (cm) — this is what we're testing
+    5.0               // timeout (seconds)
+);
+   matchloadPneumaticStart(1000, 0, true);
+
+    //*****************************************************
+    //Stop 4: North East (2 Blocks)
+    //***************************************************** 
+
+    driveBackwardV3(4, 0, -90,24,1,1.1,0,0,0.1,0.2,0.3,100); 
+     //matchloadPneumaticStop();
+    turnRight(-185,40);
    //wait(30000, msec);
+   //matchloadPneumaticStop();
 
-
+    smartStop(5, 5, 400, false);
     moveVisionOdometry(
         AIVision20__redCube,  // targetSignature
         60,                   // targetPixelWidth — stop when object is this wide in pixels
@@ -1083,44 +1260,6 @@ moveOdometry(
     //wait(1000, msec);
     smartStop(5, 5, 300, false);
 
-    //*****************************************************
-    //Stop 3: North West (2 Blocks)
-    //***************************************************** 
-    turnRight(45,20);
-    wingPneumatics.set(true);  
-    
-/*
-for (int i = 0; i < 3; i++)
-    {
-        leftMotor[i].setBrake(brakeType::coast);
-        rightMotor[i].setBrake(brakeType::coast);
-    }
-
-*/
-    
-    //wait(30000, msec);
-    //turnRight(80,20); //Tyler & Justin's
-     smartStop(5, 5, 200, false);
-    //matchloadPistonStop();
-     matchloadPneumaticStop();
-    moveOdometry(
-    59.32,             // targetX (cm)
-    153.35,             // targetY (cm)
-    30,             // breakDistance
-    25.0,             // minSpeed (%)
-    2.0,              // distanceTolerance (cm)
-    0.85,             // kp_heading
-    0.0,              // ki_heading
-    0.04,             // kd_heading
-    brakeType::brake,  // brakeMode
-    0.22,             // accelHeadingScaling
-    0.2,              // decelHeadingScaling
-    0.25,             // approachHeadingScaling
-    60.0,             // maxSpeed (%)
-    20.0,              // headingLockDistance (cm) — this is what we're testing
-    5.0               // timeout (seconds)
-);
-   matchloadPneumaticStart(2500, 0, true);
 
 /*
     driveForwardV3(10, 0, 43, 25, 2, 0.4, 0, 0, 0.2, 0.2, 0.2, 70);
@@ -1387,7 +1526,7 @@ void soloAWP(){
 void colourTest(){
     initializeOpticalSensor();
     InertialSensor.setRotation(0, degrees);
-    intakeStart(10000, 50, true);
+    //intakeStart(10000, 50, true);
 }
 
 void soloAWPMiddle(){
@@ -1504,7 +1643,7 @@ void nothing(){
     InertialSensor.setRotation(0, degrees);
     robotStartingHeading = 0;
 
-    intakeStart(20000, 50, true);
+    //intakeStart(20000, 50, true);
     //matchloadStart(20000, 100, 30000, true);
     pidlessForward(1000, 60);
     //driveForward(15, 9, 0, 15, 0.615, 0, 0, 0.1, 0.05, 0.05, 50);
@@ -1862,7 +2001,7 @@ void runEverything(){
 
     driveBackwardV3(20,10,0);
 
-    intakeStart(1000, 50, true);
+    //intakeStart(1000, 50, true);
 
     matchloadStart(1000, 50, 0, true);
 

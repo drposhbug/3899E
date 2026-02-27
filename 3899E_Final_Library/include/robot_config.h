@@ -28,6 +28,7 @@ extern vex::pneumatics wingPneumatics;
 extern vex::pneumatics indexPneumatics;
 extern vex::pneumatics leftGatePneumatics;   // Left lane scoring gate
 extern vex::pneumatics rightGatePneumatics;  // Right lane scoring gate
+extern vex::pneumatics rudderPneumatics;     // Rudder for ball control in intake
 // Declare Sensors
 extern vex::inertial InertialSensor;
 

@@ -56,7 +56,7 @@ void runDriver(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Driver Control Mode...");
   
-  headingDisplayParams.isRunning = true;
+  headingDisplayParams.isRunning = false;
   vex::task driver_display_task(driverDisplayTask, &headingDisplayParams); 
   Controller.Screen.clearScreen(); // stop controller prints during driver control
   driverControl(); // Start driver control function

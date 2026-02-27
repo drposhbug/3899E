@@ -37,7 +37,6 @@ int intakeHopperTask(void*) {
 
     // Set hood positions for intake
     frontHoodPneumatics.set(false);   // Close front hood
-    //backHoodPneumatics.set(false);   // Open back hood
 
     vex::timer t;
     double voltage = intakeHopperParams.power / 8.34;
@@ -196,40 +195,26 @@ int intakeTaskEntry(void*) {
         intakeMotor1.spin(forward, intakeVoltage, voltageUnits::volt);
         intakeMotor2.spin(forward, intakeVoltage, voltageUnits::volt);
 
-        // check for colour detection if enabled
-        /*if (g_enableColourDetection && detectColor(g_colourDetectionTarget)) {
-            // stop intake
-            intakeMotor1.stop();
-            intakeMotor2.stop();
-            vex::task::sleep(50);
+        if (g_enableColourDetection) {
+            bool blueDetected = (leftLaneOptical.hue() >= BLUE_HUE_MIN && leftLaneOptical.hue() <= BLUE_HUE_MAX) ||
+                                (rightLaneOptical.hue() >= BLUE_HUE_MIN && rightLaneOptical.hue() <= BLUE_HUE_MAX);
+            bool redDetected = (((leftLaneOptical.hue() >= RED_HUE_MIN_1 && leftLaneOptical.hue() <= RED_HUE_MAX_1) || 
+                                (leftLaneOptical.hue() >= RED_HUE_MIN_2 && leftLaneOptical.hue() <= RED_HUE_MAX_2))) ||
+                               (((rightLaneOptical.hue() >= RED_HUE_MIN_1 && rightLaneOptical.hue() <= RED_HUE_MAX_1) || 
+                                (rightLaneOptical.hue() >= RED_HUE_MIN_2 && rightLaneOptical.hue() <= RED_HUE_MAX_2)));
 
-            // outtake 300ms
-            ptoPneumatics.set(true);
-            frontHoodPneumatics.set(false);
-
-            vex::timer outtakeTimer;
-            outtakeTimer.reset();
-            while (outtakeTimer.time(timeUnits::msec) < 300) {
-                intakeMotor1.spin(forward, 12.0, voltageUnits::volt);
-                intakeMotor2.spin(forward, 12.0, voltageUnits::volt);
-                vex::task::sleep(10);
+             if (redDetected){
+                for (int i = 0; i < 3; i++) {
+                rudderPneumatics.set(true);
+                vex::task::sleep(20);
+                }
+            } else if (blueDetected){
+                for (int i = 0; i < 3; i++) {
+                rudderPneumatics.set(false);
+                vex::task::sleep(20);
+                }
             }
-
-            ptoPneumatics.set(false);
-            intakeMotor1.stop();
-            intakeMotor2.stop();
-
-            // Reset colour detection and resume intake
-            //resetColorDetection();
-            vex::task::sleep(50);
-
-            if (g_intakePistonState = true) {
-                frontHoodPneumatics.set(true);
- 
-            } else {
-                frontHoodPneumatics.set(false);
-            }
-        }*/
+        }
 
         vex::task::sleep(10);
     }
@@ -238,16 +223,15 @@ int intakeTaskEntry(void*) {
     intakeMotor1.stop();
     intakeMotor2.stop();
     frontHoodPneumatics.set(false);
-    backHoodPneumatics.set(false);
     matchLoadPneumatics.set(false);
     ptoPneumatics.set(false);
+    g_enableColourDetection = false;
     g_intakeTaskRunning.store(false);
-
     return 0;
 }
 
-//asynchronous intake with colour detection
-void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
+//asynchronous intake
+void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
     // if already running, stop previous then start new
     if (g_intakeTaskRunning.load()) {   
         g_intakeTaskRunning.store(false);
@@ -257,14 +241,10 @@ void intakeStart2(double timeMs, double intakePct, bool pistonState, bool matchL
     g_intakePistonState = pistonState;
     g_intakePct = intakePct;
     g_matchLoadState = matchLoad;
-    /*g_colourDetectionTarget = targetColor;
-    g_enableColourDetection = true;
-    resetColorDetection();*/
     g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
 }
 
-void intakeStart(double timeMs, double intakePct, bool pistonState) {
-    // if already running, stop previous then start new
+void intakeColourStart(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
     if (g_intakeTaskRunning.load()) {   
         g_intakeTaskRunning.store(false);
         vex::task::sleep(20);
@@ -272,11 +252,10 @@ void intakeStart(double timeMs, double intakePct, bool pistonState) {
     g_intakeTimeMs = timeMs;
     g_intakePistonState = pistonState;
     g_intakePct = intakePct;
-    //g_matchLoadState = matchLoad;
+    g_matchLoadState = matchLoad;
+    g_enableColourDetection = true;
     g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
 }
-
-
 
 //stop the async intake task early
 void intakeStop() {
@@ -290,9 +269,7 @@ void score(double time, double power) //skibidi score
     scoringTime.reset();
 
     frontHoodPneumatics.set(true); //open front hood and close back hood
-    backHoodPneumatics.set(false);
     ptoPneumatics.set(true); //engage pto for scoring
-    indexPneumatics.set(true);
 
     double voltagePower = (power / 8.34); //convert power percentage to voltage
 
@@ -322,7 +299,6 @@ void outtake(double time, double power) //skibidi outtake
 
     ptoPneumatics.set(true); //engage pto for outtake
     frontHoodPneumatics.set(false); //close front hood for outtake
-    backHoodPneumatics.set(false); //close back hood for outtake
 
     while (outtakeTime.time(timeUnits::msec) < time)
     {
@@ -482,7 +458,6 @@ int scoringTaskEntry(void*) {
     g_scoringTaskRunning.store(true);
 
     frontHoodPneumatics.set(false); //open front hood and close back hood
-    backHoodPneumatics.set(true);
     ptoPneumatics.set(true); //engage pto for scoring
 
     vex::timer t;
@@ -529,7 +504,6 @@ int matchLoadIntakeTaskEntry(void*) {
     }
 
     frontHoodPneumatics.set(true);  
-    backHoodPneumatics.set(false);   
 
     vex::timer t;
     double voltage = g_matchLoadIntakePower / 8.34;

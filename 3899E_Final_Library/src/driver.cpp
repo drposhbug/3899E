@@ -7,14 +7,6 @@
 
 using namespace vex;
 
-// Color detection thresholds for optical sensor
-const double RED_HUE_MIN_1 = 340.0;
-const double RED_HUE_MAX_1 = 360.0;
-const double RED_HUE_MIN_2 = 0.0;
-const double RED_HUE_MAX_2 = 15.0;
-const double BLUE_HUE_MIN = 215.0;
-const double BLUE_HUE_MAX = 225.0;
-
 // Joystick deadzone threshold (prevent drift)
 static int deadzoneThreshold = 20;
 
@@ -39,6 +31,9 @@ int applyCustomCurve(int input, double exponent) {
 void driverControl()
 {
     initializeOpticalSensor();
+    rudderPneumatics.set(true);
+    leftLaneOptical.setLightPower(100, percent);
+    rightLaneOptical.setLightPower(100, percent);
     //headingDisplayParams.isRunning = false;
 
     // Motor power arrays for 3 motors per side
@@ -60,6 +55,8 @@ void driverControl()
     // Intake control flags
     bool spinForInProgress = false;  // Tracks if timed motor movement is running
     bool isMatchLoadPneumaticsActive = false;
+    bool isLeftGateOpen = true;
+    bool rudderOpen = true;
     bool intakeRunning = false;
     int intakeDirection = 0;  // 1=forward, -1=reverse, 0=off
     leftGatePneumatics.set(true);   
@@ -166,27 +163,56 @@ void driverControl()
         */
 
         // ==================== BUTTON R1: NORMAL INTAKE ====================
-        // Front hood closed, back hood open - standard intake position
-        if (Controller.ButtonR1.pressing())
-        {
+        //LEFT LANE FOR BLUE RIGHT LANE FOR RRED
+        if (Controller.ButtonR1.pressing()){
+            //bool objectNear = leftLaneOptical.isNearObject() || rightLaneOptical.isNearObject();
+            bool blueDetected = (leftLaneOptical.hue() >= BLUE_HUE_MIN && leftLaneOptical.hue() <= BLUE_HUE_MAX) ||
+                                (rightLaneOptical.hue() >= BLUE_HUE_MIN && rightLaneOptical.hue() <= BLUE_HUE_MAX);
+            bool redDetected = (((leftLaneOptical.hue() >= RED_HUE_MIN_1 && leftLaneOptical.hue() <= RED_HUE_MAX_1) || 
+                                (leftLaneOptical.hue() >= RED_HUE_MIN_2 && leftLaneOptical.hue() <= RED_HUE_MAX_2))) ||
+                               (((rightLaneOptical.hue() >= RED_HUE_MIN_1 && rightLaneOptical.hue() <= RED_HUE_MAX_1) || 
+                                (rightLaneOptical.hue() >= RED_HUE_MIN_2 && rightLaneOptical.hue() <= RED_HUE_MAX_2)));
+
+         if (redDetected == true){
+            for (int i = 0; i < 3; i++) {
+                rudderPneumatics.set(true);
+                Brain.Screen.printAt(10, 50, "L:%.0f R:%.0f Blue:%d Red:%d", 
+                leftLaneOptical.hue(), rightLaneOptical.hue(), blueDetected, redDetected);
+                vex::task::sleep(20);
+            }
+        } else if (blueDetected == true){
+            for (int i = 0; i < 3; i++) {
+                rudderPneumatics.set(false);
+                Brain.Screen.printAt(10, 50, "L:%.0f R:%.0f Blue:%d Red:%d", 
+                leftLaneOptical.hue(), rightLaneOptical.hue(), blueDetected, redDetected);
+                vex::task::sleep(20);
+            }
+        }
+        
             // Only set pneumatics ONCE when button is first pressed (not every frame)
             if (!wasR1Pressed)
             {
+    
                 frontHoodPneumatics.set(false);     // Close front hood for intake
-                backHoodPneumatics.set(false);    // Open back hood for intake
                 ptoPneumatics.set(false);
-                indexPneumatics.set(true);
-
                 wasR1Pressed = true;               // Mark that we've handled the press
             }
-            
             spinForInProgress = false;
             intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
             intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
         }
-        // ==================== BUTTON RIGHT: REVERSE INTAKE ====================
+        else
+        {
+            if (wasR1Pressed)
+            {
+                intakeMotor1.stop();
+                intakeMotor2.stop();
+                wasR1Pressed = false;
+            }
+        }
+        /*// ==================== BUTTON RIGHT: REVERSE INTAKE ====================
         // Eject cubes without changing hood position
-        else if (Controller.ButtonRight.pressing())
+        if (Controller.ButtonRight.pressing())
         {
             spinForInProgress = false;
             intakeMotor1.spin(vex::reverse, 12, vex::voltageUnits::volt);
@@ -202,7 +228,7 @@ void driverControl()
                 intakeMotor2.stop();
             }
             wasR1Pressed = false;
-        }
+        }*/
 
         // ==================== BUTTON R2: RIGHT LANE SCORE ====================
         // Close both hoods to trap cubes in launch chamber
@@ -211,11 +237,10 @@ void driverControl()
             if (!wasR2Pressed)
             {
                 frontHoodPneumatics.set(true);      // Open front hood for scoring
-                backHoodPneumatics.set(true);       // Open back hood for scoring
                 ptoPneumatics.set(true);            // Engage PTO system
-                indexPneumatics.set(true);          // Set indexer position
-                leftGatePneumatics.set(false);
-                rightGatePneumatics.set(true);
+                isLeftGateOpen = true;
+                leftGatePneumatics.set(isLeftGateOpen);
+                rightGatePneumatics.set(!isLeftGateOpen);
               
                 wasR2Pressed = true;
             }
@@ -228,9 +253,6 @@ void driverControl()
         {
             if (wasR2Pressed)
             {          
-                leftGatePneumatics.set(true);       // Close left gate (extend to default)
-                rightGatePneumatics.set(true);      // Close right gate (extend to default)
-                
                 spinForInProgress = true;
                 intakeMotor1.stop();
                 intakeMotor2.stop();
@@ -245,9 +267,7 @@ void driverControl()
             if (!wasRightPressed)
             {
                 frontHoodPneumatics.set(false);     // Close front hood for outtake
-                backHoodPneumatics.set(false);      // Close back hood for outtake
                 ptoPneumatics.set(true);
-                indexPneumatics.set(true);
                 wasRightPressed = true;
 
                 static enum {LANE_LEFT, LANE_RIGHT} currentLane = LANE_LEFT;
@@ -289,11 +309,11 @@ void driverControl()
             if (!wasL1Pressed)
             {
                 frontHoodPneumatics.set(true);      // Open front hood for scoring
-                backHoodPneumatics.set(true);       // Open back hood for scoring
                 ptoPneumatics.set(true);            // Engage PTO system
-                indexPneumatics.set(true);          // Set indexer position
-                leftGatePneumatics.set(true);
-                rightGatePneumatics.set(false);
+                isLeftGateOpen = false;        // Toggle lane selection
+                leftGatePneumatics.set(isLeftGateOpen);
+                rightGatePneumatics.set(!isLeftGateOpen);
+
               
                 wasL1Pressed = true;
             }
@@ -308,9 +328,6 @@ void driverControl()
             // When L1 released, close BOTH gates and stop intake
             if (wasL1Pressed)
             {          
-                leftGatePneumatics.set(true);       // Close left gate (extend to default)
-                rightGatePneumatics.set(true);      // Close right gate (extend to default)
-                
                 spinForInProgress = true;
                 intakeMotor1.stop();
                 intakeMotor2.stop();
@@ -461,5 +478,5 @@ void driverControlTankTest()
         // Wait 20 milliseconds before next loop iteration
         // This creates a 50Hz update rate for smooth motor control
         task::sleep(10);
-}
+    }
 }
