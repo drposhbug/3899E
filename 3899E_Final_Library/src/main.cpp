@@ -46,6 +46,9 @@ void runAuton(void) {
   //skillsAutonGateway();
   //soloAwpOdom();
   skillsAuton();
+//systemTest();
+  headingDisplayParams.isRunning = false;
+  heading_task.stop();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 

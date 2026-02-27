@@ -74,8 +74,7 @@ vex::aivision::colordesc AIVision20__blueCube(1, 63, 130, 192, 20, 0.25);
 //vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
 vex::aivision::colordesc AIVision20__orangeGoal(2, 213, 135, 100, 16, 0.31);
 //vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
-vex::aivision::colordesc AIVision20__redCube(3, 229, 63, 117, 40, 0.44);
-
+vex::aivision::colordesc AIVision20__redCube(3, 207, 65, 118, 22, 0.21);
 
 // Push Back AI classification objects
 vex::aivision::tagdesc AIVision20__blueBlock(1);  

@@ -28,5 +28,6 @@ void soloAwp2();
 void runEverything();
 void skillsAutonGateway();
 void soloAwpOdom();
+void systemTest();
 
 #endif // AUTON_H

@@ -507,6 +507,7 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
                         double accelHeadingScaling = 0.2,
                         double decelHeadingScaling = 0.2,
                         double approachHeadingScaling = 0.2,
+                        double headingLockDistance = 15.0,
                         double timeout = 3.0);
 
 void driveToWall(double targetDistance,

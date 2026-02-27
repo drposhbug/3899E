@@ -2352,6 +2352,9 @@ void visionDriveV2(
  * @param accelHeadingScaling    Heading PID scaling during acceleration
  * @param decelHeadingScaling    Heading PID scaling during deceleration
  * @param approachHeadingScaling Heading PID scaling during approach
+ * @param headingLockDistance    Distance from target to freeze odometry heading (cm);
+ *                               prevents atan2 instability when very close to target;
+ *                               only active before vision acquires
  * @param timeout                Maximum run time in seconds
  */
 void moveVisionOdometry(vex::aivision::colordesc targetSignature,
@@ -2375,6 +2378,7 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
                         double accelHeadingScaling,
                         double decelHeadingScaling,
                         double approachHeadingScaling,
+                        double headingLockDistance,
                         double timeout)
 {
     // ========================================
@@ -2428,6 +2432,10 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
     bool   visionCurrentlyTracked = false;     // True only if a valid detection exists this tick
     bool   visionDropoutHandled = false;       // Prevents dropout recovery from firing every tick while vision is down
     double lastFusedHeading     = 0.0;         // Last heading computed while vision was active; used for dropout projection
+
+    // Heading lock state — prevents atan2 instability near target when no vision object
+    bool headingLocked = false;
+    double lockedHeadingValue = 0;
 
     // Dedup cache — consecutive exit counter only increments on unique sensor frames
     int lastSnapshotCenterX = -999;
@@ -2535,6 +2543,11 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         //
         // Pre-acquisition:  pure odometry heading, snapped to continuous
         //                   rotation space to prevent PID unwinding.
+        //                   Heading lock freezes the target heading once
+        //                   within headingLockDistance to prevent atan2
+        //                   instability when the robot is very close to
+        //                   the target and small position errors cause
+        //                   large angle swings.
         //
         // Post-acquisition: pure vision heading anchored to currentGyroHeading.
         //                   visualTruthHeading adjusts current heading by the
@@ -2556,7 +2569,17 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         double fusedTargetHeading;
 
         if (!visionEverTracked) {
-            fusedTargetHeading = odometryTargetHeading;
+            // Apply heading lock near target to prevent atan2 singularity
+            if (currentDistanceToTarget <= headingLockDistance) {
+                if (!headingLocked) {
+                    lockedHeadingValue = odometryTargetHeading;
+                    headingLocked = true;
+                }
+                fusedTargetHeading = lockedHeadingValue;
+            } else {
+                headingLocked = false;
+                fusedTargetHeading = odometryTargetHeading;
+            }
         } else {
             double visualTruthHeading = currentGyroHeading - (lastVisionHorizontalOffset * 25.5);
             fusedTargetHeading = currentGyroHeading +
