@@ -24,12 +24,12 @@ vex::pneumatics leftGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.A);  //
 vex::pneumatics rightGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.F); // Right lane scoring gate
 vex::pneumatics rudderPneumatics = vex::pneumatics(Brain.ThreeWirePort.D); // Rudder for ball control in intake
 // Define Sensors
-vex::inertial InertialSensor = vex::inertial(vex::PORT16);
+vex::inertial InertialSensor = vex::inertial(vex::PORT17);
 vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT20, true);  // Initialize the encoder on PORT10
 vex::rotation passiveEncoderRight = vex::rotation(vex::PORT13, false); // Initialize the encoder on PORT10
 vex::rotation passiveEncoderX = vex::rotation(vex::PORT12, true);     // Initialize the encoder on PORT10
 vex::optical opticalSensor = vex::optical(vex::PORT15);
-vex::optical leftLaneOptical = vex::optical(vex::PORT17);   // Left lane ball detection sensor (VEX V5 Optical)
+vex::optical leftLaneOptical = vex::optical(vex::PORT16);   // Left lane ball detection sensor (VEX V5 Optical)
 vex::optical rightLaneOptical = vex::optical(vex::PORT11);  // Right lane ball detection sensor (VEX V5 Optical)
 // Global Variables
 double robotStartingHeading = 0.0; 
@@ -72,7 +72,7 @@ const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
 // Color signatures calibrated for our field conditions
 vex::aivision::colordesc AIVision20__blueCube(1, 63, 130, 192, 20, 0.25);
 //vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
-vex::aivision::colordesc AIVision20__orangeGoal(2, 213, 135, 100, 16, 0.31);
+vex::aivision::colordesc AIVision20__orangeGoal(2, 145, 104, 74, 12, 0.74);
 //vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
 vex::aivision::colordesc AIVision20__redCube(3, 207, 65, 118, 22, 0.21);
 

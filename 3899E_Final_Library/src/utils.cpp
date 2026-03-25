@@ -106,13 +106,22 @@ bool isLocking(double motorSpeed, double encoderSpeed)
 }
 
 // Color Detection Constants for utils.cpp
-const double RED_HUE_MIN_1 = 345.0; // First red range (340°-360°)
-const double RED_HUE_MAX_1 = 359.0;
-const double RED_HUE_MIN_2 = 0.0; // Second red range (0°-15°)
-const double RED_HUE_MAX_2 = 1.0;
-const double BLUE_HUE_MIN = 200.0; // Blue range
-const double BLUE_HUE_MAX = 220.0;
-const double MIN_BRIGHTNESS = 15.0; // Minimum brightness threshold
+// ======================================================================
+// COLOUR DETECTION CONSTANTS — Single source of truth for the whole codebase.
+// Both driver control and auton routines reference these values.
+// Never redefine these locally in other files (driver.cpp, auton routines, etc.)
+//
+// Hue is measured in degrees (0°–360°) around the colour wheel:
+//   Red wraps around 0° so it needs TWO ranges — one near 360° and one near 0°
+//   Blue sits mid-wheel around 215°–225° and only needs one range
+// ======================================================================
+const double RED_HUE_MIN_1 = 325.0;  // Octoball red lower bound (observed 329°, buffer added)
+const double RED_HUE_MAX_1 = 360.0;  // Octoball red upper bound
+const double RED_HUE_MIN_2 = 0.0;    // Red wrap-around lower band (not observed, kept as safety)
+const double RED_HUE_MAX_2 = 15.0;   // Red wrap-around upper band
+const double BLUE_HUE_MIN  = 218.0;  // Octoball blue lower bound (observed 221°, buffer added)
+const double BLUE_HUE_MAX  = 245.0;  // Octoball blue upper bound (observed 242°, buffer added)
+const double MIN_BRIGHTNESS = 5.0;
 // Function to initialize the Optical Sensor
 void initializeOpticalSensor()
 {

@@ -518,3 +518,57 @@ void driveToWall(double targetDistance,
                  vex::brakeType brakeMode = vex::brakeType::brake,
                  double timeoutMs         = 3000,
                  double maxSpeed          = 40);                        
+
+                 
+ // moveVisionOdometryOpen - Same as moveVisionOdometry but uses open-loop encoder
+// distance tracking instead of live odometry position updates during the move.
+// Heading and total distance are computed once from targetX/targetY before the
+// loop; all phase gates use encoder delta from function entry (same pattern as
+// straightOdometryV3). Vision closed-loop heading and exit are unchanged.
+void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
+                            int targetPixelWidth,
+                            double targetX,
+                            double targetY,
+                            double breakDistance,
+                            vex::brakeType brakeMode         = vex::brakeType::coast,
+                            double maxSpeed                  = 100,
+                            double kp_head                   = 0.1,
+                            double ki_head                   = 0.0,
+                            double kd_head                   = 0.0,
+                            double kp_distToHeadScaling      = 0.3,
+                            int minObjectWidth               = 10,
+                            int minX                         = 0,
+                            int maxX                         = 320,
+                            int minY                         = 0,
+                            int maxY                         = 240,
+                            double minSpeed                  = 16,
+                            double distanceTolerance         = 2.0,
+                            double accelHeadingScaling       = 0.2,
+                            double decelHeadingScaling       = 0.2,
+                            double approachHeadingScaling    = 0.2,
+                            double headingLockDistance       = 15.0,
+                            double timeout                   = 3.0);                
+
+// visionOnly — Vision-guided move, no odometry. Derived from moveVisionOdometry.
+// Pre-acquisition: holds entry gyro heading. Post-acquisition: pure vision heading.
+// Exits: vision pixel width (primary), encoder distance limit, or timeout. Sec.7 <VAIG2>/<VAIG3>.
+void visionOnly(vex::aivision::colordesc targetSignature,
+                int    targetPixelWidth,          // stop when object width >= this (pixels)
+                double targetDistance,            // max encoder travel (cm); safety exit if vision never acquires
+                double breakDistance,             // encoder distance to begin deceleration (cm)
+                vex::brakeType brakeMode          = vex::brakeType::coast,
+                double maxSpeed                   = 100,
+                double kp_head                    = 0.1,
+                double ki_head                    = 0.0,
+                double kd_head                    = 0.0,
+                double kp_distToHeadScaling       = 0.3,  // vision correction aggressiveness (0.0 arc → 1.0 immediate)
+                int    minObjectWidth             = 10,
+                int    minX                       = 0,
+                int    maxX                       = 320,
+                int    minY                       = 0,
+                int    maxY                       = 240,
+                double minSpeed                   = 16,
+                double accelHeadingScaling        = 0.2,
+                double decelHeadingScaling        = 0.2,
+                double approachHeadingScaling     = 0.2,
+                double timeout                    = 3.0);                            

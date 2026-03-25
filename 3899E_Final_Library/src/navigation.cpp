@@ -1888,7 +1888,6 @@ void pidlessForward(double timeMs, double speedPct) {
     double voltagePower = (speedPct / 8.34);
     while (forwardTime.time(timeUnits::msec) < timeMs) {
         for(int i=0; i<3; i++) { leftMotor[i].spin(forward, voltagePower, volt); rightMotor[i].spin(forward, voltagePower, volt); }
-        vex::task::sleep(10);
     }
     for(int i=0; i<3; i++) { leftMotor[i].stop(coast); rightMotor[i].stop(coast); }
 }
@@ -3195,4 +3194,826 @@ void driveToWall(double targetDistance,
         leftMotor[i].stop();
         rightMotor[i].stop();
     }
+}
+
+/**
+ * moveVisionOdometryOpen - Vision-guided autonomous movement with open-loop distance tracking
+ *
+ * Drives toward a target object using AI Vision for heading and stopping.
+ * Distance tracking uses passive encoders measured relative to function entry
+ * (same approach as straightOdometryV3) — no live field position updates
+ * during the move. This prevents accumulated odometry drift from affecting
+ * phase gate decisions when this function fires late in an autonomous routine.
+ *
+ * Heading modes:
+ *   Pre-acquisition  — fixed initial heading computed once before the loop;
+ *                      heading lock prevents atan2 instability near target
+ *   Post-acquisition — pure vision heading; kp_distToHeadScaling controls
+ *                      how aggressively the robot curves toward the object
+ *                      (1.0 = full correction immediately, 0.1 = wide arc)
+ *
+ * Exit priority:
+ *   1. Vision pixel width — REQUIRED_CONSECUTIVE_WIDTH unique frames >= targetPixelWidth
+ *   2. Encoder overshoot  — wheels have traveled >= initialDistance (safety net)
+ *   3. Timeout
+ *
+ * Dropout recovery:
+ *   On vision loss, the robot continues on lastFusedHeading — the last heading
+ *   computed while vision was active. Fires once per dropout; resets on reacquire.
+ *   Note: targetX/targetY are no longer projected during dropout because distance
+ *   is tracked by encoder, not field position.
+ *
+ * @param targetSignature        AI Vision color signature to track
+ * @param targetPixelWidth       Pixel width threshold for vision exit (larger = closer)
+ * @param targetX                Global X destination (cm) — used only for initial heading
+ * @param targetY                Global Y destination (cm) — used only for initial heading
+ * @param breakDistance          Distance (cm) from target to begin deceleration
+ * @param brakeMode              Final motor stop behavior
+ * @param maxSpeed               Cruise speed (0-100%)
+ * @param kp_head                Heading PID proportional gain
+ * @param ki_head                Heading PID integral gain
+ * @param kd_head                Heading PID derivative gain
+ * @param kp_distToHeadScaling   Vision correction aggressiveness (0.0-1.0)
+ * @param minObjectWidth         Minimum pixel width for a valid detection
+ * @param minX                   Left bound of valid detection region (pixels)
+ * @param maxX                   Right bound of valid detection region (pixels)
+ * @param minY                   Top bound of valid detection region (pixels)
+ * @param maxY                   Bottom bound of valid detection region (pixels)
+ * @param minSpeed               Approach phase speed (0-100%)
+ * @param distanceTolerance      Unused — kept in signature for drop-in compatibility
+ *                               with moveVisionOdometry call sites
+ * @param accelHeadingScaling    Heading PID scaling during acceleration
+ * @param decelHeadingScaling    Heading PID scaling during deceleration
+ * @param approachHeadingScaling Heading PID scaling during approach
+ * @param headingLockDistance    Distance from target to freeze heading (cm);
+ *                               prevents atan2 instability when very close;
+ *                               only active before vision acquires
+ * @param timeout                Maximum run time in seconds
+ */
+void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
+                            int targetPixelWidth,
+                            double targetX,
+                            double targetY,
+                            double breakDistance,
+                            vex::brakeType brakeMode,
+                            double maxSpeed,
+                            double kp_head,
+                            double ki_head,
+                            double kd_head,
+                            double kp_distToHeadScaling,
+                            int minObjectWidth,
+                            int minX,
+                            int maxX,
+                            int minY,
+                            int maxY,
+                            double minSpeed,
+                            double distanceTolerance,
+                            double accelHeadingScaling,
+                            double decelHeadingScaling,
+                            double approachHeadingScaling,
+                            double headingLockDistance,
+                            double timeout)
+{
+    // ========================================
+    // CONFIGURATION CONSTANTS
+    // ========================================
+    const double LAUNCH_VOLTAGE          = 6.0;   // Initial kick voltage to overcome static friction
+    const double ACCEL_FACTOR_LAUNCH     = 1.2;   // Voltage ramp rate during launch phase
+    const double SLIP_THRESHOLD_TRACTION = 20.0;  // Motor vs encoder RPM difference before traction cuts in
+    const double DECEL_STEP_PERCENT      = 0.45;  // ABS brake pressure reduction per step
+    const double LOCK_THRESHOLD_DECEL    = 0.25;  // RPM ratio that indicates wheel lockup
+    const int    REQUIRED_CONSECUTIVE_WIDTH = 3;  // Consecutive unique vision frames at targetPixelWidth before vision exit
+
+    // ========================================
+    // INITIALIZATION
+    // ========================================
+
+    // Take a single odometry fix to calculate the straight-line distance and
+    // initial heading to the target. After this, globalX/globalY are NOT used
+    // again — all distance tracking is encoder-based from this point forward.
+    updateOdometry();
+
+    // Compute the straight-line path vector from current position to target.
+    // These values define the total trip distance and the fixed heading the
+    // robot should hold before vision acquires.
+    double pathVectorX            = targetX - globalX;
+    double pathVectorY            = targetY - globalY;
+    double initialDistance        = sqrt(pathVectorX * pathVectorX + pathVectorY * pathVectorY);
+    double initialOdometryHeading = atan2(pathVectorY, pathVectorX) * 180.0 / M_PI;
+
+    // Snapshot the encoder position at function entry. Distance traveled is
+    // computed each tick as (currentEncoderReading - startDist), matching the
+    // pattern used by straightOdometryV3. No encoder reset is needed.
+    double startDist = getCurrentEncoderDistanceCM();
+
+    // Direction scalar: always +1.0 because initialDistance is always positive
+    // (sqrt result). Kept for consistency with the decel heading correction formula.
+    double dir = 1.0;
+
+    // Initialize heading PID — corrects robot heading toward fusedTargetHeading each tick
+    PID headingPID(kp_head, ki_head, kd_head);
+    headingPID.pidReset();
+
+    // Convert percentage speeds to voltages. copysign applies the correct direction
+    // sign based on whether the robot is moving forward or backward.
+    double maxSpeedVoltage       = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, initialDistance);
+    double minSpeedVoltage       = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, initialDistance);
+    double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), initialDistance);
+
+    // Minimum encoder RPM used to detect when deceleration is complete
+    double minDriveMotorRPM = (minSpeed * 0.01) * absoluteMaxRPM;
+
+    // All 3 motors on each side start at launch voltage so traction control
+    // has a nonzero baseline to ramp from
+    double motorVoltageLeft[3]  = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
+    double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
+
+    // Motion phase flags — track where in the LAUNCH → CRUISE → DECEL → APPROACH
+    // sequence the robot currently is
+    bool decel          = false;
+    bool decelCompleted = false;
+    bool accelCompleted = false;
+
+    // Rolling averages smooth encoder RPM during deceleration to prevent early
+    // phase exit caused by momentary sensor noise
+    double leftEncoderRollingAverage  = 0;
+    double rightEncoderRollingAverage = 0;
+
+    // Vision exit counter — only advances on unique sensor frames to prevent
+    // a frozen sensor reading from triggering a false stop
+    int consecutiveWidthCount = 0;
+
+    // ─── Vision State ───────────────────────────────────────────────────────
+    // lastVisionHorizontalOffset: normalized screen X of the target object
+    //   (-1.0 = far left, 0.0 = center, +1.0 = far right). Held across dropouts
+    //   so the robot continues steering on the last known bearing.
+    double lastVisionHorizontalOffset = 0.0;
+
+    // visionEverTracked: latches true on first valid detection. Once true, the
+    //   heading source switches from fixed odometry to live vision permanently.
+    bool visionEverTracked = false;
+
+    // visionCurrentlyTracked: true only if a valid object exists THIS tick.
+    //   Resets to false at the top of each tick before the snapshot.
+    bool visionCurrentlyTracked = false;
+
+    // visionDropoutHandled: prevents the dropout recovery block from firing
+    //   every tick while vision is lost — it fires once, then waits for reacquire.
+    bool visionDropoutHandled = false;
+
+    // lastFusedHeading: the last heading computed while vision was active.
+    //   Used as the steering target during a dropout until vision reacquires.
+    double lastFusedHeading = 0.0;
+
+    // ─── Heading Lock State ──────────────────────────────────────────────────
+    // Prevents atan2 instability when the robot is very close to the target
+    // coordinate and small position errors would cause large angle swings.
+    // Only active in the pre-acquisition phase (before vision first locks on).
+    bool   headingLocked      = false;
+    double lockedHeadingValue = 0.0;
+
+    // ─── Vision Frame Dedup Cache ─────────────────────────────────────────────
+    // The AI Vision sensor can return the same frame multiple times between updates.
+    // These variables gate the exit counter so it only increments on genuinely
+    // new frames, preventing a stale reading from triggering a premature stop.
+    int lastSnapshotCenterX = -999;
+    int lastSnapshotWidth   = -999;
+
+    // Per-side traction control: compares motor RPM vs encoder RPM each tick
+    // and limits voltage when wheel spin exceeds the slip threshold
+    tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+    tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+
+    // Per-side adaptive ABS: graduated voltage reduction during deceleration
+    // to prevent wheel lockup while maintaining straight-line accuracy
+    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+
+    // Safety timer — hard ceiling on total function run time
+    vex::timer safetyTimer;
+    safetyTimer.reset();
+    double timeoutMs = timeout * 1000.0;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MAIN CONTROL LOOP
+    // ═══════════════════════════════════════════════════════════════════
+    while (true)
+    {
+        // ───────────────────────────────────────────────────────────────
+        // 1. STATE CALCULATION — open-loop distance tracking
+        //
+        // Distance traveled is measured by subtracting the encoder snapshot
+        // taken at function entry from the current encoder reading. This is
+        // the same relative-distance pattern used by straightOdometryV3 and
+        // avoids dependency on globalX/globalY drift during the move.
+        //
+        // currentDistanceToTarget counts down from initialDistance to 0,
+        // feeding the same phase gate comparisons as the closed-loop version
+        // without requiring a live field position fix.
+        // ───────────────────────────────────────────────────────────────
+        double currentDistance         = getCurrentEncoderDistanceCM() - startDist;
+        double currentDistanceToTarget = initialDistance - fabs(currentDistance);
+
+        // Fixed pre-acquisition heading — computed once before the loop.
+        // In the closed-loop version this was recalculated live from globalX/globalY;
+        // here it stays constant so the robot holds a straight path to the initial
+        // target bearing until vision takes over.
+        double odometryTargetHeading = initialOdometryHeading;
+
+        // Current gyro heading in continuous Standard Cartesian space
+        // (East = 0°, CCW positive). Used by all heading calculations below.
+        double currentGyroHeading = getContinuousStandardHeading();
+
+        // ───────────────────────────────────────────────────────────────
+        // 2. TIMEOUT
+        // ───────────────────────────────────────────────────────────────
+        if (safetyTimer.time(vex::msec) > timeoutMs) break;
+
+        // ───────────────────────────────────────────────────────────────
+        // 3. ENCODER OVERSHOOT GUARD
+        //
+        // Exits if the wheels have physically traveled at least as far as
+        // the initial distance. This replaces the closed-loop odometry exit
+        // (consecutiveAtTargetCount) and the dot product overshoot check —
+        // both of which required live globalX/globalY.
+        //
+        // Vision pixel width exit and timeout are the primary stops.
+        // This is a safety net for the case where vision never acquires.
+        // ───────────────────────────────────────────────────────────────
+        if (fabs(currentDistance) >= initialDistance) break;
+
+        // ───────────────────────────────────────────────────────────────
+        // 4. VISION SNAPSHOT
+        // ───────────────────────────────────────────────────────────────
+
+        // Reset tracking flag each tick — re-set to true below if a valid
+        // object is found this frame
+        visionCurrentlyTracked = false;
+        AIVision20.takeSnapshot(targetSignature);
+
+        // Debug display — shows live object data and bounding box filter results
+        Brain.Screen.clearScreen();
+        Brain.Screen.printAt(10, 20,  "objCount: %d  dist: %.1f", AIVision20.objectCount, currentDistanceToTarget);
+        if (AIVision20.objectCount > 0) {
+            auto& dbgObj = AIVision20.objects[0];
+            Brain.Screen.printAt(10, 40,  "w:%d  cx:%d  cy:%d", dbgObj.width, dbgObj.centerX, dbgObj.centerY);
+            Brain.Screen.printAt(10, 60,  "minW:%d  X:%d-%d  Y:%d-%d", minObjectWidth, minX, maxX, minY, maxY);
+            Brain.Screen.printAt(10, 80,  "wPass:%d  xyPass:%d",
+                (int)(dbgObj.width >= minObjectWidth),
+                (int)(dbgObj.centerX >= minX && dbgObj.centerX <= maxX &&
+                      dbgObj.centerY >= minY && dbgObj.centerY <= maxY));
+            Brain.Screen.printAt(10, 100, "gate: cx%d==%d  w%d==%d",
+                dbgObj.centerX, lastSnapshotCenterX, dbgObj.width, lastSnapshotWidth);
+        }
+        Brain.Screen.printAt(10, 120, "everTracked:%d  currTracked:%d", (int)visionEverTracked, (int)visionCurrentlyTracked);
+
+        if (AIVision20.objectCount > 0) {
+            auto& primaryObject = AIVision20.objects[0];
+
+            // Bounding box filter — ignores objects outside the expected screen region
+            // and objects too small to be the real target
+            if (primaryObject.width >= minObjectWidth &&
+                primaryObject.centerX >= minX && primaryObject.centerX <= maxX &&
+                primaryObject.centerY >= minY && primaryObject.centerY <= maxY)
+            {
+                visionCurrentlyTracked = true;
+
+                // Frame dedup gate — only process genuinely new sensor frames.
+                // Prevents a frozen reading from incrementing the exit counter
+                // multiple times on the same physical frame.
+                if (primaryObject.centerX != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth)
+                {
+                    // Normalize horizontal position: 0.0 = centered, ±1.0 = screen edge.
+                    // Held in lastVisionHorizontalOffset so heading continues during dropout.
+                    lastVisionHorizontalOffset = (primaryObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
+                    lastSnapshotCenterX        = primaryObject.centerX;
+                    lastSnapshotWidth          = primaryObject.width;
+                    visionEverTracked          = true;
+
+                    // Vision exit — requires REQUIRED_CONSECUTIVE_WIDTH unique frames
+                    // at or above the pixel width threshold before stopping.
+                    // Counter resets on any frame below threshold to prevent false exits
+                    // from momentary close-approach readings.
+                    if (primaryObject.width >= targetPixelWidth) {
+                        consecutiveWidthCount++;
+                        if (consecutiveWidthCount >= REQUIRED_CONSECUTIVE_WIDTH) break;
+                    } else {
+                        consecutiveWidthCount = 0;
+                    }
+                }
+            }
+        }
+
+        // ───────────────────────────────────────────────────────────────
+        // 5. HEADING CALCULATION
+        //
+        // Pre-acquisition:  fixed odometry heading computed once before the
+        //                   loop. Snapped to continuous rotation space to
+        //                   prevent PID unwinding past 360°.
+        //                   Heading lock freezes the target once within
+        //                   headingLockDistance to prevent atan2 instability
+        //                   when the robot is very close to the target coordinate.
+        //
+        // Post-acquisition: pure vision heading anchored to currentGyroHeading.
+        //                   visualTruthHeading adjusts the current heading by
+        //                   the pixel offset of the object on screen.
+        //                   kp_distToHeadScaling scales correction aggressiveness:
+        //                   1.0 = full correction immediately (flat approach)
+        //                   0.1 = gentle correction (wide sweeping arc)
+        //                   lastVisionHorizontalOffset is held across dropouts so
+        //                   the robot continues on the last known bearing.
+        //
+        // Dropout recovery: on vision loss, fusedTargetHeading holds at
+        //                   lastFusedHeading — the last heading computed while
+        //                   vision was active. No targetX/targetY projection is
+        //                   needed because distance tracking is encoder-based.
+        // ───────────────────────────────────────────────────────────────
+
+        // Snap odometryTargetHeading to the nearest equivalent angle in continuous
+        // rotation space. Prevents the PID from unwinding when the robot heading
+        // has crossed a 360° boundary since the function started.
+        double rotationsDifference = std::round((currentGyroHeading - odometryTargetHeading) / 360.0);
+        odometryTargetHeading += rotationsDifference * 360.0;
+
+        double fusedTargetHeading;
+
+        if (!visionEverTracked) {
+            // PRE-ACQUISITION: hold the fixed initial heading until vision locks on.
+            // Heading lock activates near the target to prevent atan2 instability.
+            if (currentDistanceToTarget <= headingLockDistance) {
+                if (!headingLocked) {
+                    lockedHeadingValue = odometryTargetHeading;
+                    headingLocked = true;
+                }
+                fusedTargetHeading = lockedHeadingValue;
+            } else {
+                headingLocked      = false;
+                fusedTargetHeading = odometryTargetHeading;
+            }
+        } else {
+            // POST-ACQUISITION: compute heading from where the object appears on screen.
+            // 25.5 is the degrees-per-pixel scaling factor for the AI Vision sensor's
+            // horizontal field of view. visualTruthHeading is where the robot needs to
+            // point to put the object at center screen.
+            double visualTruthHeading = currentGyroHeading - (lastVisionHorizontalOffset * 25.5);
+            fusedTargetHeading = currentGyroHeading +
+                                ((visualTruthHeading - currentGyroHeading) * kp_distToHeadScaling);
+            lastFusedHeading = fusedTargetHeading;
+
+            // Dropout handling: when vision is lost, fusedTargetHeading continues
+            // using lastFusedHeading (held from the last valid frame above).
+            // visionDropoutHandled prevents this block from being re-entered every
+            // tick while vision is down — it fires once, then waits for reacquire.
+            if (visionCurrentlyTracked) {
+                visionDropoutHandled = false;   // Vision active — reset for next dropout
+            } else if (!visionDropoutHandled) {
+                // Vision just dropped out — latch lastFusedHeading as the steering
+                // target. No targetX/targetY projection needed because distance is
+                // tracked by encoder, not field position.
+                visionDropoutHandled = true;
+            }
+        }
+
+        // Run the heading PID to get a voltage correction value.
+        // Positive correction steers left (reduce left, add right).
+        double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
+        Brain.Screen.printAt(10, 140, "odomH:%.1f fusedH:%.1f", odometryTargetHeading, fusedTargetHeading);
+        Brain.Screen.printAt(10, 160, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
+
+        // ───────────────────────────────────────────────────────────────
+        // 6. SENSOR READINGS
+        // Read motor and encoder RPMs for traction control and ABS.
+        // Middle motor (index 1) is used as the representative sample for
+        // the drivetrain — avoids outliers from end motors.
+        // Encoder RPM is scaled by the wheel circumference ratio to express
+        // ground speed in the same units as motor RPM.
+        // ───────────────────────────────────────────────────────────────
+        double leftMotorRPM    = leftMotor[1].velocity(rpm)  * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM   = rightMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
+        double leftEncoderRPM  = passiveEncoderLeft.velocity(rpm)  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+        // ───────────────────────────────────────────────────────────────
+        // 7. MOTION PHASE CONTROL
+        //
+        // Phase gates use currentDistanceToTarget — derived from encoder
+        // distance — so the LAUNCH → CRUISE → DECEL → APPROACH transitions
+        // are identical to the closed-loop version, just without field position.
+        // ───────────────────────────────────────────────────────────────
+
+        // PHASE 1: LAUNCH — ramp voltage up from minLaunchSpeed to maxSpeed.
+        // Traction control monitors motor vs encoder slip per side and holds
+        // voltage back if wheels are spinning faster than the chassis is moving.
+        if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel)
+        {
+            double leftTractionVoltage  = tractionControlLeft.tractionControlSpeed(
+                motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
+            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
+                motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+
+            // Apply traction-controlled voltage plus heading correction to all 3 motors per side
+            for (int i = 0; i < 3; i++) {
+                motorVoltageLeft[i]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
+                motorVoltageRight[i] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
+            }
+
+            // Transition to CRUISE once both sides reach maxSpeedVoltage
+            if (std::fabs(motorVoltageLeft[1]) >= std::fabs(maxSpeedVoltage) &&
+                std::fabs(motorVoltageRight[1]) >= std::fabs(maxSpeedVoltage))
+            {
+                accelCompleted = true;
+            }
+        }
+
+        // PHASE 2: CRUISE — hold maxSpeedVoltage with heading correction only.
+        // No traction control needed here since voltage is already capped.
+        else if (currentDistanceToTarget > breakDistance && accelCompleted)
+        {
+            for (int i = 0; i < 3; i++) {
+                motorVoltageLeft[i]  = maxSpeedVoltage - headingCorrection;
+                motorVoltageRight[i] = maxSpeedVoltage + headingCorrection;
+            }
+        }
+
+        // PHASE 3: DECELERATION — adaptive ABS manages graduated voltage reduction
+        // per side to prevent wheel lockup. Decel starts once within breakDistance.
+        // Phase exits when both encoder rolling averages drop below minDriveMotorRPM.
+        else if (currentDistanceToTarget <= breakDistance && !decelCompleted)
+        {
+            // Initialize ABS with the voltage currently on each side — only fires once
+            // on the first tick of this phase
+            if (!decel) {
+                decel = true;
+                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[1]));
+                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[1]));
+            }
+
+            // ABS step — reduces voltage if encoder RPM indicates lockup
+            adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
+            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+
+            // Read the brake mode ABS has selected for each side (brake or coast)
+            vex::brakeType leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+
+            // Scale heading correction during decel to avoid overcorrecting
+            // while ABS is already limiting voltage
+            double adjustedHeadingCorrection = headingCorrection * decelHeadingScaling * dir;
+
+            for (int i = 0; i < 3; i++) {
+                leftMotor[i].setBrake(leftBrakeMode);
+                rightMotor[i].setBrake(rightBrakeMode);
+                motorVoltageLeft[i]  = std::max(0.0,  adjustedHeadingCorrection);
+                motorVoltageRight[i] = std::max(0.0, -adjustedHeadingCorrection);
+            }
+
+            // Rolling average filters momentary encoder spikes before checking
+            // whether the robot has slowed enough to enter approach
+            leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+
+            // Both sides must be below threshold — AND logic prevents transitioning
+            // if one side is still spinning
+            if (std::fabs(leftEncoderRollingAverage)  <= std::fabs(minDriveMotorRPM) &&
+                std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM))
+            {
+                decelCompleted = true;
+            }
+        }
+
+        // PHASE 4: APPROACH — slow precision crawl at minSpeed toward the target.
+        // Vision is expected to be active by this phase and will exit the loop
+        // via consecutiveWidthCount before the approach runs long.
+        else if (decelCompleted)
+        {
+            for (int i = 0; i < 3; i++) {
+                leftMotor[i].setBrake(brake);
+                rightMotor[i].setBrake(brake);
+                motorVoltageLeft[i]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
+            }
+        }
+
+        // ───────────────────────────────────────────────────────────────
+        // 8. VOLTAGE SATURATION LIMITER
+        // When heading correction pushes one side above absoluteMaxVoltage,
+        // scale both sides down proportionally. This preserves the steering
+        // differential while keeping within the motor's safe voltage range.
+        // ───────────────────────────────────────────────────────────────
+        double maximumRequestedVoltage = std::max(std::fabs(motorVoltageLeft[0]),
+                                                   std::fabs(motorVoltageRight[0]));
+        if (maximumRequestedVoltage > absoluteMaxVoltage) {
+            double voltageScaleFactor = absoluteMaxVoltage / maximumRequestedVoltage;
+            for (int i = 0; i < 3; i++) {
+                motorVoltageLeft[i]  *= voltageScaleFactor;
+                motorVoltageRight[i] *= voltageScaleFactor;
+            }
+        }
+
+        // ───────────────────────────────────────────────────────────────
+        // 9. MOTOR OUTPUT
+        // Apply the final computed voltages to all drive motors.
+        // forward direction is used for both forward and backward moves —
+        // sign of the voltage handles direction.
+        // ───────────────────────────────────────────────────────────────
+        for (int i = 0; i < 3; i++) {
+            leftMotor[i].spin(forward, motorVoltageLeft[i],  volt);
+            rightMotor[i].spin(forward, motorVoltageRight[i], volt);
+        }
+
+        // 10ms sleep = 100Hz control loop, matching the AI Vision sensor update rate
+        vex::task::sleep(10);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CLEANUP — stop all motors using the caller-specified brake mode
+    // ═══════════════════════════════════════════════════════════════════
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].stop(brakeMode);
+        rightMotor[i].stop(brakeMode);
+    }
+}
+
+// visionOnly — Vision-guided move, no odometry. Derived from moveVisionOdometry.
+// Pre-acquisition: holds entry gyro heading until vision locks on.
+// Post-acquisition: pure vision heading via screen offset. Dropout: holds last known heading.
+// Exits: vision pixel width (primary), encoder distance limit, or timeout. Sec.7 <VAIG2>/<VAIG3>.
+void visionOnly(vex::aivision::colordesc targetSignature,
+                int targetPixelWidth,
+                double targetDistance,
+                double breakDistance,
+                vex::brakeType brakeMode,
+                double maxSpeed,
+                double kp_head,
+                double ki_head,
+                double kd_head,
+                double kp_distToHeadScaling,
+                int minObjectWidth,
+                int minX,
+                int maxX,
+                int minY,
+                int maxY,
+                double minSpeed,
+                double accelHeadingScaling,
+                double decelHeadingScaling,
+                double approachHeadingScaling,
+                double timeout)
+{
+    const double LAUNCH_VOLTAGE          = 6.0;   // Initial kick voltage to overcome static friction
+    const double ACCEL_FACTOR_LAUNCH     = 1.2;   // Voltage ramp rate during launch phase
+    const double SLIP_THRESHOLD_TRACTION = 20.0;  // Motor vs encoder RPM difference before traction cuts in
+    const double DECEL_STEP_PERCENT      = 0.45;  // ABS brake pressure reduction per step
+    const double LOCK_THRESHOLD_DECEL    = 0.25;  // RPM ratio that indicates wheel lockup
+    const int    REQUIRED_CONSECUTIVE_WIDTH = 3;  // Consecutive unique vision frames at targetPixelWidth before vision exit
+
+
+    // Encoder snapshot at entry — distance tracking is relative to this, no odometry needed.
+    double startDist = getCurrentEncoderDistanceCM();
+
+    // Entry gyro heading — held as pre-acquisition steering target until vision acquires.
+    double initialGyroHeading = getContinuousStandardHeading();
+
+    // dir is always +1.0 (targetDistance always positive); retained for decel correction formula consistency
+    double dir = 1.0;
+
+    PID headingPID(kp_head, ki_head, kd_head);
+    headingPID.pidReset();
+
+    // Speed % → volts; copysign preserves forward direction
+    double maxSpeedVoltage        = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
+    double minSpeedVoltage        = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
+    double minLaunchSpeedVoltage  = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), targetDistance);
+    double minDriveMotorRPM       = (minSpeed * 0.01) * absoluteMaxRPM;
+
+    double motorVoltageLeft[3]  = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
+    double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
+
+    bool decel          = false;
+    bool decelCompleted = false;
+    bool accelCompleted = false;
+
+    double leftEncoderRollingAverage  = 0;
+    double rightEncoderRollingAverage = 0;
+
+    int consecutiveWidthCount = 0;
+
+    double lastVisionHorizontalOffset = 0.0;  // Normalized screen X; held across dropouts
+    bool   visionEverTracked          = false; // Latches true on first valid detection
+    bool   visionCurrentlyTracked     = false; // True only if valid object found this tick
+    bool   visionDropoutHandled       = false; // Prevents dropout block re-firing every tick
+    double lastFusedHeading           = 0.0;   // Last heading while vision was active
+
+    int lastSnapshotCenterX = -999;
+    int lastSnapshotWidth   = -999;
+
+    tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+    tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+
+    vex::timer safetyTimer;
+    safetyTimer.reset();
+    double timeoutMs = timeout * 1000.0;
+
+    while (true)
+    {
+        // Encoder distance — counts down to 0 as robot closes on target
+        double currentDistance         = getCurrentEncoderDistanceCM() - startDist;
+        double currentDistanceToTarget = targetDistance - fabs(currentDistance);
+        double currentGyroHeading      = getContinuousStandardHeading();
+
+        if (safetyTimer.time(vex::msec) > timeoutMs) break;
+
+        // Safety exit if vision never acquires
+        if (fabs(currentDistance) >= targetDistance) break;
+
+        // --- VISION SNAPSHOT ---
+        visionCurrentlyTracked = false;
+        AIVision20.takeSnapshot(targetSignature);
+
+        Brain.Screen.clearScreen();
+        Brain.Screen.printAt(10, 20,  "objCount: %d  dist: %.1f", AIVision20.objectCount, currentDistanceToTarget);
+        if (AIVision20.objectCount > 0) {
+            auto& dbgObj = AIVision20.objects[0];
+            Brain.Screen.printAt(10, 40,  "w:%d  cx:%d  cy:%d", dbgObj.width, dbgObj.centerX, dbgObj.centerY);
+            Brain.Screen.printAt(10, 60,  "minW:%d  X:%d-%d  Y:%d-%d", minObjectWidth, minX, maxX, minY, maxY);
+            Brain.Screen.printAt(10, 80,  "wPass:%d  xyPass:%d",
+                (int)(dbgObj.width >= minObjectWidth),
+                (int)(dbgObj.centerX >= minX && dbgObj.centerX <= maxX &&
+                      dbgObj.centerY >= minY && dbgObj.centerY <= maxY));
+            Brain.Screen.printAt(10, 100, "gate: cx%d==%d  w%d==%d",
+                dbgObj.centerX, lastSnapshotCenterX, dbgObj.width, lastSnapshotWidth);
+        }
+        Brain.Screen.printAt(10, 120, "everTracked:%d  currTracked:%d", (int)visionEverTracked, (int)visionCurrentlyTracked);
+
+        if (AIVision20.objectCount > 0) {
+            auto& primaryObject = AIVision20.objects[0];
+
+            if (primaryObject.width >= minObjectWidth &&
+                primaryObject.centerX >= minX && primaryObject.centerX <= maxX &&
+                primaryObject.centerY >= minY && primaryObject.centerY <= maxY)
+            {
+                visionCurrentlyTracked = true;
+
+                if (primaryObject.centerX != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth)
+                {
+                    lastVisionHorizontalOffset = (primaryObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
+                    lastSnapshotCenterX        = primaryObject.centerX;
+                    lastSnapshotWidth          = primaryObject.width;
+                    visionEverTracked          = true;
+
+                    if (primaryObject.width >= targetPixelWidth) {
+                        consecutiveWidthCount++;
+                        if (consecutiveWidthCount >= REQUIRED_CONSECUTIVE_WIDTH) break;
+                    } else {
+                        consecutiveWidthCount = 0;
+                    }
+                }
+            }
+        }
+
+        // --- HEADING ---
+        // Pre-acquisition: hold entry gyro heading (snapped to continuous rotation space).
+        // Post-acquisition: steer toward object screen position via vision pixel offset.
+        // Dropout: hold lastFusedHeading until vision reacquires.
+        double preAcqHeading = initialGyroHeading;
+        double rotationsDifference = std::round((currentGyroHeading - preAcqHeading) / 360.0);
+        preAcqHeading += rotationsDifference * 360.0;
+
+        double fusedTargetHeading;
+
+        if (!visionEverTracked) {
+            // PRE-ACQUISITION: hold the initial gyro heading.
+            fusedTargetHeading = preAcqHeading;
+        } else {
+            // POST-ACQUISITION: steer toward the object's screen position.
+            double visualTruthHeading = currentGyroHeading - (lastVisionHorizontalOffset * 25.5);
+            fusedTargetHeading = currentGyroHeading +
+                                ((visualTruthHeading - currentGyroHeading) * kp_distToHeadScaling);
+            lastFusedHeading = fusedTargetHeading;
+
+            if (visionCurrentlyTracked) {
+                visionDropoutHandled = false;
+            } else if (!visionDropoutHandled) {
+                // Vision just dropped out — steer on lastFusedHeading until reacquire.
+                visionDropoutHandled = true;
+            }
+        }
+
+        double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
+        Brain.Screen.printAt(10, 140, "initH:%.1f fusedH:%.1f", initialGyroHeading, fusedTargetHeading);
+        Brain.Screen.printAt(10, 160, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
+
+        // --- MOTOR RPM READINGS ---
+        double leftMotorRPM    = leftMotor[1].velocity(rpm)  * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM   = rightMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
+        double leftEncoderRPM  = passiveEncoderLeft.velocity(rpm)  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+        // --- MOTION PHASES ---
+
+        // PHASE 1: LAUNCH
+        if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel)
+        {
+            double leftTractionVoltage  = tractionControlLeft.tractionControlSpeed(
+                motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
+            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
+                motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+
+            for (int i = 0; i < 3; i++) {
+                motorVoltageLeft[i]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
+                motorVoltageRight[i] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
+            }
+
+            if (std::fabs(motorVoltageLeft[1]) >= std::fabs(maxSpeedVoltage) &&
+                std::fabs(motorVoltageRight[1]) >= std::fabs(maxSpeedVoltage))
+            {
+                accelCompleted = true;
+            }
+        }
+
+        // PHASE 2: CRUISE
+        else if (currentDistanceToTarget > breakDistance && accelCompleted)
+        {
+            for (int i = 0; i < 3; i++) {
+                motorVoltageLeft[i]  = maxSpeedVoltage - headingCorrection;
+                motorVoltageRight[i] = maxSpeedVoltage + headingCorrection;
+            }
+        }
+
+        // PHASE 3: DECELERATION
+        else if (currentDistanceToTarget <= breakDistance && !decelCompleted)
+        {
+            if (!decel) {
+                decel = true;
+                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[1]));
+                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[1]));
+            }
+
+            adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
+            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+
+            vex::brakeType leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+
+            double adjustedHeadingCorrection = headingCorrection * decelHeadingScaling * dir;
+
+            for (int i = 0; i < 3; i++) {
+                leftMotor[i].setBrake(leftBrakeMode);
+                rightMotor[i].setBrake(rightBrakeMode);
+                motorVoltageLeft[i]  = std::max(0.0,  adjustedHeadingCorrection);
+                motorVoltageRight[i] = std::max(0.0, -adjustedHeadingCorrection);
+            }
+
+            leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+
+            if (std::fabs(leftEncoderRollingAverage)  <= std::fabs(minDriveMotorRPM) &&
+                std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM))
+            {
+                decelCompleted = true;
+            }
+        }
+
+        // PHASE 4: APPROACH
+        else if (decelCompleted)
+        {
+            for (int i = 0; i < 3; i++) {
+                leftMotor[i].setBrake(brake);
+                rightMotor[i].setBrake(brake);
+                motorVoltageLeft[i]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
+            }
+        }
+
+        // Proportional scale-down if either side exceeds absoluteMaxVoltage
+        double maximumRequestedVoltage = std::max(std::fabs(motorVoltageLeft[0]),
+                                                   std::fabs(motorVoltageRight[0]));
+        if (maximumRequestedVoltage > absoluteMaxVoltage) {
+            double voltageScaleFactor = absoluteMaxVoltage / maximumRequestedVoltage;
+            for (int i = 0; i < 3; i++) {
+                motorVoltageLeft[i]  *= voltageScaleFactor;
+                motorVoltageRight[i] *= voltageScaleFactor;
+            }
+        }
+
+        for (int i = 0; i < 3; i++) {
+            leftMotor[i].spin(forward, motorVoltageLeft[i],  volt);
+            rightMotor[i].spin(forward, motorVoltageRight[i], volt);
+        }
+
+        // 10ms sleep = 100Hz control loop, matching the AI Vision sensor update rate
+        vex::task::sleep(10);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+    for (int i = 0; i < 3; i++) {
+        leftMotor[i].stop(brakeMode);
+        rightMotor[i].stop(brakeMode);
+    }
+}
+
+void colourDemo(){
+
 }

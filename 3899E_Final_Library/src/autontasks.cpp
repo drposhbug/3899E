@@ -191,30 +191,57 @@ int intakeTaskEntry(void*) {
     vex::timer t;
     t.reset();
     double intakeVoltage = g_intakePct / 8.34;
+    // Consecutive detection counters for Octoball colour sort
+int redConsecutive  = 0;
+int blueConsecutive = 0;
+const int REQUIRED_CONSECUTIVE = 2; // Tune up if false triggers, down if misses
     while (g_intakeTaskRunning.load() && t.time(timeUnits::msec) < g_intakeTimeMs) {
         intakeMotor1.spin(forward, intakeVoltage, voltageUnits::volt);
         intakeMotor2.spin(forward, intakeVoltage, voltageUnits::volt);
 
-        if (g_enableColourDetection) {
-            bool blueDetected = (leftLaneOptical.hue() >= BLUE_HUE_MIN && leftLaneOptical.hue() <= BLUE_HUE_MAX) ||
-                                (rightLaneOptical.hue() >= BLUE_HUE_MIN && rightLaneOptical.hue() <= BLUE_HUE_MAX);
-            bool redDetected = (((leftLaneOptical.hue() >= RED_HUE_MIN_1 && leftLaneOptical.hue() <= RED_HUE_MAX_1) || 
-                                (leftLaneOptical.hue() >= RED_HUE_MIN_2 && leftLaneOptical.hue() <= RED_HUE_MAX_2))) ||
-                               (((rightLaneOptical.hue() >= RED_HUE_MIN_1 && rightLaneOptical.hue() <= RED_HUE_MAX_1) || 
-                                (rightLaneOptical.hue() >= RED_HUE_MIN_2 && rightLaneOptical.hue() <= RED_HUE_MAX_2)));
+        // Only run colour sort logic if it has been enabled for this routine
+if (g_enableColourDetection) {
 
-             if (redDetected){
-                for (int i = 0; i < 3; i++) {
-                rudderPneumatics.set(true);
-                vex::task::sleep(20);
-                }
-            } else if (blueDetected){
-                for (int i = 0; i < 3; i++) {
-                rudderPneumatics.set(false);
-                vex::task::sleep(20);
-                }
-            }
+    // Octoball is 8-sided — a single hue read can land on a facet edge and
+    // return noise. Requiring consecutive reads in range before firing the
+    // rudder filters edge-reads without adding meaningful delay.
+    // isNearObject() resets counters only when the lane is confirmed empty
+    // so stale counts don't carry over between balls.
+    double leftHue  = leftLaneOptical.hue();
+    double rightHue = rightLaneOptical.hue();
+
+    // Red wraps around 0° so it needs two bands (near 360° and near 0°)
+    bool redThisCycle  = ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) || (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
+                         ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) || (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
+
+    // Blue sits mid-wheel (~215-225°) — one range only
+    bool blueThisCycle = (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
+                         (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
+
+    // Increment the matching colour counter, reset the opposite
+    if (redThisCycle) {
+        redConsecutive++;
+        blueConsecutive = 0;
+    } else if (blueThisCycle) {
+        blueConsecutive++;
+        redConsecutive = 0;
+    } else {
+        // Neither colour in range — reset counters only when lane is empty
+        if (!leftLaneOptical.isNearObject() && !rightLaneOptical.isNearObject()) {
+            redConsecutive  = 0;
+            blueConsecutive = 0;
         }
+    }
+
+    // Fire rudder after REQUIRED_CONSECUTIVE confirms colour (2 × 10ms = ~20ms)
+    if (redConsecutive >= REQUIRED_CONSECUTIVE) {
+        rudderPneumatics.set(true);   // Right lane
+        redConsecutive = 0;
+    } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
+        rudderPneumatics.set(false);  // Left lane
+        blueConsecutive = 0;
+    }
+}
 
         vex::task::sleep(10);
     }
@@ -284,7 +311,56 @@ void score(double time, double power) //skibidi score
     intakeMotor1.stop();
     intakeMotor2.stop();
     ptoPneumatics.set(false); //disengage pto after scoring
-    indexPneumatics.set(false);
+}
+
+void leftScore(double time, double power) //skibidi score
+{
+    vex::timer scoringTime;
+    scoringTime.reset();
+
+    frontHoodPneumatics.set(true); //open front hood and close back hood
+    ptoPneumatics.set(true); //engage pto for scoring
+    rightGatePneumatics.set(true);
+    leftGatePneumatics.set(false);
+
+    double voltagePower = (power / 8.34); //convert power percentage to voltage
+
+    //(scoringTime.time(timeUnits::msec) < time) voltagePower -= time * 0.006;
+    while (scoringTime.time(timeUnits::msec) < time)
+    {  
+        intakeMotor1.spin(forward, voltagePower, voltageUnits::volt);
+        intakeMotor2.spin(forward, voltagePower, voltageUnits::volt);
+        vex::task::sleep(10);
+    }
+    frontHoodPneumatics.set(false); //close back hood after scoring
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+    ptoPneumatics.set(false); //disengage pto after scoring
+}
+
+void rightScore(double time, double power) //skibidi score
+{
+    vex::timer scoringTime;
+    scoringTime.reset();
+
+    frontHoodPneumatics.set(true); //open front hood and close back hood
+    ptoPneumatics.set(true); //engage pto for scoring
+    rightGatePneumatics.set(false);
+    leftGatePneumatics.set(true);
+
+    double voltagePower = (power / 8.34); //convert power percentage to voltage
+
+    //(scoringTime.time(timeUnits::msec) < time) voltagePower -= time * 0.006;
+    while (scoringTime.time(timeUnits::msec) < time)
+    {  
+        intakeMotor1.spin(forward, voltagePower, voltageUnits::volt);
+        intakeMotor2.spin(forward, voltagePower, voltageUnits::volt);
+        vex::task::sleep(10);
+    }
+    frontHoodPneumatics.set(false); //close back hood after scoring
+    intakeMotor1.stop();
+    intakeMotor2.stop();
+    ptoPneumatics.set(false); //disengage pto after scoring
 }
 
 void stopScore(){

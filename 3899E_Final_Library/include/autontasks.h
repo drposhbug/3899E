@@ -13,6 +13,8 @@ void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLo
 void intakeColourStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
 void intakeStop();
 void score(double time, double power);
+void rightScore(double time, double power);
+void leftScore(double time, double power);
 void stopScore();
 void outtake(double time, double power);
 void stopOuttake();

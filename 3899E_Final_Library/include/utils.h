@@ -48,6 +48,7 @@ extern const double RED_HUE_MIN_2;
 extern const double RED_HUE_MAX_2;
 extern const double BLUE_HUE_MIN;
 extern const double BLUE_HUE_MAX;
+extern const double MIN_BRIGHTNESS;
 
 // Motor control structs and functions
 struct MotorControlParams {

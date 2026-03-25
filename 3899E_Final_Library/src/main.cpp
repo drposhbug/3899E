@@ -17,8 +17,8 @@ void runAuton(void) {
   Brain.Screen.print("Running Autonomous Mode...");
 
   // Start heading display task (autonomous-only)
-  headingDisplayParams.isRunning = true;
-  vex::task heading_task(headingDisplayTask, &headingDisplayParams);
+  //headingDisplayParams.isRunning = false;
+  //vex::task heading_task(headingDisplayTask, &headingDisplayParams);
   wingPneumatics.set(false);
   
   //Start heading display task
@@ -37,18 +37,21 @@ void runAuton(void) {
   //leftSideLong();
   //leftSidemiddle();
   //nothing();
-  //soloAwp2();
-  //rightMiddleAuto();
+  //soloAwp2(); //BRAMPTON AUTO
+  ////rightMiddleAuto();
   //calibration();
   //doubleDoinkerBlue();
   //skills();
   //odomTest();
   //skillsAutonGateway();
   //soloAwpOdom();
-  skillsAuton();
+  ////skillsAuton();
+  //skillsAuton2();
 //systemTest();
-  headingDisplayParams.isRunning = false;
-  heading_task.stop();
+  provsAuto();
+  //provsAutoLeft();
+  //visionDemo();
+  //heading_task.stop();
   //Brain.Screen.print("Autonomous Program Complete");
 }
 
@@ -56,8 +59,8 @@ void runDriver(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.print("Running Driver Control Mode...");
   
-  headingDisplayParams.isRunning = false;
-  vex::task driver_display_task(driverDisplayTask, &headingDisplayParams); 
+  //headingDisplayParams.isRunning = false;
+  //vex::task driver_display_task(driverDisplayTask, &headingDisplayParams); 
   Controller.Screen.clearScreen(); // stop controller prints during driver control
   driverControl(); // Start driver control function
 }
