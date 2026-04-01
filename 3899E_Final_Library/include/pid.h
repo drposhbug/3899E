@@ -1,25 +1,30 @@
 #ifndef PID_H
 #define PID_H
 
+// Generic PID controller — no hardware dependencies, works in both VEXcode and PROS.
+// One instance per control loop (heading, distance, vision, etc.).
 class PID {
 public:
-    // Constructor to initialize PID coefficients and internal variables
+    // Initialize with proportional, integral, and derivative gains.
     PID(double kp, double ki, double kd);
 
-    // Method to get PID control signal given a target value and current reading
+    // Compute the control output for one time step.
+    // targetValue   – desired setpoint
+    // currentReading – measured process variable
+    // Returns the corrective output (positive = increase, negative = decrease).
     double calculate(double targetValue, double currentReading);
 
-    // Method to reset the PID controller (useful when switching contexts)
+    // Reset accumulated state (integral, previous error).
+    // Call this when reusing a PID instance for a new movement.
     void pidReset();
 
-    // Method to set PID coefficients dynamically
+    // Update gains at runtime (useful for gain-scheduled controllers).
     void setCoefficients(double newKp, double newKi, double newKd);
 
 private:
-    double kp, ki, kd; // PID coefficients for proportional, integral, and derivative terms
-    double prevError;  // Previous error for derivative calculation
-    double integral;   // Sum of errors for integral calculation
-    double error; 
+    double kp, ki, kd;  // proportional, integral, derivative gains
+    double prevError;   // error from the previous time step (for derivative)
+    double integral;    // running error sum (for integral)
 };
 
 #endif // PID_H

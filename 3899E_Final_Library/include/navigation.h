@@ -1,574 +1,501 @@
-#include "vex.h"  // Make sure this is included to use vex:: types
-#include "utils.h"  // Added: Defines Color enum
-#include <atomic>
-
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
 
+#include "main.h"    // PROS entry point
+#include "utils.h"   // Color enum and heading helpers
+#include <atomic>
 
+// ══════════════════════════════════════════════════════════════════════════════
+// VISION-ODOMETRY FUSION — SHARED STATE
+// These atomics are written by the vision background task and read by motion
+// functions, allowing lock-free data sharing between tasks.
+// ══════════════════════════════════════════════════════════════════════════════
+extern std::atomic<double> visionHorizontalNormalizedOffset; // −1.0 (left) … +1.0 (right)
+extern std::atomic<int>    visionCurrentObjectWidth;         // pixels; 0 = not detected
+extern std::atomic<bool>   visionTargetTracked;              // true while object is in frame
 
-// ======================================================================
-// VISION-ODOMETRY FUSION GLOBALS (Declarations)
-// ======================================================================
-// Thread-safe flags and data shared between the vision task and motion loop
-extern std::atomic<double> visionHorizontalNormalizedOffset;
-extern std::atomic<int>    visionCurrentObjectWidth;
-extern std::atomic<bool>   visionTargetTracked;
+// Background task that grabs AI Vision snapshots at ~50 Hz and updates the
+// above atomics. Start with pros::Task before calling any visionDrive* function.
+void visionTrackingTask(void* param);
 
-/**
- * Background task that processes AI Vision snapshots at ~50Hz.
- */
-int visionTrackingTask();
+// ══════════════════════════════════════════════════════════════════════════════
+// OPEN-LOOP MOVEMENT
+// ══════════════════════════════════════════════════════════════════════════════
 
-void move(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward);
-void smartMove(double distanceCM, double maxSpeed, vex::directionType dir = vex::forward, double wallStalledTimeMs = -1);
-void pidStraight(double targetHeading, double targetDistanceCM, double speed, double kp_heading = 0.6, double ki_heading = 0, double kd_heading = 0, double distanceOffset = 5.0, vex::brakeType brakeMode = vex::brakeType::brake);
-void turn(double targetHeading, 
-        double breakDistanceInDegrees, 
-        double minSpeed = 17, 
-        double maxSpeed = 100);
+// Drive at fixed speed for a set distance. No heading correction.
+// reversed = true drives backward.
+void move(double distanceCM, double maxSpeed, bool reversed = false);
 
-void straight(double targetDistance, 
-            double breakDistance, 
-            double minSpeed = 17, 
-            double targetHeading = 0, 
-            double kp_heading = 0.2, 
-            double ki_heading = 0.0, 
-            double kd_heading = 0.0, 
-            double accelHeadingScaling = 0.25, 
-            double decelHeadingScaling = 0.25, 
-            double approachHeadingScaling = 0.25, 
-            double maxSpeed = 50);
+// Same as move() but aborts early if both sides detect a wall stall.
+// wallStalledTimeMs < 0 disables stall detection.
+void smartMove(double distanceCM, double maxSpeed, bool reversed = false, double wallStalledTimeMs = -1);
 
-void straightOdometry(double targetDistance, 
-    double breakDistance, 
-    double targetHeading = 0, 
-    double minSpeed = 16, 
-    double kp_heading = 0.4, 
-    double ki_heading = 0.01, 
-    double kd_heading = 0.05, 
-    double accelHeadingScaling = 0.2, 
-    double decelHeadingScaling = 0.2, 
-    double approachHeadingScaling = 0.2, 
-    double maxSpeed = 100);   
+// ══════════════════════════════════════════════════════════════════════════════
+// PID-CORRECTED STRAIGHT DRIVE
+// pidStraight holds a fixed heading via PID while driving a set distance.
+// brakeMode: COAST = roll to stop, BRAKE = immediate stop, HOLD = lock in place.
+// ══════════════════════════════════════════════════════════════════════════════
+void pidStraight(double targetHeading,
+                 double targetDistanceCM,
+                 double speed,
+                 double kp_heading     = 0.6,
+                 double ki_heading     = 0.0,
+                 double kd_heading     = 0.0,
+                 double distanceOffset = 5.0,
+                 pros::motor_brake_mode_e_t brakeMode = pros::E_MOTOR_BRAKE_BRAKE);
 
-    void straightOdometryV2(double targetDistance, 
-    double breakDistance, 
-    double targetHeading = 0, 
-    double minSpeed = 16, 
-    double distanceTolerance = 6.0,
-    double kp_heading = 0.4, 
-    double ki_heading = 0.01, 
-    double kd_heading = 0.05, 
-    double accelHeadingScaling = 0.2, 
-    double decelHeadingScaling = 0.2, 
-    double approachHeadingScaling = 0.2, 
-    double maxSpeed = 100);
+// ══════════════════════════════════════════════════════════════════════════════
+// MOTION-PROFILED TURN
+// Accelerates to maxSpeed then decelerates to minSpeed as the heading
+// approaches the target, stopping within breakDistanceInDegrees.
+// ══════════════════════════════════════════════════════════════════════════════
+void turn(double targetHeading,
+          double breakDistanceInDegrees,
+          double minSpeed  = 17.0,
+          double maxSpeed  = 100.0);
 
- /**
- * straightOdometryV3 - Motion profiling with configurable stopping tolerance
- * Now uses standard Cartesian heading throughout
- */
-void straightOdometryV3(double targetDistance, 
-                        double breakDistance, 
+// ──────────────────────────────────────────────────────────────────────────────
+// straightOdometryV3 — motion-profiled straight drive using odometry distance
+// tracking, with configurable distance tolerance, brake mode, and timeout guard.
+// ──────────────────────────────────────────────────────────────────────────────
+void straightOdometryV3(double targetDistance,
+                        double breakDistance,
                         double targetHeading,
-                        double minSpeed = 16, 
-                        double distanceTolerance = 2.0,
-                        double kp_heading = 0.4, 
-                        double ki_heading = 0.01, 
-                        double kd_heading = 0.05,
-                        double accelHeadingScaling = 0.2, 
-                        double decelHeadingScaling = 0.2,
-                        double approachHeadingScaling = 0.2, 
-                        double maxSpeed = 100,
-                        vex::brakeType brakeMode = vex::brakeType::brake,
-                        double timeout = 3.0);
-    
-void smartStraight(double targetDistance, 
-    double breakDistance, 
-    double targetHeading = 0, 
-    double minSpeed = 16,
-    double wallStalledTimeMs = 100,  // Wall detect: -1 = disabled, >0 = exit if stalled for this many ms
-    double kp_heading = 0.4, 
-    double ki_heading = 0.01, 
-    double kd_heading = 0.05, 
-    double accelHeadingScaling = 0.2, 
-    double decelHeadingScaling = 0.2, 
-    double approachHeadingScaling = 0.2, 
-    double maxSpeed = 100);
-            
-void backward(double targetDistance, 
-            double breakDistance, 
-            double minSpeed = 17, 
-            double targetHeading = 0, 
-            double kp_heading = 1.7, 
-            double ki_heading = 0.0007, 
-            double kd_heading = 0.0025, 
-            double accelHeadingScaling = 0.275, 
-            double decelHeadingScaling = 0.2, 
-            double approachHeadingScaling = 0.2, 
-            double maxSpeed = 100);     
+                        double minSpeed               = 16.0,
+                        double distanceTolerance      = 2.0,
+                        double kp_heading             = 0.4,
+                        double ki_heading             = 0.01,
+                        double kd_heading             = 0.05,
+                        double accelHeadingScaling    = 0.2,
+                        double decelHeadingScaling    = 0.2,
+                        double approachHeadingScaling = 0.2,
+                        double maxSpeed               = 100.0,
+                        pros::motor_brake_mode_e_t brakeMode = pros::E_MOTOR_BRAKE_BRAKE,
+                        double timeout                = 3.0);
 
-void arcTurn(double targetDistance, 
+// smartStraight — straightOdometry with optional wall-stall abort.
+// wallStalledTimeMs: −1 = disabled; > 0 = exit after this many ms of stall.
+void smartStraight(double targetDistance,
+                   double breakDistance,
+                   double targetHeading          = 0.0,
+                   double minSpeed               = 16.0,
+                   double wallStalledTimeMs       = 100.0,
+                   double kp_heading             = 0.4,
+                   double ki_heading             = 0.01,
+                   double kd_heading             = 0.05,
+                   double accelHeadingScaling    = 0.2,
+                   double decelHeadingScaling    = 0.2,
+                   double approachHeadingScaling = 0.2,
+                   double maxSpeed               = 100.0);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ARC TURN
+// Drives both sides at different speeds to trace a radius-based arc.
+// turnLeft = true → left side drives slower (arc left).
+// ══════════════════════════════════════════════════════════════════════════════
+void arcTurn(double targetDistance,
              double breakDistance,
              double minSpeed,
              double maxSpeed,
-             double turnRadius,    // Radius of turn in cm
-             bool turnLeft);
+             double turnRadius,  // arc radius in cm
+             bool   turnLeft);
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ODOMETRY TURN
+// Turns to an absolute heading using the IMU and odometry for feedback.
+// exitTolerance: degrees of error acceptable to declare turn complete.
+// ══════════════════════════════════════════════════════════════════════════════
+void turnOdometry(double targetHeading,
+                  double breakDistanceInDegrees,
+                  double minSpeed       = 25.0,
+                  double maxSpeed       = 100.0,
+                  double exitTolerance  = 16.0);
 
+// ══════════════════════════════════════════════════════════════════════════════
+// LAUNCH CONTROL (free function)
+// Adjusts motor voltage to maintain targetDriverSpeed despite load.
+// Returns the corrected voltage to apply.
+// ══════════════════════════════════════════════════════════════════════════════
+double launchControl(double targetDriverSpeed, pros::Motor& motor, pros::Rotation& encoder);
 
-//double targetDistance, double maxSpeed = 100, double targetHeading = 0, double breakDistance = 90, double kp_heading = 0.2, double ki_heading = 0.0, double kd_heading = 0.0, double accelHeadingScaling = 0.4, double decelHeadingScaling = 0.25, double approachHeadingScaling = 0.25, double minSpeed = 15 Pretty good for backwards
-void turnOdometry(double targetHeading, 
-            double breakDistanceInDegrees, 
-            double minSpeed = 25, 
-            double maxSpeed = 100,
-            double exitTolerance = 16.0);
-
-
-double launchControl(double targetDriverSpeed, vex::motor& motor, vex::rotation& encoder);
-
-// Define the LaunchControl class
+// ══════════════════════════════════════════════════════════════════════════════
+// LaunchControl CLASS
+// Per-motor slip-prevention controller: reduces voltage when the wheel spins
+// faster than the robot (loss of traction).
+// ══════════════════════════════════════════════════════════════════════════════
 class LaunchControl {
 public:
-    LaunchControl(vex::motor& motor, vex::rotation& encoder, double slipThresholdValue = 1.1); // Default value changed to 0.1
+    // slipThresholdValue: ratio of wheel RPM to chassis RPM above which slip is declared.
+    LaunchControl(pros::Motor& motor, pros::Rotation& encoder, double slipThresholdValue = 1.1);
 
+    // Call each loop iteration with the requested power (0–100%).
+    // Returns a potentially reduced power value that prevents wheelspin.
     double adjustSpeed(double targetPower);
 
 private:
-    vex::motor& motor;
-    vex::rotation& encoder;
+    pros::Motor&    motor;
+    pros::Rotation& encoder;
 
-    const double slipThreshold; // Threshold for slip detection
-    double motorRPM;      // Motor RPM value
-    double encoderRPMScaled;    // Encoder RPM value
+    const double slipThreshold;   // e.g. 1.1 = allow 10% slip before correcting
+    double motorRPM;              // last measured motor RPM
+    double encoderRPMScaled;      // last measured encoder RPM (scaled to match motor units)
 };
 
-
-// Define the LaunchControl class
+// ══════════════════════════════════════════════════════════════════════════════
+// tractionControl CLASS
+// Voltage-based traction limiter: reduces drive voltage proportionally when
+// the wheel speed exceeds the estimated chassis speed by the slip threshold.
+// ══════════════════════════════════════════════════════════════════════════════
 class tractionControl {
 public:
     tractionControl(double minSpeedVoltage, double maxSpeedVoltage, double slipThreshold);
-    double tractionControlSpeed(double tractionMotorVoltage, double motorSpeed, double robotSpeed, double accelFactor);
 
+    // Returns a corrected motor voltage.
+    // tractionMotorVoltage – requested voltage
+    // motorSpeed           – current wheel RPM
+    // robotSpeed           – estimated chassis RPM from passive encoders
+    // accelFactor          – scaling multiplier during the acceleration phase
+    double tractionControlSpeed(double tractionMotorVoltage,
+                                double motorSpeed,
+                                double robotSpeed,
+                                double accelFactor);
 private:
     double minSpeedVoltage;
     double maxSpeedVoltage;
     double slipThreshold;
-    //static constexpr double slipThreshold = 1.1; // Class-wide constant
-    //static constexpr double accelFactor = 1.15;
+};
 
-}; 
-
-// Adaptive ABS for deceleration phase - prevents wheel lockup while guaranteeing minimum braking
+// ══════════════════════════════════════════════════════════════════════════════
+// adaptiveABS CLASS
+// Anti-lock braking for the deceleration phase: progressively reduces voltage
+// when wheels are locking up, guaranteeing minimum braking force.
+// ══════════════════════════════════════════════════════════════════════════════
 class adaptiveABS {
 private:
-    double lockThreshold;
-    double decelStepVoltage;
-    double lastAttemptedVoltage;
-    bool wasLockedLastCycle;
-    vex::brakeType currentBrakeMode;
+    double lockThreshold;          // wheel/chassis speed ratio below which lockup is declared
+    double decelStepVoltage;       // voltage reduction per step when lockup detected
+    double lastAttemptedVoltage;   // voltage commanded last cycle
+    bool   wasLockedLastCycle;     // true if lockup was detected in the previous cycle
+    pros::motor_brake_mode_e_t currentBrakeMode;
 
 public:
     adaptiveABS(double decelStepPercent, double lockThreshold);
+
+    // Set the starting voltage at the beginning of a decel phase.
     void initialize(double startingVoltage);
+
+    // Returns the voltage to apply this cycle.
+    // wheelSpeed  – current wheel RPM
+    // robotSpeed  – chassis (encoder) RPM
     double decelControlSpeed(double wheelSpeed, double robotSpeed);
-    vex::brakeType getBrakeMode() { return currentBrakeMode; }
+
+    pros::motor_brake_mode_e_t getBrakeMode() { return currentBrakeMode; }
 };
-// Forward/backward wrappers
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HIGH-LEVEL MOTION PROFILE WRAPPERS
+// These wrap straightOdometryV3 / turnOdometry with robot-specific tuning so
+// most autonomous routines only need one parameter: the distance or angle.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Forward / backward with default tuning from MotionDefaults::StraightForward.
 void forwardMP(double targetDistance,
-            double breakDistance = 35, 
-            double targetHeading = 0,
-            double minSpeed = 16,
-            double kp_heading = 0.615, 
-            double ki_heading = 0,
-            double kd_heading = 0, 
-            double accelHeadingScaling = .10,
-            double decelHeadingScaling = 0.05, 
-            double approachHeadingScaling = 0.05,
-            double maxSpeed = 100);
+               double breakDistance          = 35.0,
+               double targetHeading          = 0.0,
+               double minSpeed               = 16.0,
+               double kp_heading             = 0.615,
+               double ki_heading             = 0.0,
+               double kd_heading             = 0.0,
+               double accelHeadingScaling    = 0.10,
+               double decelHeadingScaling    = 0.05,
+               double approachHeadingScaling = 0.05,
+               double maxSpeed               = 100.0);
 
 void backwardMP(double targetDistance,
-             double breakDistance = 35, 
-             double targetHeading = 0,
-             double minSpeed = 16,
-             double kp_heading = 0.615, 
-             double ki_heading = 0,
-             double kd_heading = 0, 
-             double accelHeadingScaling = .10,
-             double decelHeadingScaling = 0.05, 
-             double approachHeadingScaling = 0.05,
-             double maxSpeed = 100);
+                double breakDistance          = 35.0,
+                double targetHeading          = 0.0,
+                double minSpeed               = 16.0,
+                double kp_heading             = 0.615,
+                double ki_heading             = 0.0,
+                double kd_heading             = 0.0,
+                double accelHeadingScaling    = 0.10,
+                double decelHeadingScaling    = 0.05,
+                double approachHeadingScaling = 0.05,
+                double maxSpeed               = 100.0);
 
-// Turn wrappers
-void leftMP(double turnAmount, 
-    double breakDistance = 35, 
-    double minSpeed = 17, 
-    double maxSpeed = 100);
-
-void rightMP(double turnAmount,
-             double breakDistance = 35,
-             double minSpeed = 17,
-             double maxSpeed = 100);
-
-void pivotTurnOdometry(double targetHeading,
-             double breakDistanceInDegrees,
-             double minSpeed, double maxSpeed);
-
-// ───────────────────────────────────────────────
-// V2: Modernized pivot turn with motion profiling, continuous headings,
-//     target snapping, and true pivot behavior
-//     (recommended replacement - uses brake mode at end)
-// ───────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// PIVOT TURNS (one side stationary)
+// V2: continuous headings, target-snapping, motion profiling — recommended.
+// ══════════════════════════════════════════════════════════════════════════════
+// V2 — exits when within exitTolerance degrees of the target.
 void pivotTurnOdometryV2(double targetHeading,
-                         double breakDistanceInDegrees,
-                         double minSpeed,
-                         double maxSpeed,
-                         double exitTolerance = 2.0);           
+                          double breakDistanceInDegrees,
+                          double minSpeed,
+                          double maxSpeed,
+                          double exitTolerance = 2.0);
 
 void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
-
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
+// ══════════════════════════════════════════════════════════════════════════════
+// driveForward / driveBackward — odometry-closed-loop straight drive
+// V1: basic version.  V2: adds distanceTolerance + integral.  V3: zero integral.
+// ══════════════════════════════════════════════════════════════════════════════
 void driveForward(double targetDistance,
-             double breakDistance = 10, 
-             double targetHeading = 0,
-             double minSpeed = 24,
-             double kp_heading = 1.1, 
-             double ki_heading = 0.0,
-             double kd_heading = 0, 
-             double accelHeadingScaling = 0.1,
-             double decelHeadingScaling = 0.2, 
-             double approachHeadingScaling = 0.3,
-             double maxSpeed = 100);
+                  double breakDistance          = 10.0,
+                  double targetHeading          = 0.0,
+                  double minSpeed               = 24.0,
+                  double kp_heading             = 1.1,
+                  double ki_heading             = 0.0,
+                  double kd_heading             = 0.0,
+                  double accelHeadingScaling    = 0.1,
+                  double decelHeadingScaling    = 0.2,
+                  double approachHeadingScaling = 0.3,
+                  double maxSpeed               = 100.0);
 
 void driveBackward(double targetDistance,
-              double breakDistance = 10, 
-              double targetHeading = 0,
-              double minSpeed = 24,
-              double kp_heading = 1.1, 
-              double ki_heading = 0.0,
-              double kd_heading = 0, 
-              double accelHeadingScaling = 0.1,
-              double decelHeadingScaling = 0.2, 
-              double approachHeadingScaling = 0.3,
-              double maxSpeed = 100);
+                   double breakDistance          = 10.0,
+                   double targetHeading          = 0.0,
+                   double minSpeed               = 24.0,
+                   double kp_heading             = 1.1,
+                   double ki_heading             = 0.0,
+                   double kd_heading             = 0.0,
+                   double accelHeadingScaling    = 0.1,
+                   double decelHeadingScaling    = 0.2,
+                   double approachHeadingScaling = 0.3,
+                   double maxSpeed               = 100.0);
 
-void turnRight(double absoluteTargetHeading, 
-               double breakDistance, 
-               double minSpeed = 25,
-               double maxSpeed = 100,   
-               double exitTolerance =2);
+// Absolute-heading turn wrappers (targetHeading is a field-frame heading, not relative).
+void turnRight(double absoluteTargetHeading,
+               double breakDistance,
+               double minSpeed      = 25.0,
+               double maxSpeed      = 100.0,
+               double exitTolerance = 2.0);
 
-void turnLeft(double absoluteTargtHeading, 
-              double breakDistance, 
-              double minSpeed = 25, 
-              double maxSpeed = 100,
-              double exitTolerance =2);
-              
+void turnLeft(double absoluteTargetHeading,
+              double breakDistance,
+              double minSpeed      = 25.0,
+              double maxSpeed      = 100.0,
+              double exitTolerance = 2.0);
+
+// Open-loop forward drive for a fixed duration (no sensors — use sparingly).
 void pidlessForward(double timeMs, double speedPct);
 
+// ── V2 ────────────────────────────────────────────────────────────────────────
 void driveForwardV2(double targetDistance,
-             double breakDistance = 10, 
-             double targetHeading = 0,
-             double minSpeed = 24,
-             double distanceTolerance = 5,
-             double kp_heading = 1.1, 
-             double ki_heading = 0.005,
-             double kd_heading = 0, 
-             double accelHeadingScaling = 0.1,
-             double decelHeadingScaling = 1, 
-             double approachHeadingScaling = 0.3,
-             double maxSpeed = 100);
+                    double breakDistance          = 10.0,
+                    double targetHeading          = 0.0,
+                    double minSpeed               = 24.0,
+                    double distanceTolerance      = 5.0,
+                    double kp_heading             = 1.1,
+                    double ki_heading             = 0.005,
+                    double kd_heading             = 0.0,
+                    double accelHeadingScaling    = 0.1,
+                    double decelHeadingScaling    = 1.0,
+                    double approachHeadingScaling = 0.3,
+                    double maxSpeed               = 100.0);
 
 void driveBackwardV2(double targetDistance,
-             double breakDistance = 10, 
-             double targetHeading = 0,
-             double minSpeed = 24,
-             double distanceTolerance = 5,
-             double kp_heading = 1.1, 
-             double ki_heading = 0.005,
-             double kd_heading = 0, 
-             double accelHeadingScaling = 0.1,
-             double decelHeadingScaling = 1, 
-             double approachHeadingScaling = 0.3,
-             double maxSpeed = 100);
+                     double breakDistance          = 10.0,
+                     double targetHeading          = 0.0,
+                     double minSpeed               = 24.0,
+                     double distanceTolerance      = 5.0,
+                     double kp_heading             = 1.1,
+                     double ki_heading             = 0.005,
+                     double kd_heading             = 0.0,
+                     double accelHeadingScaling    = 0.1,
+                     double decelHeadingScaling    = 1.0,
+                     double approachHeadingScaling = 0.3,
+                     double maxSpeed               = 100.0);
 
-void driveForwardV3(double targetDistance,
-             double breakDistance = 10, 
-             double targetHeading = 0,
-             double minSpeed = 24,
-             double distanceTolerance = 5,
-             double kp_heading = 1.1, 
-             double ki_heading = 0,
-             double kd_heading = 0, 
-             double accelHeadingScaling = 0.1,
-             double decelHeadingScaling = 0.1, 
-             double approachHeadingScaling = 0.3,
-             double maxSpeed = 100);
-
-void driveBackwardV3(double targetDistance,
-             double breakDistance = 10, 
-             double targetHeading = 0,
-             double minSpeed = 24,
-             double distanceTolerance = 5,
-             double kp_heading = 1.1, 
-             double ki_heading = 0,
-             double kd_heading = 0, 
-             double accelHeadingScaling = 0.1,
-             double decelHeadingScaling = 0.1, 
-             double approachHeadingScaling = 0.3,
-             double maxSpeed = 100);
-
-
-
-/**
- * Drives the robot toward a game object using AI Vision for precise final approach.
- *
- * This function uses a color signature to detect and track an object (e.g. ring, mobile goal).
- * It centers the object laterally using heading PID and modulates forward speed using distance PID on pixel width.
- *
- * Primary stop condition: object width reaches or exceeds targetPixelWidth for consecutiveRequired frames.
- * Safety stop: traveled distance exceeds timeoutDistanceCM (odometry-based).
- *
- * Behavior on vision loss:
- *   - If object was previously seen: continues using last known turn correction and pixel width.
- *   - If never seen: falls back to IMU heading hold toward targetHeading and drives forward at up to maxSpeedPct
- *     (PID sees large error since width=0, so full speed until timeout or reacquisition).
- *
- * Designed for short-to-medium final approaches (30–150 cm) after coarse odometry positioning.
- * Includes noise rejection (4-frame rolling median on width) and turn authority limiting.
- *
- * @param targetSignature      Pre-configured color signature from Vision Utility (e.g. AIVision20__redRing)
- * @param targetPixelWidth     Desired minimum object width (pixels) to consider reached (e.g. 140–180)
- * @param timeoutDistanceCM    Maximum distance (cm) to travel before safety abort (odometry)
- * @param targetHeading        Fallback absolute heading (degrees) when vision is unavailable (VEX: 0° usually North/downfield)
- * @param minSpeedPct          Minimum speed floor (% of 12V) to prevent stalling near target
- * @param maxSpeedPct          Maximum allowed speed (%) – caps blind search and approach speed
- * @param brakeMode            Brake type applied on exit (coast for smooth stop, hold for position lock)
- * @param kp_head              Proportional gain for lateral (X-error) heading correction
- * @param ki_head              Integral gain for heading correction (usually 0)
- * @param kd_head              Derivative gain for heading damping
- * @param kp_dist              Proportional gain for distance (pixel width) control
- * @param ki_dist              Integral gain for distance control (small value to reduce steady-state error)
- * @param kd_dist              Derivative gain for smooth deceleration as width increases
- * @param minX                 Left edge of valid detection region (pixels, 0–319)
- * @param maxX                 Right edge of valid detection region
- * @param minY                 Top edge of valid detection region (pixels, 0–239)
- * @param maxY                 Bottom edge of valid detection region
- * @param maxObjectsToCheck    Maximum number of detected objects to evaluate (performance optimization)
- * @param consecutiveRequired  Number of consecutive frames width must be >= targetPixelWidth to stop
- */
-void visionDrive(
-    vex::aivision::colordesc targetSignature,
-    int    targetPixelWidth,
-    double timeoutDistanceCM,
-    double targetHeading        = 0.0,
-    double minSpeedPct          = 20.0,
-    double maxSpeedPct          = 85.0,
-    vex::brakeType brakeMode    = vex::brakeType::coast,
-    double kp_head              = 0.10,
-    double ki_head              = 0.00,
-    double kd_head              = 0.10,
-    double kp_dist              = 1.30,
-    double ki_dist              = 0.06,
-    double kd_dist              = 0.14,
-    int    minX                 = 0,
-    int    maxX                 = 320,
-    int    minY                 = 0,
-    int    maxY                 = 240,
-    int    maxObjectsToCheck    = 5,
-    int    consecutiveRequired  = 3
-);
-
-// visionDriveMinimal accepts single color or color combination descriptors.
-// Both overloads forward to a shared internal implementation in navigation.cpp.
+// ══════════════════════════════════════════════════════════════════════════════
+// visionDriveMinimal — simplified vision drive (no timeout distance parameter).
+// Two overloads: one for color signatures, one for color codes (multi-signature).
+// ══════════════════════════════════════════════════════════════════════════════
 void visionDriveMinimal(
-    vex::aivision::colordesc targetSignature,
+    pros::vision_signature_s_t targetSignature,
     int    targetPixelWidth,
-    double targetHeading        = 0.0,
-    double minSpeedPct          = 20.0,
-    double maxSpeedPct          = 85.0,
-    vex::brakeType brakeMode    = vex::brakeType::coast,
-    double kp_head              = 0.20,
-    double ki_head              = 0.00,
-    double kd_head              = 0.00,
-    double kp_distToHeadScaling = 0.015,
-    double kp_dist              = 1.30,
-    double ki_dist              = 0.00,
-    double kd_dist              = 0.00
+    double targetHeading           = 0.0,
+    double minSpeedPct             = 20.0,
+    double maxSpeedPct             = 85.0,
+    pros::motor_brake_mode_e_t brakeMode = pros::E_MOTOR_BRAKE_COAST,
+    double kp_head                 = 0.20,
+    double ki_head                 = 0.00,
+    double kd_head                 = 0.00,
+    double kp_distToHeadScaling    = 0.015,  // blend factor: how much pixel-width error feeds into heading
+    double kp_dist                 = 1.30,
+    double ki_dist                 = 0.00,
+    double kd_dist                 = 0.00
 );
 
 void visionDriveMinimal(
-    vex::aivision::codedesc targetSignature,
+    pros::vision_color_code_t targetSignature,   // multi-color code variant
     int    targetPixelWidth,
-    double targetHeading        = 0.0,
-    double minSpeedPct          = 20.0,
-    double maxSpeedPct          = 85.0,
-    vex::brakeType brakeMode    = vex::brakeType::coast,
-    double kp_head              = 0.20,
-    double ki_head              = 0.00,
-    double kd_head              = 0.00,
-    double kp_distToHeadScaling = 0.015,
-    double kp_dist              = 1.30,
-    double ki_dist              = 0.00,
-    double kd_dist              = 0.00
+    double targetHeading           = 0.0,
+    double minSpeedPct             = 20.0,
+    double maxSpeedPct             = 85.0,
+    pros::motor_brake_mode_e_t brakeMode = pros::E_MOTOR_BRAKE_COAST,
+    double kp_head                 = 0.20,
+    double ki_head                 = 0.00,
+    double kd_head                 = 0.00,
+    double kp_distToHeadScaling    = 0.015,
+    double kp_dist                 = 1.30,
+    double ki_dist                 = 0.00,
+    double kd_dist                 = 0.00
 );
 
-
-#endif // PID_TASKS_H;
-
-// ======================================================================
-// CLOSED-LOOP ODOMETRY FUNCTION DECLARATIONS
-// Add these to your odometry.h or navigation.h header file
-// ======================================================================
-
-/**
- * Closed-loop point-to-point movement function
- * Continuously recalculates distance and heading to target during movement
- * Combines V3 structure with original launch control and adaptive ABS
- * 
- * @param targetX              Target X position in cm
- * @param targetY              Target Y position in cm
- * @param breakDistance        Distance before target to begin deceleration (cm)
- * @param minSpeed             Minimum speed during approach phase (0-100%)
- * @param distanceTolerance    Distance tolerance to exit movement (cm)
- * @param kp_heading           Proportional gain for heading correction
- * @param ki_heading           Integral gain for heading correction
- * @param kd_heading           Derivative gain for heading correction
- * @param finalBrakeMode       Brake mode at final stop (brake/coast/hold)
- * @param accelHeadingScaling  Heading correction scaling during acceleration
- * @param decelHeadingScaling  Heading correction scaling during deceleration
- * @param approachHeadingScaling Heading correction scaling during approach
- * @param maxSpeed             Maximum speed (0-100%)
- */
-
-
+// ══════════════════════════════════════════════════════════════════════════════
+// visionDriveV2 — streamlined vision drive using heading-scaling instead of
+// separate distance PID; better for objects with irregular pixel-width curves.
+// ══════════════════════════════════════════════════════════════════════════════
 void visionDriveV2(
-    vex::aivision::colordesc targetSignature,
-    int targetPixelWidth = 60,
-    double targetHeading = 0.0,
-    vex::brakeType brakeMode = vex::brakeType::coast,
-    double maxSpeedPct = 75.0,
-    double kp_head = 0.1,
-    double ki_head = 0.0,
-    double kd_head = 0.0,
-    double kp_distToHeadScaling = 0.3,
-    int minObjectWidth = 10,
-    int minX = 0,
-    int maxX = 320,
-    int minY = 0,
-    int maxY = 240,
-    double minSpeedPct = 16,
-    double timeoutDistanceCM = 100.0,
-    double kp_dist = 1.50,
-    double ki_dist = 0.0,
-    double kd_dist = 0.0
+    pros::vision_signature_s_t targetSignature,
+    int    targetPixelWidth      = 60,
+    double targetHeading         = 0.0,
+    pros::motor_brake_mode_e_t brakeMode = pros::E_MOTOR_BRAKE_COAST,
+    double maxSpeedPct           = 75.0,
+    double kp_head               = 0.1,
+    double ki_head               = 0.0,
+    double kd_head               = 0.0,
+    double kp_distToHeadScaling  = 0.3,
+    int    minObjectWidth        = 10,
+    int    minX                  = 0,
+    int    maxX                  = 320,
+    int    minY                  = 0,
+    int    maxY                  = 240,
+    double minSpeedPct           = 16.0,
+    double timeoutDistanceCM     = 100.0,
+    double kp_dist               = 1.50,
+    double ki_dist               = 0.0,
+    double kd_dist               = 0.0
 );
 
+// ══════════════════════════════════════════════════════════════════════════════
+// moveOdometry — closed-loop point-to-point drive using live odometry.
+// Re-computes heading and remaining distance each loop iteration.
+//
+// headingLockDistance: within this many cm, heading is frozen to reduce
+//   oscillation during the final approach.
+// ══════════════════════════════════════════════════════════════════════════════
 void moveOdometry(double targetX,
-                  double targetY, 
-                  double breakDistance, 
-                  double minSpeed = 16, 
-                  double distanceTolerance = 2.0,
-                  double kp_heading = 0.4, 
-                  double ki_heading = 0.01, 
-                  double kd_heading = 0.05,
-                  vex::brakeType brakeMode = vex::brakeType::brake,
-                  double accelHeadingScaling = 0.2, 
-                  double decelHeadingScaling = 0.2,
-                  double approachHeadingScaling = 0.2, 
-                  double maxSpeed = 100,
-                  double headingLockDistance = 8.0,
-                  double timeout = 3.0);
+                  double targetY,
+                  double breakDistance,
+                  double minSpeed               = 16.0,
+                  double distanceTolerance      = 2.0,
+                  double kp_heading             = 0.4,
+                  double ki_heading             = 0.01,
+                  double kd_heading             = 0.05,
+                  pros::motor_brake_mode_e_t brakeMode = pros::E_MOTOR_BRAKE_BRAKE,
+                  double accelHeadingScaling    = 0.2,
+                  double decelHeadingScaling    = 0.2,
+                  double approachHeadingScaling = 0.2,
+                  double maxSpeed               = 100.0,
+                  double headingLockDistance    = 8.0,
+                  double timeout                = 3.0);
 
+// ══════════════════════════════════════════════════════════════════════════════
+// moveVisionOdometry — fuses live odometry with AI Vision heading correction.
+// Uses odometry for distance/phase gating and vision for lateral alignment.
+// Vision exit: object pixel-width >= targetPixelWidth.
+// Odometry exit: robot reaches targetX/Y within distanceTolerance.
+// ══════════════════════════════════════════════════════════════════════════════
+void moveVisionOdometry(
+    pros::vision_signature_s_t targetSignature,
+    int    targetPixelWidth,
+    double targetX,
+    double targetY,
+    double breakDistance,
+    pros::motor_brake_mode_e_t brakeMode      = pros::E_MOTOR_BRAKE_COAST,
+    double maxSpeed                            = 100.0,
+    double kp_head                             = 0.1,
+    double ki_head                             = 0.0,
+    double kd_head                             = 0.0,
+    double kp_distToHeadScaling                = 0.3,
+    int    minObjectWidth                      = 10,
+    int    minX                                = 0,
+    int    maxX                                = 320,
+    int    minY                                = 0,
+    int    maxY                                = 240,
+    double minSpeed                            = 16.0,
+    double distanceTolerance                   = 2.0,
+    double accelHeadingScaling                 = 0.2,
+    double decelHeadingScaling                 = 0.2,
+    double approachHeadingScaling              = 0.2,
+    double headingLockDistance                 = 15.0,
+    double timeout                             = 3.0);
 
-
-//moveVisionOdometry - Fuses Odometry movement with Vision-based heading correction.
-
-void moveVisionOdometry(vex::aivision::colordesc targetSignature,
-                        int targetPixelWidth,           // Vision exit: stop when object width >= this value (pixels)
-                        double targetX, 
-                        double targetY, 
-                        double breakDistance,
-                        vex::brakeType brakeMode = vex::brakeType::coast,
-                        double maxSpeed = 100,
-                        double kp_head = 0.1,
-                        double ki_head = 0.0,
-                        double kd_head = 0.0,
-                        double kp_distToHeadScaling = 0.3,
-                        int minObjectWidth = 10,
-                        int minX = 0,
-                        int maxX = 320,
-                        int minY = 0,
-                        int maxY = 240,
-                        double minSpeed = 16,
-                        double distanceTolerance = 2.0,
-                        double accelHeadingScaling = 0.2,
-                        double decelHeadingScaling = 0.2,
-                        double approachHeadingScaling = 0.2,
-                        double headingLockDistance = 15.0,
-                        double timeout = 3.0);
-
+// ══════════════════════════════════════════════════════════════════════════════
+// driveToWall — drives toward a wall at low speed, detects stall, then stops.
+// stalledSidePower: voltage to hold after stall (0 = release, >0 = continue pressing).
+// ══════════════════════════════════════════════════════════════════════════════
 void driveToWall(double targetDistance,
-                 double targetHeading     = 0,
-                 double minSpeed          = 15,
-                 double wallStalledTimeMs = 150,
-                 double stalledSidePower  = 0,
-                 vex::brakeType brakeMode = vex::brakeType::brake,
-                 double timeoutMs         = 3000,
-                 double maxSpeed          = 40);                        
+                 double targetHeading     = 0.0,
+                 double minSpeed          = 15.0,
+                 double wallStalledTimeMs = 150.0,
+                 double stalledSidePower  = 0.0,
+                 pros::motor_brake_mode_e_t brakeMode = pros::E_MOTOR_BRAKE_BRAKE,
+                 double timeoutMs         = 3000.0,
+                 double maxSpeed          = 40.0);
 
-                 
- // moveVisionOdometryOpen - Same as moveVisionOdometry but uses open-loop encoder
-// distance tracking instead of live odometry position updates during the move.
-// Heading and total distance are computed once from targetX/targetY before the
-// loop; all phase gates use encoder delta from function entry (same pattern as
-// straightOdometryV3). Vision closed-loop heading and exit are unchanged.
-void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
-                            int targetPixelWidth,
-                            double targetX,
-                            double targetY,
-                            double breakDistance,
-                            vex::brakeType brakeMode         = vex::brakeType::coast,
-                            double maxSpeed                  = 100,
-                            double kp_head                   = 0.1,
-                            double ki_head                   = 0.0,
-                            double kd_head                   = 0.0,
-                            double kp_distToHeadScaling      = 0.3,
-                            int minObjectWidth               = 10,
-                            int minX                         = 0,
-                            int maxX                         = 320,
-                            int minY                         = 0,
-                            int maxY                         = 240,
-                            double minSpeed                  = 16,
-                            double distanceTolerance         = 2.0,
-                            double accelHeadingScaling       = 0.2,
-                            double decelHeadingScaling       = 0.2,
-                            double approachHeadingScaling    = 0.2,
-                            double headingLockDistance       = 15.0,
-                            double timeout                   = 3.0);                
+// ══════════════════════════════════════════════════════════════════════════════
+// moveVisionOdometryOpen — like moveVisionOdometry but uses open-loop encoder
+// distance (computed once from targetX/Y at entry) instead of re-querying
+// odometry each iteration. Lighter CPU load; useful when odometry drifts.
+// ══════════════════════════════════════════════════════════════════════════════
+void moveVisionOdometryOpen(
+    pros::vision_signature_s_t targetSignature,
+    int    targetPixelWidth,
+    double targetX,
+    double targetY,
+    double breakDistance,
+    pros::motor_brake_mode_e_t brakeMode      = pros::E_MOTOR_BRAKE_COAST,
+    double maxSpeed                            = 100.0,
+    double kp_head                             = 0.1,
+    double ki_head                             = 0.0,
+    double kd_head                             = 0.0,
+    double kp_distToHeadScaling                = 0.3,
+    int    minObjectWidth                      = 10,
+    int    minX                                = 0,
+    int    maxX                                = 320,
+    int    minY                                = 0,
+    int    maxY                                = 240,
+    double minSpeed                            = 16.0,
+    double distanceTolerance                   = 2.0,
+    double accelHeadingScaling                 = 0.2,
+    double decelHeadingScaling                 = 0.2,
+    double approachHeadingScaling              = 0.2,
+    double headingLockDistance                 = 15.0,
+    double timeout                             = 3.0);
 
-// visionOnly — Vision-guided move, no odometry. Derived from moveVisionOdometry.
-// Pre-acquisition: holds entry gyro heading. Post-acquisition: pure vision heading.
-// Exits: vision pixel width (primary), encoder distance limit, or timeout. Sec.7 <VAIG2>/<VAIG3>.
-void visionOnly(vex::aivision::colordesc targetSignature,
-                int    targetPixelWidth,          // stop when object width >= this (pixels)
-                double targetDistance,            // max encoder travel (cm); safety exit if vision never acquires
-                double breakDistance,             // encoder distance to begin deceleration (cm)
-                vex::brakeType brakeMode          = vex::brakeType::coast,
-                double maxSpeed                   = 100,
-                double kp_head                    = 0.1,
-                double ki_head                    = 0.0,
-                double kd_head                    = 0.0,
-                double kp_distToHeadScaling       = 0.3,  // vision correction aggressiveness (0.0 arc → 1.0 immediate)
-                int    minObjectWidth             = 10,
-                int    minX                       = 0,
-                int    maxX                       = 320,
-                int    minY                       = 0,
-                int    maxY                       = 240,
-                double minSpeed                   = 16,
-                double accelHeadingScaling        = 0.2,
-                double decelHeadingScaling        = 0.2,
-                double approachHeadingScaling     = 0.2,
-                double timeout                    = 3.0);                            
+// ══════════════════════════════════════════════════════════════════════════════
+// visionOnly — pure vision-guided approach, no odometry position updates.
+//
+// Pre-acquisition:  holds the entry gyro heading.
+// Post-acquisition: corrects heading using vision lateral error only.
+// Exit:             vision pixel-width >= targetPixelWidth (primary),
+//                   encoder distance >= targetDistance (safety),
+//                   or timeout elapsed.
+// ══════════════════════════════════════════════════════════════════════════════
+void visionOnly(
+    pros::vision_signature_s_t targetSignature,
+    int    targetPixelWidth,
+    double targetDistance,       // max encoder travel (cm) — safety exit if vision never locks
+    double breakDistance,        // encoder distance at which decel phase begins (cm)
+    pros::motor_brake_mode_e_t brakeMode     = pros::E_MOTOR_BRAKE_COAST,
+    double maxSpeed                           = 100.0,
+    double kp_head                            = 0.1,
+    double ki_head                            = 0.0,
+    double kd_head                            = 0.0,
+    double kp_distToHeadScaling               = 0.3,  // 0.0 = gentle arc, 1.0 = snap to target
+    int    minObjectWidth                     = 10,
+    int    minX                               = 0,
+    int    maxX                               = 320,
+    int    minY                               = 0,
+    int    maxY                               = 240,
+    double minSpeed                           = 16.0,
+    double accelHeadingScaling                = 0.2,
+    double decelHeadingScaling                = 0.2,
+    double approachHeadingScaling             = 0.2,
+    double timeout                            = 3.0);
+
+#endif // NAVIGATION_H

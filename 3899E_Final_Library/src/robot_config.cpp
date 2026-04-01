@@ -1,130 +1,199 @@
-#include "robot_config.h" // Include the robot configuration header
+#include "robot_config.h"
 
-// Define global instances of brain, controller, and motors
-vex::brain Brain;
-vex::controller Controller;
-// Define Drive Motors
-vex::motor LeftMotor1 = vex::motor(vex::PORT7, vex::gearSetting::ratio6_1,true);
-vex::motor LeftMotor2 = vex::motor(vex::PORT19, vex::gearSetting::ratio6_1);
-vex::motor LeftMotor3 = vex::motor(vex::PORT6, vex::gearSetting::ratio6_1, true);
-vex::motor RightMotor1 = vex::motor(vex::PORT1, vex::gearSetting::ratio6_1);  // reversed
-vex::motor RightMotor2 = vex::motor(vex::PORT5, vex::gearSetting::ratio6_1, true);  // reversed
-vex::motor RightMotor3 = vex::motor(vex::PORT2, vex::gearSetting::ratio6_1); // reversed
-// Define Intatke Motors
-vex::motor intakeMotor1 = vex::motor(vex::PORT10, vex::gearSetting::ratio6_1, true);// reversed
-vex::motor intakeMotor2 = vex::motor(vex::PORT9, vex::gearSetting::ratio6_1); 
-// Define Pneumatics
-vex::pneumatics frontHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.G);
-//vex::pneumatics backHoodPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
-vex::pneumatics matchLoadPneumatics = vex::pneumatics(Brain.ThreeWirePort.E);
-vex::pneumatics ptoPneumatics = vex::pneumatics(Brain.ThreeWirePort.H);
-vex::pneumatics wingPneumatics = vex::pneumatics(Brain.ThreeWirePort.C);
-//vex::pneumatics indexPneumatics = vex::pneumatics(Brain.ThreeWirePort.B);
-vex::pneumatics leftGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.A);  // Left lane scoring gate
-vex::pneumatics rightGatePneumatics = vex::pneumatics(Brain.ThreeWirePort.F); // Right lane scoring gate
-vex::pneumatics rudderPneumatics = vex::pneumatics(Brain.ThreeWirePort.D); // Rudder for ball control in intake
-// Define Sensors
-vex::inertial InertialSensor = vex::inertial(vex::PORT17);
-vex::rotation passiveEncoderLeft = vex::rotation(vex::PORT20, true);  // Initialize the encoder on PORT10
-vex::rotation passiveEncoderRight = vex::rotation(vex::PORT13, false); // Initialize the encoder on PORT10
-vex::rotation passiveEncoderX = vex::rotation(vex::PORT12, true);     // Initialize the encoder on PORT10
-vex::optical opticalSensor = vex::optical(vex::PORT15);
-vex::optical leftLaneOptical = vex::optical(vex::PORT16);   // Left lane ball detection sensor (VEX V5 Optical)
-vex::optical rightLaneOptical = vex::optical(vex::PORT11);  // Right lane ball detection sensor (VEX V5 Optical)
-// Global Variables
-double robotStartingHeading = 0.0; 
+// ══════════════════════════════════════════════════════════════════════════════
+// PORT MAP  (update this whenever hardware changes)
+//
+//  Smart Ports:
+//     7   Left  Motor 1     (600 RPM, reversed)
+//    19   Left  Motor 2     (600 RPM, forward)
+//     6   Left  Motor 3     (600 RPM, reversed)
+//     1   Right Motor 1     (600 RPM, forward)
+//     5   Right Motor 2     (600 RPM, reversed)
+//     2   Right Motor 3     (600 RPM, forward)
+//    10   Intake Motor 1    (600 RPM, reversed)
+//     9   Intake Motor 2    (600 RPM, forward)
+//    17   IMU
+//    20   Left  Encoder     (reversed)
+//    13   Right Encoder     (not reversed)
+//    12   X-axis Encoder    (reversed)
+//    15   Optical Sensor    (sorting)
+//    16   Left  Lane Optical
+//    11   Right Lane Optical
+//    14   AI Vision Sensor
+//
+//  ADI (3-wire) Ports:
+//    A   Left Gate Pneumatic
+//    C   Wing Pneumatic
+//    D   Rudder Pneumatic
+//    E   Match-Load Pneumatic / Auton Bumper  ← check physical wiring
+//    F   Right Gate Pneumatic
+//    G   Front Hood Pneumatic
+//    H   PTO Pneumatic
+//
+// PROS sign convention: NEGATIVE port number = motor direction reversed.
+// Both the individual pros::Motor objects AND the pros::MotorGroup entries
+// must use the same signs so they agree on "forward."
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Controller ────────────────────────────────────────────────────────────────
+pros::Controller Controller(pros::E_CONTROLLER_MASTER);
+
+// ── Drive motors (600 RPM blue cartridge) ─────────────────────────────────────
+// Reversal per motor matches the physical mounting orientation on this robot.
+pros::Motor LeftMotor1 (-7,  pros::MotorGears::blue);  // physically reversed
+pros::Motor LeftMotor2 (19,  pros::MotorGears::blue);  // forward
+pros::Motor LeftMotor3 (-6,  pros::MotorGears::blue);  // physically reversed
+pros::Motor RightMotor1( 1,  pros::MotorGears::blue);  // forward
+pros::Motor RightMotor2(-5,  pros::MotorGears::blue);  // physically reversed
+pros::Motor RightMotor3( 2,  pros::MotorGears::blue);  // forward
+
+// Drive motor groups — use these for synchronized drive commands.
+// Port signs must mirror the individual motor definitions above.
+pros::MotorGroup leftDrive ({-7, 19, -6}, pros::MotorGears::blue);
+pros::MotorGroup rightDrive({ 1, -5,  2}, pros::MotorGears::blue);
+
+// ── Mechanism motors (600 RPM blue cartridge) ─────────────────────────────────
+pros::Motor intakeMotor1(-10, pros::MotorGears::blue);  // reversed
+pros::Motor intakeMotor2( 9,  pros::MotorGears::blue);  // forward
+
+// ── Pneumatics ────────────────────────────────────────────────────────────────
+// pros::adi::DigitalOut::set_value(true) = extend solenoid,
+//                         set_value(false) = retract.
+pros::adi::DigitalOut frontHoodPneumatics ('G');
+pros::adi::DigitalOut backHoodPneumatics  ('G');  // TODO: assign dedicated ADI port if re-added
+pros::adi::DigitalOut matchLoadPneumatics ('E');
+pros::adi::DigitalOut ptoPneumatics       ('H');
+pros::adi::DigitalOut wingPneumatics      ('C');
+pros::adi::DigitalOut indexPneumatics     ('C');  // TODO: assign dedicated ADI port if re-added
+pros::adi::DigitalOut leftGatePneumatics  ('A');
+pros::adi::DigitalOut rightGatePneumatics ('F');
+pros::adi::DigitalOut rudderPneumatics    ('D');
+
+// ── Sensors ───────────────────────────────────────────────────────────────────
+
+// IMU — reset() with argument true blocks until calibration finishes.
+pros::Imu InertialSensor(17);
+
+// Passive odometry tracking wheels.
+// Reversal is applied via set_reversed() in initialize() in main.cpp —
+// pros::Rotation constructor in PROS 4 only accepts a port number.
+pros::Rotation passiveEncoderLeft (20);
+pros::Rotation passiveEncoderRight(13);
+pros::Rotation passiveEncoderX    (12);
+
+// Optical sensors for ring color sorting.
+pros::Optical opticalSensor   (15);
+pros::Optical leftLaneOptical (16);
+pros::Optical rightLaneOptical(11);
+
+// ── AI Vision Sensor ──────────────────────────────────────────────────────────
+// NOTE: the original VEXcode code used vex::aivision with colordesc values in
+// (hue, saturation, brightness) format.  PROS Vision signatures use a different
+// YCbCr / UV color space.  The values below are PLACEHOLDERS — re-run the
+// PROS Vision Sensor utility to calibrate U/V ranges for your field lighting.
+//
+// Signature format: id, u_min, u_max, u_mean, v_min, v_max, v_mean, range, type
+pros::vision_signature_s_t aiVision_blueCube   = pros::Vision::signature_from_utility(
+    1, -3600, -2800, -3200,  7000,  9000,  8000, 3.0, 0);  // TODO: recalibrate
+
+pros::vision_signature_s_t aiVision_orangeGoal = pros::Vision::signature_from_utility(
+    2,  3000,  5000,  4000, -1200,  -600,  -900, 3.0, 0);  // TODO: recalibrate
+
+pros::vision_signature_s_t aiVision_redCube    = pros::Vision::signature_from_utility(
+    3,  3500,  5500,  4500,  1000,  2500,  1750, 3.0, 0);  // TODO: recalibrate
+
+// The AI Vision sensor itself (must be defined before color codes).
+pros::Vision aiVision(14);
+
+// Color codes — combinations of two color signatures detected together.
+pros::vision_color_code_t aiVision_redLoad     = aiVision.create_color_code(1, 3, 0, 0, 0);
+pros::vision_color_code_t aiVision_blueLoad    = aiVision.create_color_code(1, 1, 0, 0, 0);
+pros::vision_color_code_t aiVision_blueRedBlue = aiVision.create_color_code(1, 3, 1, 0, 0);
+pros::vision_color_code_t aiVision_redBlue     = aiVision.create_color_code(3, 1, 0, 0, 0);
+
+// Tag detection objects — populated at runtime by aiVision.get_by_sig().
+pros::vision_object_s_t aiVision_blueBlock = {};
+pros::vision_object_s_t aiVision_redBlock  = {};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GLOBAL STATE VARIABLES
+// ══════════════════════════════════════════════════════════════════════════════
+double robotStartingHeading         = 0.0;
 double robotStartingHeadingStandard = 0.0;
-double gyroReadingAtStart = 0.0;
-double targetDriverSpeedLeft = 0.0;                  // Target speed for left motors (-100 to +100)
-double targetDriverSpeedRight = 0.0;                 // Target speed for right motors (-100 to +100)
-bool isAcceleratingLeft[3] = {false, false, false};  // Acceleration flags for left motors
-bool isAcceleratingRight[3] = {false, false, false}; // Acceleration flags for right motors
-// Define Separate Motor Arrays
-vex::motor leftMotor[] = {LeftMotor3, LeftMotor2, LeftMotor1};
-vex::motor rightMotor[] = {RightMotor3, RightMotor2, RightMotor1};
-// Define Constants
-// Coordinate system constants
-const double numberDriveMotor = 6;
-const double accelerationFactor = 1.05; // Adjust this factor globally
-const double absoluteMaxRPM = 600;
-const double absoluteMaxVoltage = 12;
-const double gearRatio = 6;
-const double VOLTAGE_TOLERANCE = 0.1;
-const double minLaunchPower = 20;
-const double DRIVE_MOTOR_RPM_ADJ = 400.0 / 600.0;     // Drivetrain geared to 400 RPM over 600 RPM motor cartridge
-const double TRACK_WIDTH = 11.3;          // Distance between left/right encoders in cm
-const double ENCODER_OFFSET_X = -0.023;      // X offset of tracking wheels from center (if not centered)
-const double LEFT_ENCODER_OFFSET_Y = 0; // Y offset of tracking wheels from center
-const double RIGHT_ENCODER_OFFSET_Y = 0;
-const double wheelCircumferenceCM = 32.0;        // circumference of the motorized wheel in cm
-const double encoderWheelCircumferenceCM = 15.96; // Circumference of the encoder wheel in cm
-const double DISTANCE_TO_WHEEL = 15.25;           // distance between left and right wheels in cm
-const double DISTANCE_TO_ENCODER = 8.3;
-const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;    
+double gyroReadingAtStart           = 0.0;
 
-
-
-
-// ========================================
-// AI Vision Sensor Configuration
-// ========================================
-
-// Color signatures calibrated for our field conditions
-vex::aivision::colordesc AIVision20__blueCube(1, 63, 130, 192, 20, 0.25);
-//vex::aivision::colordesc AIVision20__orangeGoal(2, 151, 90, 35, 18, 0.81);
-vex::aivision::colordesc AIVision20__orangeGoal(2, 145, 104, 74, 12, 0.74);
-//vex::aivision::colordesc AIVision20__redCube(3, 188, 17, 56, 40, 1);
-vex::aivision::colordesc AIVision20__redCube(3, 207, 65, 118, 22, 0.21);
-
-// Push Back AI classification objects
-vex::aivision::tagdesc AIVision20__blueBlock(1);  
-vex::aivision::tagdesc AIVision20__redBlock(2);   
-
-// Color codes for detecting combinations
-vex::aivision::codedesc AIVision20__redLoad(1, AIVision20__orangeGoal, AIVision20__blueCube, AIVision20__redCube);
-vex::aivision::codedesc AIVision20__blueLoad(2, AIVision20__orangeGoal, AIVision20__redCube, AIVision20__blueCube);
-vex::aivision::codedesc AIVision20__blueRedBlue(3, AIVision20__blueCube, AIVision20__redCube, AIVision20__blueCube);
-// Initialize sensor with all descriptors
-vex::aivision AIVision20(vex::PORT14, 
-                         AIVision20__blueCube,      
-                         AIVision20__orangeGoal,    
-                         AIVision20__redCube,       
-                         AIVision20__redLoad,       
-                         AIVision20__blueLoad,
-                         AIVision20__blueRedBlue,       
-                         AIVision20__blueBlock,     
-                         AIVision20__redBlock);
-
+// headingOffset: set in each auton to the alliance-relative starting angle.
+// e.g. 240° for a red-side auto that starts 240° from field east.
 double headingOffset = 0.0;
 
-// Function to reset motor positions
-void resetMotorPositions()
+double targetDriverSpeedLeft  = 0.0;
+double targetDriverSpeedRight = 0.0;
+
+bool isAcceleratingLeft [3] = {false, false, false};
+bool isAcceleratingRight[3] = {false, false, false};
+
+// ── Drive constants ───────────────────────────────────────────────────────────
+const double numberDriveMotor   = 6.0;
+const double accelerationFactor = 1.05;  // speed ramp multiplier per loop tick
+const double absoluteMaxRPM     = 600.0; // free-spin RPM of blue (600 RPM) cartridge
+const double absoluteMaxVoltage = 12.0;  // volts — motion code works in 0..12 V units
+const double gearRatio          = 6.0;   // external gear ratio (motor shaft to wheel)
+const double minLaunchPower     = 20.0;  // minimum % to overcome static friction
+const double VOLTAGE_TOLERANCE  =  0.1;  // V delta too small to act on
+
+// DRIVE_MOTOR_RPM_ADJ: physical drivetrain is geared to 400 RPM output,
+// so scale raw 600 RPM motor encoder readings by 400/600.
+const double DRIVE_MOTOR_RPM_ADJ = 400.0 / 600.0;
+
+// ── Odometry geometry (centimeters) ──────────────────────────────────────────
+const double TRACK_WIDTH            = 11.30;   // left-to-right tracking wheel span
+const double ENCODER_OFFSET_X       = -0.023;  // lateral encoder offset from robot center
+const double LEFT_ENCODER_OFFSET_Y  =  0.0;    // longitudinal offset, left encoder
+const double RIGHT_ENCODER_OFFSET_Y =  0.0;    // longitudinal offset, right encoder
+
+// ── Wheel dimensions ──────────────────────────────────────────────────────────
+const double wheelCircumferenceCM        = 32.00;  // drive wheel circumference
+const double encoderWheelCircumferenceCM = 15.96;  // tracking wheel circumference
+
+// Derived: ratio used in turning-radius calculations.
+static const double DISTANCE_TO_WHEEL   = 15.25;  // half-track of drive wheels (cm)
+static const double DISTANCE_TO_ENCODER =  8.30;  // half-track of tracking wheels (cm)
+const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
+
+// ── Arm state tracker ─────────────────────────────────────────────────────────
+ArmPosition armstat = ArmPosition::Starting;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROBOT INITIALIZATION
+// Call once from PROS initialize() before any competition mode starts.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Reset all drive encoder positions to zero.
+static void resetMotorPositions()
 {
-    leftMotor[0].resetPosition();
-    leftMotor[1].resetPosition();
-    leftMotor[2].resetPosition();
-    rightMotor[0].resetPosition();
-    rightMotor[1].resetPosition();
-    rightMotor[2].resetPosition();
+    leftDrive .tare_position();
+    rightDrive.tare_position();
 }
 
-// Initialization function
-void vexcodeInit(void)
+void robotInit()
 {
-    // Calibrate the inertial sensor
-    wingPneumatics.set(false);
-    InertialSensor.calibrate();
-    Brain.Screen.printAt(10, 20, "Calibrating Inertial Sensor...");
-    while (InertialSensor.isCalibrating())
-    {
-        vex::task::sleep(100);
-    }
-    InertialSensor.resetHeading();
-    Brain.Screen.printAt(10, 40, "Calibration Complete");
-       
-    wait(500, vex::msec);
-    Brain.Screen.clearScreen();
+    // Retract wing pneumatics so they don't interfere during calibration.
+    wingPneumatics.set_value(false);
 
-    // Reset motor positions
+    // Calibrate the IMU — reset(true) blocks until finished (~2 s).
+    pros::lcd::set_text(1, "Calibrating IMU...");
+    InertialSensor.reset(true);
+    InertialSensor.tare_rotation();
+    pros::lcd::set_text(1, "IMU ready");
+
+    // Register AI Vision color signatures with the sensor.
+    aiVision.set_signature(1, &aiVision_blueCube);
+    aiVision.set_signature(2, &aiVision_orangeGoal);
+    aiVision.set_signature(3, &aiVision_redCube);
+
+    pros::delay(500);
+    pros::lcd::clear();
+
+    // Zero all drive motor encoders.
     resetMotorPositions();
 }

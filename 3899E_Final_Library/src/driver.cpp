@@ -1,544 +1,371 @@
-#include "vex.h"          // Include the VEX library
-#include "robot_config.h" // Include the robot configuration
-#include <cmath>          // Include the cmath library for pow()
+#include "robot_config.h"
 #include "utils.h"
 #include "navigation.h"
 #include "autontasks.h"
+#include <cmath>
 
-using namespace vex;
-
-// Joystick deadzone threshold (prevent drift)
+// Joystick deadzone threshold — inputs below this magnitude are treated as zero
 static int deadzoneThreshold = 20;
 
-// Filters out small joystick movements within deadzone
-int applyDeadzone(int value)
-{
-    if (abs(value) < deadzoneThreshold)
-    {
+// Filters out small joystick movements within the deadzone to prevent motor drift
+int applyDeadzone(int value) {
+    if (abs(value) < deadzoneThreshold) {
         return 0;
     }
     return value;
 }
 
-// Custom exponential curve function (tunable)
+// Applies an exponential response curve to a joystick input.
+// exponent > 1 gives finer low-speed control; 1.0 = linear, 2.0 = squared.
 int applyCustomCurve(int input, double exponent) {
     if (input == 0) return 0;
     int sign = (input > 0) ? 1 : -1;
     return sign * (int)(pow(abs(input) / 100.0, exponent) * 100);
 }
 
-// Main driver control function
-void driverControl()
-{
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN DRIVER CONTROL
+// Split-arcade steering; R1/R2/L2 = intake/score; L1 = match-load piston;
+// Y = wings; A = rudder toggle; Right = outtake.
+// ══════════════════════════════════════════════════════════════════════════════
+void driverControl() {
     initializeOpticalSensor();
-    rudderPneumatics.set(true);
-    leftLaneOptical.setLightPower(100, percent);
-    leftLaneOptical.setLight(vex::ledState::on);
-    rightLaneOptical.setLightPower(100, percent);
-    rightLaneOptical.setLight(vex::ledState::on);
-    //headingDisplayParams.isRunning = false;
 
-    // Motor power arrays for 3 motors per side
-    double motorPowerLeft[3] = {0};
+    // Ensure rudder is in default position and optical LEDs are on at full brightness
+    rudderPneumatics.set_value(true);
+    leftLaneOptical.set_led_pwm(100);   // turn LED on at 100% power
+    rightLaneOptical.set_led_pwm(100);
+
+    // Motor power arrays (one entry per motor per side)
+    double motorPowerLeft[3]  = {0};
     double motorPowerRight[3] = {0};
 
-    // Button state tracking (prevents multiple triggers per press)
-    bool wasAPressed = false;
-    bool wasR1Pressed = false;
-    bool wasR2Pressed = false;
-    bool wasL1Pressed = false;
-    bool wasL2Pressed = false;
-    bool wasXPressed = false;
-    bool wasRightPressed = false;
-    bool wasYPressed = false;
-    bool wasUpPressed = false;
-    bool wasDownPressed = false;
-    
-    // Intake control flags
-    bool spinForInProgress = false;  // Tracks if timed motor movement is running
-    bool isMatchLoadPneumaticsActive = false;
-    bool isLeftGateOpen = true;
-    bool rudderOpen = true;
-    bool intakeRunning = false;
-    int intakeDirection = 0;  // 1=forward, -1=reverse, 0=off
-    // Consecutive detection counters for Octoball colour sort.
-// Declared here so they persist across loop cycles but reset each new match.
-int redConsecutive  = 0;
-int blueConsecutive = 0;
+    // Pneumatic toggle states (DigitalOut::get_value() is private in PROS 4)
+    bool wingState   = false;
+    bool rudderState = false;
 
-// Consecutive reads required before rudder fires (~40ms at 20ms loop rate).
-// Tune up to 3 if false triggers occur, down to 1 if detections are missed.
-const int REQUIRED_CONSECUTIVE = 1;
-    leftGatePneumatics.set(true);   
-    rightGatePneumatics.set(true);   
+    // Button edge-detection flags — prevent repeated triggers on a single held press
+    bool wasAPressed     = false;
+    bool wasR1Pressed    = false;
+    bool wasR2Pressed    = false;
+    bool wasL1Pressed    = false;
+    bool wasL2Pressed    = false;
+    bool wasXPressed     = false;
+    bool wasRightPressed = false;
+    bool wasYPressed     = false;
+    bool wasUpPressed    = false;
+    bool wasDownPressed  = false;
+
+    // Intake control state
+    bool spinForInProgress          = false;  // true while a timed motor burst is running
+    bool isMatchLoadPneumaticsActive = false;
+    bool isLeftGateOpen             = true;
+    bool rudderOpen                 = true;
+    bool intakeRunning              = false;
+    int  intakeDirection            = 0;  // 1=forward, -1=reverse, 0=off
+
+    // Consecutive-read counters for Octoball colour sort.
+    // Persists across loop iterations; resets are handled inside the R1 block.
+    int redConsecutive  = 0;
+    int blueConsecutive = 0;
+
+    // Consecutive reads required before the rudder fires (~20 ms at 20 ms loop rate).
+    // Tune up to 3 if false triggers occur, down to 1 if detections are missed.
+    const int REQUIRED_CONSECUTIVE = 1;
+
+    // Close both lane gates at start (all balls travel through the full path)
+    leftGatePneumatics.set_value(true);
+    rightGatePneumatics.set_value(true);
 
     int maxSpeed = 100;
 
-    while (true)
-    {
-        /*
-        int targetPowerLeft = applyDeadzone(Controller.Axis3.position());
-        int targetPowerRight = applyDeadzone(Controller.Axis2.position());
-        double scaleFactor = pow(0.55, abs(targetPowerLeft - targetPowerRight) / (double)maxSpeed);
-        double targetSpeedLeft = ((targetPowerLeft * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
-        double targetSpeedRight = ((targetPowerRight * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
-        motorPowerLeft[0] = targetSpeedLeft;
-        motorPowerLeft[1] = targetSpeedLeft;
-        motorPowerLeft[2] = targetSpeedLeft;
-        motorPowerRight[0] = targetSpeedRight;
-        motorPowerRight[1] = targetSpeedRight;
-        motorPowerRight[2] = targetSpeedRight;
-        */
+    while (true) {
+        // ─────────────────────────────────────────────────────────────────────
+        // DRIVE  —  split-arcade with exponential curve
+        // ─────────────────────────────────────────────────────────────────────
 
-        // Drive curve exponents (tune based on driver preference)
-        const double DRIVE_EXPONENT =2.0;  // 1.0=linear, 1.5=mild, 2.0=squared, 2.5=aggressive precision
-        const double TURN_EXPONENT = 1.5;   // Separate tuning for turn if desired
+        // Curve exponents (tune to driver preference)
+        const double DRIVE_EXPONENT = 2.0;  // 1.0=linear, 2.0=squared
+        const double TURN_EXPONENT  = 1.5;  // separate tuning for turning feel
 
-        // Get joystick values with deadzone applied
-        int forward = applyDeadzone(Controller.Axis3.position());  // Left stick Y (forward/back)
-        int turn = applyDeadzone(Controller.Axis1.position());     // Right stick X (turn)
+        // Read joystick axes and apply deadzone
+        int forward = applyDeadzone(Controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y));   // left stick Y
+        int turn    = applyDeadzone(Controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X));  // right stick X
 
-        // Apply custom curve to both axes
+        // Apply response curve to both axes
         forward = applyCustomCurve(forward, DRIVE_EXPONENT);
-        turn = applyCustomCurve(turn, TURN_EXPONENT);
+        turn    = applyCustomCurve(turn, TURN_EXPONENT);
 
-        // Calculate motor powers for split arcade
-        int targetPowerLeft = forward + turn;
+        // Split-arcade mixing: forward ± turn for each side
+        int targetPowerLeft  = forward + turn;
         int targetPowerRight = forward - turn;
 
-        // Clamp to [-100, 100] to prevent overflow
-        if (targetPowerLeft > 100) targetPowerLeft = 100;
-        if (targetPowerLeft < -100) targetPowerLeft = -100;
-        if (targetPowerRight > 100) targetPowerRight = 100;
+        // Clamp to [-100, 100] to prevent overflow after mixing
+        if (targetPowerLeft  >  100) targetPowerLeft  =  100;
+        if (targetPowerLeft  < -100) targetPowerLeft  = -100;
+        if (targetPowerRight >  100) targetPowerRight =  100;
         if (targetPowerRight < -100) targetPowerRight = -100;
 
-        // Convert joystick percent to motor speed (cm/s)
-        double targetSpeedLeft = (targetPowerLeft / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
+        // Convert joystick percent to motor speed (cm/s).
+        // Constants are tuned so this stays within the ±100 pct range.
+        double targetSpeedLeft  = (targetPowerLeft  / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
         double targetSpeedRight = (targetPowerRight / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
 
-        // Apply speeds to all motors
-        // Apply speeds to all motors
-        motorPowerLeft[0] = targetSpeedLeft;
-        motorPowerLeft[1] = targetSpeedLeft;
-        motorPowerLeft[2] = targetSpeedLeft;
+        // Broadcast the same speed to all three motors on each side
+        motorPowerLeft[0]  = targetSpeedLeft;
+        motorPowerLeft[1]  = targetSpeedLeft;
+        motorPowerLeft[2]  = targetSpeedLeft;
         motorPowerRight[0] = targetSpeedRight;
         motorPowerRight[1] = targetSpeedRight;
         motorPowerRight[2] = targetSpeedRight;
 
-/*
-// Convert joystick percent to motor speed (cm/s)
-        double targetSpeedLeft = ((targetPowerLeft * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
-        double targetSpeedRight = ((targetPowerRight * scaleFactor) / 100.0) * absoluteMaxRPM * wheelCircumferenceCM / 60.0;
+        // ─────────────────────────────────────────────────────────────────────
+        // BUTTON R1  —  normal intake with colour-sort
+        // ─────────────────────────────────────────────────────────────────────
+        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+            // Octoball is 8-sided — a single hue read can land on a facet edge and
+            // return noise. Requiring consecutive reads before firing the rudder
+            // filters edge-reads without adding meaningful delay.
+            // Counters reset only when the lane is confirmed empty so stale counts
+            // don't carry over between balls.
+            double leftHue  = leftLaneOptical.get_hue();
+            double rightHue = rightLaneOptical.get_hue();
 
-       
-        // ADDED: Deceleration ramping to prevent tipping
-        static double currentSpeedLeft = 0;
-        static double currentSpeedRight = 0;
-        const double DECEL_RATE = 0.50;              // Normal deceleration (0.3=slow/safe, 0.5=balanced, 0.8=fast/responsive)
-        const double DIRECTION_CHANGE_RATE = 0.25;    // Direction reversal rate (0.15=very safe, 0.25=balanced, 0.45=quick)
-        const double NEAR_ZERO_THRESHOLD = 12;        // Speed to allow direction change (5=lenient, 12=balanced, 20=strict)
+            // Red wraps near 0°/360° — needs two detection bands
+            bool redThisCycle =
+                ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
+                 (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
+                ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
+                 (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
 
-        // Detect direction changes
-        bool leftDirChange = (targetSpeedLeft * currentSpeedLeft < 0) && (fabs(currentSpeedLeft) > NEAR_ZERO_THRESHOLD);
-        bool rightDirChange = (targetSpeedRight * currentSpeedRight < 0) && (fabs(currentSpeedRight) > NEAR_ZERO_THRESHOLD);
+            // Blue sits mid-wheel (~215–225°) — one band only
+            bool blueThisCycle =
+                (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
+                (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
 
-        // Apply ramping (decel only)
-        if (leftDirChange) {
-            currentSpeedLeft += (0 - currentSpeedLeft) * DIRECTION_CHANGE_RATE;
-        } else if (fabs(targetSpeedLeft) < fabs(currentSpeedLeft)) {
-            currentSpeedLeft += (targetSpeedLeft - currentSpeedLeft) * DECEL_RATE;
-        } else {
-            currentSpeedLeft = targetSpeedLeft;
-        }
-
-        if (rightDirChange) {
-            currentSpeedRight += (0 - currentSpeedRight) * DIRECTION_CHANGE_RATE;
-        } else if (fabs(targetSpeedRight) < fabs(currentSpeedRight)) {
-            currentSpeedRight += (targetSpeedRight - currentSpeedRight) * DECEL_RATE;
-        } else {
-            currentSpeedRight = targetSpeedRight;
-        }
-
-        if (fabs(targetSpeedLeft - currentSpeedLeft) < 2) currentSpeedLeft = targetSpeedLeft;
-        if (fabs(targetSpeedRight - currentSpeedRight) < 2) currentSpeedRight = targetSpeedRight;
-
-        // Apply ramped speeds to all motors
-        motorPowerLeft[0] = currentSpeedLeft;
-        motorPowerLeft[1] = currentSpeedLeft;
-        motorPowerLeft[2] = currentSpeedLeft;
-        motorPowerRight[0] = currentSpeedRight;
-        motorPowerRight[1] = currentSpeedRight;
-        motorPowerRight[2] = currentSpeedRight;
-
-        */
-
-        // ==================== BUTTON R1: NORMAL INTAKE ====================
-        //LEFT LANE FOR BLUE RIGHT LANE FOR RRED
-        if (Controller.ButtonR1.pressing()){
-
-    // Octoball is 8-sided — a single hue read can land on a facet edge and
-    // return noise. Requiring consecutive reads in range before firing the
-    // rudder filters edge-reads without adding meaningful delay.
-    // isNearObject() resets counters only when the lane is confirmed empty
-    // so stale counts don't carry over between balls.
-    double leftHue  = leftLaneOptical.hue();
-    double rightHue = rightLaneOptical.hue();
-
-    // Red wraps around 0° so it needs two bands (near 360° and near 0°)
-    bool redThisCycle  = ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) || (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
-                         ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) || (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
-
-    // Blue sits mid-wheel (~215-225°) — one range only
-    bool blueThisCycle = (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
-                         (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
-
-    // Increment the matching colour counter, reset the opposite
-    if (redThisCycle) {
-        redConsecutive++;
-        blueConsecutive = 0;
-    } else if (blueThisCycle) {
-        blueConsecutive++;
-        redConsecutive = 0;
-    } else {
-        // Neither colour in range — reset counters only when lane is empty
-        if (!leftLaneOptical.isNearObject() && !rightLaneOptical.isNearObject()) {
-            redConsecutive  = 0;
-            blueConsecutive = 0;
-        }
-    }
-
-    // Debug: show live hue values on brain screen
-    Brain.Screen.printAt(10, 30, "L:%.0f R:%.0f          ", leftHue, rightHue);
-
-    // Fire rudder after REQUIRED_CONSECUTIVE confirms colour (2 × 20ms = ~40ms)
-    if (redConsecutive >= REQUIRED_CONSECUTIVE) {
-        rudderPneumatics.set(true);   // Right lane
-        redConsecutive = 0;
-        Brain.Screen.printAt(10, 50, "RED  L:%.0f R:%.0f          ", leftHue, rightHue);
-    } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
-        rudderPneumatics.set(false);  // Left lane
-        blueConsecutive = 0;
-        Brain.Screen.printAt(10, 50, "BLUE L:%.0f R:%.0f          ", leftHue, rightHue);
-    }
-        
-            // Only set pneumatics ONCE when button is first pressed (not every frame)
-            if (!wasR1Pressed)
-            {
-    
-                frontHoodPneumatics.set(false);     // Close front hood for intake
-                ptoPneumatics.set(false);
-                wasR1Pressed = true;               // Mark that we've handled the press
+            // Increment matching colour counter; reset the opposite
+            if (redThisCycle) {
+                redConsecutive++;
+                blueConsecutive = 0;
+            } else if (blueThisCycle) {
+                blueConsecutive++;
+                redConsecutive = 0;
+            } else {
+                // Reset counters only when the lane is confirmed empty
+                bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
+                bool nearRight = rightLaneOptical.get_proximity() > 50;
+                if (!nearLeft && !nearRight) {
+                    redConsecutive  = 0;
+                    blueConsecutive = 0;
+                }
             }
+
+            // Debug: show live hue readings on the Brain screen
+            pros::screen::print(pros::E_TEXT_SMALL, 1, "L:%.0f R:%.0f          ", leftHue, rightHue);
+
+            // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
+            if (redConsecutive >= REQUIRED_CONSECUTIVE) {
+                rudderPneumatics.set_value(true);   // route to right lane
+                redConsecutive = 0;
+                pros::screen::print(pros::E_TEXT_SMALL, 2, "RED  L:%.0f R:%.0f          ", leftHue, rightHue);
+            } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
+                rudderPneumatics.set_value(false);  // route to left lane
+                blueConsecutive = 0;
+                pros::screen::print(pros::E_TEXT_SMALL, 2, "BLUE L:%.0f R:%.0f          ", leftHue, rightHue);
+            }
+
+            // Configure pneumatics only once on the initial press (not every frame)
+            if (!wasR1Pressed) {
+                frontHoodPneumatics.set_value(false);  // close front hood for intake
+                ptoPneumatics.set_value(false);
+                wasR1Pressed = true;
+            }
+
             spinForInProgress = false;
-            intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
-        }
-        else
-        {
-            if (wasR1Pressed)
-            {
-                intakeMotor1.stop();
-                intakeMotor2.stop();
+            intakeMotor1.move_voltage(12000);   // full forward voltage
+            intakeMotor2.move_voltage(12000);
+        } else {
+            // Button released — stop intake motors
+            if (wasR1Pressed) {
+                intakeMotor1.move(0);
+                intakeMotor2.move(0);
                 wasR1Pressed = false;
             }
         }
-        /*// ==================== BUTTON RIGHT: REVERSE INTAKE ====================
-        // Eject cubes without changing hood position
-        if (Controller.ButtonRight.pressing())
-        {
-            spinForInProgress = false;
-            intakeMotor1.spin(vex::reverse, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(vex::reverse, 12, vex::voltageUnits::volt);
-        }
-        // Stop intake motors when no intake buttons pressed (and no other intake active)
-        else
-        {
-            if ((wasR1Pressed || !spinForInProgress) && !Controller.ButtonR2.pressing() && 
-                !Controller.ButtonL2.pressing() && !Controller.ButtonL1.pressing())
-            {
-                intakeMotor1.stop();
-                intakeMotor2.stop();
-            }
-            wasR1Pressed = false;
-        }*/
 
-        // ==================== BUTTON R2: RIGHT LANE SCORE ====================
-        // Close both hoods to trap cubes in launch chamber
-              if (Controller.ButtonR2.pressing())
-        {
-            if (!wasR2Pressed)
-            {
-                frontHoodPneumatics.set(true);      // Open front hood for scoring
-                ptoPneumatics.set(true);            // Engage PTO system
+        // ─────────────────────────────────────────────────────────────────────
+        // BUTTON R2  —  right-lane score
+        // ─────────────────────────────────────────────────────────────────────
+        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
+            if (!wasR2Pressed) {
+                frontHoodPneumatics.set_value(true);  // open front hood for scoring
+                ptoPneumatics.set_value(true);        // engage PTO
                 isLeftGateOpen = true;
-                leftGatePneumatics.set(isLeftGateOpen);
-                rightGatePneumatics.set(!isLeftGateOpen);
-                rudderPneumatics.set(false);
-              
+                leftGatePneumatics.set_value(isLeftGateOpen);
+                rightGatePneumatics.set_value(!isLeftGateOpen);
+                rudderPneumatics.set_value(false);
                 wasR2Pressed = true;
             }
-            
+
             spinForInProgress = false;
-            intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
-            /*if (matchLoadPneumatics){
-                intakeMotor1.spin(vex::forward, 11.5, vex::voltageUnits::volt);
-                intakeMotor2.spin(vex::forward, 11.5, vex::voltageUnits::volt);
-            } else{
-                intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
-                intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
-            }*/
-        }
-        else
-        {
-            if (wasR2Pressed)
-            {          
+            intakeMotor1.move_voltage(12000);
+            intakeMotor2.move_voltage(12000);
+        } else {
+            if (wasR2Pressed) {
                 spinForInProgress = true;
-                intakeMotor1.stop();
-                intakeMotor2.stop();
+                intakeMotor1.move(0);
+                intakeMotor2.move(0);
                 wasR2Pressed = false;
             }
         }
 
-        // ========================= BUTTON RIGHT: OUTTAKE ====================
-        // close front hood, close back hood, run intake in reverse
-        if (Controller.ButtonRight.pressing())
-        {
-            if (!wasRightPressed)
-            {
-                frontHoodPneumatics.set(false);     // Close front hood for outtake
-                ptoPneumatics.set(true);
+        // ─────────────────────────────────────────────────────────────────────
+        // BUTTON RIGHT  —  outtake with alternating lane selection
+        // ─────────────────────────────────────────────────────────────────────
+        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
+            if (!wasRightPressed) {
+                frontHoodPneumatics.set_value(false);  // close front hood for outtake
+                ptoPneumatics.set_value(true);
                 wasRightPressed = true;
 
-                static enum {LANE_LEFT, LANE_RIGHT} currentLane = LANE_LEFT;
-                if (currentLane == LANE_LEFT){
-                    currentLane =  LANE_RIGHT;
+                // Toggle the active lane each time the button is pressed
+                static enum { LANE_LEFT, LANE_RIGHT } currentLane = LANE_LEFT;
+                if (currentLane == LANE_LEFT) {
+                    currentLane = LANE_RIGHT;
                 } else {
                     currentLane = LANE_LEFT;
                 }
 
-                if (currentLane == LANE_LEFT){
-                    leftGatePneumatics.set(false);
-                    rightGatePneumatics.set(true);
+                if (currentLane == LANE_LEFT) {
+                    leftGatePneumatics.set_value(false);
+                    rightGatePneumatics.set_value(true);
                 } else {
-                    leftGatePneumatics.set(true);
-                    rightGatePneumatics.set(false);
+                    leftGatePneumatics.set_value(true);
+                    rightGatePneumatics.set_value(false);
                 }
             }
+
             spinForInProgress = false;
-            intakeMotor1.spin(vex::reverse, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(vex::reverse, 12, vex::voltageUnits::volt);
-        }
-        else
-        {
-            if (wasRightPressed)
-            {
-                intakeMotor1.stop();
-                intakeMotor2.stop();
+            intakeMotor1.move_voltage(-12000);  // full reverse voltage
+            intakeMotor2.move_voltage(-12000);
+        } else {
+            if (wasRightPressed) {
+                intakeMotor1.move(0);
+                intakeMotor2.move(0);
                 wasRightPressed = false;
             }
         }
 
-// ==================== BUTTON L2: LEFT LANE SCORE ====================
-        // Press L1 to toggle between left and right lanes
-        // Must hold L1 to keep gate open - releasing closes all gates
-        
-        if (Controller.ButtonL2.pressing())
-        {
-            // On first press of L1, toggle to next lane
-            if (!wasL2Pressed)
-            {
-                frontHoodPneumatics.set(true);      // Open front hood for scoring
-                ptoPneumatics.set(true);            // Engage PTO system
-                isLeftGateOpen = false;        // Toggle lane selection
-                leftGatePneumatics.set(isLeftGateOpen);
-                rightGatePneumatics.set(!isLeftGateOpen);
-                rudderPneumatics.set(true);
-
-              
+        // ─────────────────────────────────────────────────────────────────────
+        // BUTTON L2  —  left-lane score
+        // ─────────────────────────────────────────────────────────────────────
+        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+            if (!wasL2Pressed) {
+                frontHoodPneumatics.set_value(true);  // open front hood for scoring
+                ptoPneumatics.set_value(true);        // engage PTO
+                isLeftGateOpen = false;
+                leftGatePneumatics.set_value(isLeftGateOpen);
+                rightGatePneumatics.set_value(!isLeftGateOpen);
+                rudderPneumatics.set_value(true);
                 wasL2Pressed = true;
             }
-            
-            // While L1 is held, keep intake running
+
+            // While held, keep intake running
             spinForInProgress = false;
-            intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
-            /*if (matchLoadPneumatics){
-                intakeMotor1.spin(vex::forward, 11.5, vex::voltageUnits::volt);
-                intakeMotor2.spin(vex::forward, 11.5, vex::voltageUnits::volt);
-            } else{
-                intakeMotor1.spin(vex::forward, 12, vex::voltageUnits::volt);
-                intakeMotor2.spin(vex::forward, 12, vex::voltageUnits::volt);
-            }*/
-        }
-        else  // L1 button released
-        {
-            // When L1 released, close BOTH gates and stop intake
-            if (wasL2Pressed)
-            {          
+            intakeMotor1.move_voltage(12000);
+            intakeMotor2.move_voltage(12000);
+        } else {
+            if (wasL2Pressed) {
                 spinForInProgress = true;
-                intakeMotor1.stop();
-                intakeMotor2.stop();
+                intakeMotor1.move(0);
+                intakeMotor2.move(0);
                 wasL2Pressed = false;
             }
         }
 
-        // ==================== BUTTON L2: MATCH LOAD TOGGLE ====================
-        // Toggle match load pneumatics and intake motors together
-        if (Controller.ButtonL1.pressing())
-        {
-            if (!wasL1Pressed)
-            {
+        // ─────────────────────────────────────────────────────────────────────
+        // BUTTON L1  —  match-load piston toggle
+        // ─────────────────────────────────────────────────────────────────────
+        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
+            if (!wasL1Pressed) {
                 isMatchLoadPneumaticsActive = !isMatchLoadPneumaticsActive;
-                matchLoadPneumatics.set(isMatchLoadPneumaticsActive);
-                                
-                if (isMatchLoadPneumaticsActive)
-                {
-                    // Pneumatic extended - start intake
-                    //intakeMotor1.spin(reverse, 12, vex::voltageUnits::volt);
-                    //intakeMotor2.spin(reverse, 12, vex::voltageUnits::volt);
-                }
-                else
-                {
-                    // Pneumatic retracted - stop intake
-                    //intakeMotor1.stop();
-                    //intakeMotor2.stop();
-                    //intakeDirection = 0;
-                    //intakeRunning = false;
-                }
-                
+                matchLoadPneumatics.set_value(isMatchLoadPneumaticsActive);
                 wasL1Pressed = true;
             }
-        }
-        else
-        {
+        } else {
             wasL1Pressed = false;
         }
 
-        /*// ==================== BUTTON X : JUSTIN YUEH SPECIAL BUTTON ====================
-        //all in
-        if (Controller.ButtonX.pressing())
-        {
-            if (!wasXPressed)
-            {
-                frontHoodPneumatics.set(true);      // open everything
-                backHoodPneumatics.set(true);       
-                matchLoadPneumatics.set(true);      
-                wasXPressed = true;
-            }
-            
-            spinForInProgress = false;
-            intakeMotor1.spin(forward, 12, vex::voltageUnits::volt);
-            intakeMotor2.spin(forward, 12, vex::voltageUnits::volt);
-            leftMotor[0].spin(forward, 12, vex::voltageUnits::volt);
-            leftMotor[1].spin(forward, 12, vex::voltageUnits::volt);
-            leftMotor[2].spin(forward, 12, vex::voltageUnits::volt);
-            rightMotor[0].spin(forward, 12, vex::voltageUnits::volt);
-            rightMotor[1].spin(forward, 12, vex::voltageUnits::volt);
-            rightMotor[2].spin(forward, 12, vex::voltageUnits::volt);
-        }
-        else
-        {
-            if (wasXPressed)
-            {
-                intakeMotor1.stop();
-                intakeMotor2.stop();
-                leftMotor[0].stop();
-                leftMotor[1].stop();
-                leftMotor[2].stop();
-                rightMotor[0].stop();
-                rightMotor[1].stop();
-                rightMotor[2].stop();
-                wasXPressed = false;
-            }
-        }*/
-
-        // ==================== BUTTON Y : WING TOGGLE ====================
-        if (Controller.ButtonY.pressing())
-        {
-            if (!wasYPressed)
-            {
-                wingPneumatics.set(!wingPneumatics.value()); // Toggle wing pneumatics
+        // ─────────────────────────────────────────────────────────────────────
+        // BUTTON Y  —  wing toggle
+        // ─────────────────────────────────────────────────────────────────────
+        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
+            if (!wasYPressed) {
+                wingState = !wingState;
+                wingPneumatics.set_value(wingState);  // toggle
                 wasYPressed = true;
             }
-        }
-        else
-        {
+        } else {
             wasYPressed = false;
         }
 
-        // ==================== BUTTON A : RUDDER TOGGLE ====================
-        if (Controller.ButtonA.pressing())
-        {
-            if (!wasAPressed)
-            {
-                rudderPneumatics.set(!rudderPneumatics.value()); // Toggle wing pneumatics
+        // ─────────────────────────────────────────────────────────────────────
+        // BUTTON A  —  rudder toggle
+        // ─────────────────────────────────────────────────────────────────────
+        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
+            if (!wasAPressed) {
+                rudderState = !rudderState;
+                rudderPneumatics.set_value(rudderState);  // toggle
                 wasAPressed = true;
             }
-        }
-        else
-        {
+        } else {
             wasAPressed = false;
         }
 
-        // ==================== APPLY DRIVE MOTOR POWERS ====================
-        LeftMotor1.spin(vex::forward, motorPowerLeft[0], vex::velocityUnits::pct);
-        RightMotor1.spin(vex::forward, motorPowerRight[0], vex::velocityUnits::pct);
+        // ─────────────────────────────────────────────────────────────────────
+        // APPLY DRIVE MOTOR POWERS
+        // Convert pct → mV: multiply by 120 to map [-100, 100] to [-12000, 12000]
+        // ─────────────────────────────────────────────────────────────────────
+        LeftMotor1.move_voltage(static_cast<int32_t>(motorPowerLeft[0]  * 120.0));
+        RightMotor1.move_voltage(static_cast<int32_t>(motorPowerRight[0] * 120.0));
 
-        LeftMotor2.spin(vex::forward, motorPowerLeft[1], vex::velocityUnits::pct);
-        RightMotor2.spin(vex::forward, motorPowerRight[1], vex::velocityUnits::pct);
+        LeftMotor2.move_voltage(static_cast<int32_t>(motorPowerLeft[1]  * 120.0));
+        RightMotor2.move_voltage(static_cast<int32_t>(motorPowerRight[1] * 120.0));
 
-        LeftMotor3.spin(vex::forward, motorPowerLeft[2], vex::velocityUnits::pct);
-        RightMotor3.spin(vex::forward, motorPowerRight[2], vex::velocityUnits::pct);
+        LeftMotor3.move_voltage(static_cast<int32_t>(motorPowerLeft[2]  * 120.0));
+        RightMotor3.move_voltage(static_cast<int32_t>(motorPowerRight[2] * 120.0));
 
-        // Loop delay (20ms = 50Hz update rate)
-        task::sleep(20);
+        // 20 ms loop delay → 50 Hz update rate
+        pros::delay(20);
     }
 }
 
-// ==================== SIMPLE TANK DRIVE TEST FUNCTION ====================
-// Basic tank steering with no curves, ramping, or special features
-// Left stick controls left side, right stick controls right side
-// Direct 0-100% power mapping for testing and tuning
-void driverControlTankTest()
-{
-    // Main driver loop runs continuously during driver control period
-    while (true)
-    {
-        // Read left joystick Y-axis for left side motors (forward/backward)
-        // Axis3 returns -100 to +100 where positive is forward
-        int leftPower = Controller.Axis3.position();
-        
-        // Read right joystick Y-axis for right side motors (forward/backward)
-        // Axis2 returns -100 to +100 where positive is forward
-        int rightPower = Controller.Axis2.position();
-        
-        // Apply deadzone to prevent motor drift from joystick noise
-        // Small joystick values (±20) are treated as zero
-        if (abs(leftPower) < deadzoneThreshold)
-        {
-            leftPower = 0;
-        }
-        if (abs(rightPower) < deadzoneThreshold)
-        {
-            rightPower = 0;
-        }
-        
-        // Send power directly to all left side motors
-        // All three motors spin together as one unit
-        LeftMotor1.spin(vex::forward, leftPower, vex::velocityUnits::pct);
-        LeftMotor2.spin(vex::forward, leftPower, vex::velocityUnits::pct);
-        LeftMotor3.spin(vex::forward, leftPower, vex::velocityUnits::pct);
-        
-        // Send power directly to all right side motors
-        // All three motors spin together as one unit
-        RightMotor1.spin(vex::forward, rightPower, vex::velocityUnits::pct);
-        RightMotor2.spin(vex::forward, rightPower, vex::velocityUnits::pct);
-        RightMotor3.spin(vex::forward, rightPower, vex::velocityUnits::pct);
-        
-        
-        // Wait 20 milliseconds before next loop iteration
-        // This creates a 50Hz update rate for smooth motor control
-        task::sleep(10);
+// ══════════════════════════════════════════════════════════════════════════════
+// TANK DRIVE TEST
+// Basic tank steering: left stick = left side, right stick = right side.
+// No curves, ramping, or mechanism bindings — used for testing and tuning.
+// ══════════════════════════════════════════════════════════════════════════════
+void driverControlTankTest() {
+    while (true) {
+        // Axis3 = left stick Y (forward/back); Axis2 = right stick Y
+        int leftPower  = Controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+        int rightPower = Controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+
+        // Apply deadzone — values within ±threshold are treated as zero
+        if (abs(leftPower)  < deadzoneThreshold) leftPower  = 0;
+        if (abs(rightPower) < deadzoneThreshold) rightPower = 0;
+
+        // Send power directly to all left-side motors (pct → mV)
+        LeftMotor1.move_voltage(leftPower * 120);
+        LeftMotor2.move_voltage(leftPower * 120);
+        LeftMotor3.move_voltage(leftPower * 120);
+
+        // Send power directly to all right-side motors
+        RightMotor1.move_voltage(rightPower * 120);
+        RightMotor2.move_voltage(rightPower * 120);
+        RightMotor3.move_voltage(rightPower * 120);
+
+        // 10 ms delay → 100 Hz update rate
+        pros::delay(10);
     }
 }

@@ -1,734 +1,586 @@
-#include "robot_config.h"
-#include <atomic> 
-#include "utils.h"
-#include "vex.h"
-#include "odometry.h"
 #include "autontasks.h"
+#include "robot_config.h"
+#include "utils.h"
+#include "odometry.h"
+#include <atomic>
 #include <cmath>
 
-using namespace vex;
-
-// Heading display task for controller
+// ──────────────────────────────────────────────────────────────────────────────
+// GLOBALS
+// ──────────────────────────────────────────────────────────────────────────────
 
 HeadingDisplayParams headingDisplayParams = {false};
 
-// Global variables for display - navigation functions update these
-double g_targetDistance = 0.0;  // tgtD - target distance in cm
-double g_targetHeading = 0.0;   // tgtH - target heading in degrees
+// Written by motion functions; read by the display tasks.
+double g_targetDistance = 0.0;  // current nav target distance (cm)
+double g_targetHeading  = 0.0;  // current nav target heading (degrees)
 
-// ===== SHARED TASK STRUCTURE =====
+// ──────────────────────────────────────────────────────────────────────────────
+// SHARED ASYNC TASK STATE
+// Each async group stores its timing/power params plus a running flag.
+// Tasks are self-terminating via the flag — no handle storage needed.
+// ──────────────────────────────────────────────────────────────────────────────
 struct AsyncTaskParams {
     std::atomic<bool> running{false};
-    double timeMs = 0;
+    double timeMs  = 0;
     double delayMs = 0;
-    double power = 100;
-    vex::task handle;
+    double power   = 100;
 };
 
-// ===== INTAKE HOPPER TASK (motors + hood) =====
+// ══════════════════════════════════════════════════════════════════════════════
+// INTAKE HOPPER TASK  (intake motors + front hood)
+// ══════════════════════════════════════════════════════════════════════════════
 static AsyncTaskParams intakeHopperParams;
 
-int intakeHopperTask(void*) {
+void intakeHopperTask(void*) {
     intakeHopperParams.running.store(true);
 
+    // Honor optional start delay before doing anything
     if (intakeHopperParams.delayMs > 0) {
-        vex::task::sleep(intakeHopperParams.delayMs);
+        pros::delay(static_cast<uint32_t>(intakeHopperParams.delayMs));
     }
 
-    // Set hood positions for intake
-    frontHoodPneumatics.set(false);   // Close front hood
+    frontHoodPneumatics.set_value(false);  // close front hood for intake
 
-    vex::timer t;
-    double voltage = intakeHopperParams.power / 8.34;
+    // Convert power % to millivolts (100 % ≈ 12 V, so /8.34 gives volts × 1000 = mV)
+    int32_t  voltage   = static_cast<int32_t>((intakeHopperParams.power / 8.34) * 1000);
+    uint32_t startTime = pros::millis();
 
-    while (intakeHopperParams.running.load() && t.time(msec) < intakeHopperParams.timeMs) {
-        intakeMotor1.spin(forward, voltage, voltageUnits::volt);
-        intakeMotor2.spin(forward, voltage, voltageUnits::volt);
-        vex::task::sleep(10);
+    // Spin intake motors for the requested duration, or until stopped externally
+    while (intakeHopperParams.running.load() &&
+           pros::millis() - startTime < static_cast<uint32_t>(intakeHopperParams.timeMs)) {
+        intakeMotor1.move_voltage(voltage);
+        intakeMotor2.move_voltage(voltage);
+        pros::delay(10);
     }
 
-    intakeMotor1.stop();
-    intakeMotor2.stop();
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
     intakeHopperParams.running.store(false);
-    return 0;
 }
 
 void intakeHopperStart(double timeMs, double power, double delayMs, bool async) {
+    // Stop any previous instance before starting a new one
     if (intakeHopperParams.running.load()) {
         intakeHopperParams.running.store(false);
-        vex::task::sleep(20);
+        pros::delay(20);
     }
-    intakeHopperParams.timeMs = timeMs;
-    intakeHopperParams.power = power;
+    intakeHopperParams.timeMs  = timeMs;
+    intakeHopperParams.power   = power;
     intakeHopperParams.delayMs = delayMs;
-    
+
     if (async) {
-        intakeHopperParams.handle = vex::task(intakeHopperTask, nullptr);
+        pros::Task(intakeHopperTask, nullptr, "intakeHopper");  // launch background task; self-terminates via flag
     } else {
-        intakeHopperTask(nullptr);
+        intakeHopperTask(nullptr);     // blocking: run on the calling task
     }
 }
 
 void intakeHopperStop() {
     intakeHopperParams.running.store(false);
-    intakeMotor1.stop();
-    intakeMotor2.stop();
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
 }
 
-// ===== MATCHLOAD TASK (motors + hood + matchload pneumatic) =====
+// ══════════════════════════════════════════════════════════════════════════════
+// MATCHLOAD TASK  (intake motors + front hood + match-load piston)
+// ══════════════════════════════════════════════════════════════════════════════
 static AsyncTaskParams matchloadParams;
-static double matchloadRetractDelay = 200;  // ms delay before retracting pneumatic
+static double matchloadRetractDelay = 200;  // ms to hold piston before retracting
 
-int matchloadTask(void*) {
+void matchloadTask(void*) {
     matchloadParams.running.store(true);
 
+    // Honor optional start delay
     if (matchloadParams.delayMs > 0) {
-        vex::task::sleep(matchloadParams.delayMs);
+        pros::delay(static_cast<uint32_t>(matchloadParams.delayMs));
     }
 
-    // Set hood positions for intake
-    frontHoodPneumatics.set(false);   // Close front hood
+    frontHoodPneumatics.set_value(false);  // close front hood for intake
 
-    // Start intake
-    vex::timer t;
-    double voltage = matchloadParams.power / 8.34;
-    intakeMotor1.spin(forward, voltage, voltageUnits::volt);
-    intakeMotor2.spin(forward, voltage, voltageUnits::volt);
+    int32_t voltage = static_cast<int32_t>((matchloadParams.power / 8.34) * 1000);
 
-    // Then extend matchload pneumatic
-    matchLoadPneumatics.set(true);
+    // Begin spinning the intake and drop the match-load piston simultaneously
+    intakeMotor1.move_voltage(voltage);
+    intakeMotor2.move_voltage(voltage);
+    matchLoadPneumatics.set_value(true);
 
-    while (matchloadParams.running.load() && t.time(msec) < matchloadParams.timeMs) {
-        vex::task::sleep(10);
-        /*static enum {LANE_LEFT, LANE_RIGHT}{
-            if ()
-            {
-                
-            }
-            
-        }*/
-        intakeMotor1.spin(forward, voltage, voltageUnits::volt);
-        intakeMotor2.spin(forward, voltage, voltageUnits::volt);
+    uint32_t startTime = pros::millis();
+    while (matchloadParams.running.load() &&
+           pros::millis() - startTime < static_cast<uint32_t>(matchloadParams.timeMs)) {
+        pros::delay(10);
+        // Continuously command voltage to guard against the motor's internal timeout
+        intakeMotor1.move_voltage(voltage);
+        intakeMotor2.move_voltage(voltage);
     }
 
-    // Stop intake first
-    intakeMotor1.stop();
-    intakeMotor2.stop();
-
-    // Delay then retract pneumatic
-    vex::task::sleep(matchloadRetractDelay);
-    matchLoadPneumatics.set(false);
+    // Stop intake first, then retract piston after a brief hold
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
+    pros::delay(static_cast<uint32_t>(matchloadRetractDelay));
+    matchLoadPneumatics.set_value(false);
 
     matchloadParams.running.store(false);
-    return 0;
 }
 
 void matchloadStart(double timeMs, double power, double delayMs, bool async) {
     if (matchloadParams.running.load()) {
         matchloadParams.running.store(false);
-        vex::task::sleep(20);
+        pros::delay(20);
     }
-    matchloadParams.timeMs = timeMs;
-    matchloadParams.power = power;
+    matchloadParams.timeMs  = timeMs;
+    matchloadParams.power   = power;
     matchloadParams.delayMs = delayMs;
-    
+
     if (async) {
-        matchloadParams.handle = vex::task(matchloadTask, nullptr);
+        pros::Task(matchloadTask, nullptr, "matchload");
     } else {
         matchloadTask(nullptr);
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// LEGACY BLOCKING INTAKE
+// ══════════════════════════════════════════════════════════════════════════════
 
+// Spin intake in reverse for 'time' ms.  pistonState=true opens the front hood.
+void intake(double time, bool pistonState) {
+    frontHoodPneumatics.set_value(pistonState);  // open/close front hood per arg
 
-//intake only
-void intake(double time, bool pistonState) //time in milliseconds, true for pistons, false for no pistons
-{
-    vex::timer intakeTime;
-    intakeTime.reset();
-
-    if (pistonState == true){
-        frontHoodPneumatics.set(true); //opebn front hood
+    uint32_t startTime = pros::millis();
+    while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
+        intakeMotor1.move_voltage(-12000);  // full reverse (12 V)
+        intakeMotor2.move_voltage(-12000);
+        pros::delay(10);
     }
-    else {
-        frontHoodPneumatics.set(false); //no pistons
-    }
-
-    while (intakeTime.time(timeUnits::msec) < time){
-        intakeMotor1.spin(reverse, 12.0, voltageUnits::volt);
-        intakeMotor2.spin(reverse, 12.0, voltageUnits::volt);
-        vex::task::sleep(10);
-    }
-    intakeMotor1.stop();
-    intakeMotor2.stop();
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
 }
 
-//asynchronous intake
+// ══════════════════════════════════════════════════════════════════════════════
+// ASYNC INTAKE TASK  (shared state + optional colour-sort)
+// ══════════════════════════════════════════════════════════════════════════════
 static std::atomic<bool> g_intakeTaskRunning(false);
-static double g_intakeTimeMs = 0;
-static double g_intakePct = 100;
-static bool g_intakePistonState = false;
-static bool g_matchLoadState = false;
-//static Color g_colourDetectionTarget = Color::RED; // colour to detect defaults to RED
-static bool g_enableColourDetection = false;
-static vex::task g_intakeTaskHandle;
+static double g_intakeTimeMs          = 0;
+static double g_intakePct             = 100;
+static bool   g_intakePistonState     = false;
+static bool   g_matchLoadState        = false;
+static bool   g_enableColourDetection = false;
 
-int intakeTaskEntry(void*) {
+void intakeTaskEntry(void*) {
     g_intakeTaskRunning.store(true);
 
-    if (g_matchLoadState) {
-        matchLoadPneumatics.set(true);
-    } else {
-        matchLoadPneumatics.set(false);
-    }
+    // Configure pneumatics per caller's request
+    matchLoadPneumatics.set_value(g_matchLoadState);
+    frontHoodPneumatics.set_value(g_intakePistonState);
 
-    if (g_intakePistonState) {
-        frontHoodPneumatics.set(true);
-    } else {
-        frontHoodPneumatics.set(false);
-    }
+    uint32_t startTime = pros::millis();
+    int32_t  voltage   = static_cast<int32_t>((g_intakePct / 8.34) * 1000);
 
-    vex::timer t;
-    t.reset();
-    double intakeVoltage = g_intakePct / 8.34;
-    // Consecutive detection counters for Octoball colour sort
-int redConsecutive  = 0;
-int blueConsecutive = 0;
-const int REQUIRED_CONSECUTIVE = 2; // Tune up if false triggers, down if misses
-    while (g_intakeTaskRunning.load() && t.time(timeUnits::msec) < g_intakeTimeMs) {
-        intakeMotor1.spin(forward, intakeVoltage, voltageUnits::volt);
-        intakeMotor2.spin(forward, intakeVoltage, voltageUnits::volt);
-
-        // Only run colour sort logic if it has been enabled for this routine
-if (g_enableColourDetection) {
-
+    // Consecutive-read counters for Octoball colour sort (noise rejection).
     // Octoball is 8-sided — a single hue read can land on a facet edge and
-    // return noise. Requiring consecutive reads in range before firing the
-    // rudder filters edge-reads without adding meaningful delay.
-    // isNearObject() resets counters only when the lane is confirmed empty
-    // so stale counts don't carry over between balls.
-    double leftHue  = leftLaneOptical.hue();
-    double rightHue = rightLaneOptical.hue();
+    // return noise.  Requiring N consecutive reads in range before firing the
+    // rudder filters edge-reads without adding meaningful latency.
+    int redConsecutive  = 0;
+    int blueConsecutive = 0;
+    const int REQUIRED_CONSECUTIVE = 2;  // 2 × 10 ms ≈ 20 ms confirmation window
 
-    // Red wraps around 0° so it needs two bands (near 360° and near 0°)
-    bool redThisCycle  = ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) || (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
-                         ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) || (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
+    while (g_intakeTaskRunning.load() &&
+           pros::millis() - startTime < static_cast<uint32_t>(g_intakeTimeMs)) {
+        intakeMotor1.move_voltage(voltage);
+        intakeMotor2.move_voltage(voltage);
 
-    // Blue sits mid-wheel (~215-225°) — one range only
-    bool blueThisCycle = (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
-                         (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
+        // Only run colour sort logic when explicitly enabled for this routine
+        if (g_enableColourDetection) {
+            double leftHue  = leftLaneOptical.get_hue();
+            double rightHue = rightLaneOptical.get_hue();
 
-    // Increment the matching colour counter, reset the opposite
-    if (redThisCycle) {
-        redConsecutive++;
-        blueConsecutive = 0;
-    } else if (blueThisCycle) {
-        blueConsecutive++;
-        redConsecutive = 0;
-    } else {
-        // Neither colour in range — reset counters only when lane is empty
-        if (!leftLaneOptical.isNearObject() && !rightLaneOptical.isNearObject()) {
-            redConsecutive  = 0;
-            blueConsecutive = 0;
+            // Red wraps near 0°/360° on the hue wheel — requires two detection bands
+            bool redThisCycle =
+                ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
+                 (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
+                ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
+                 (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
+
+            // Blue sits mid-wheel (~215–225°) — one band only
+            bool blueThisCycle =
+                (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
+                (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
+
+            // Increment the matching colour counter; reset the opposite
+            if (redThisCycle) {
+                redConsecutive++;
+                blueConsecutive = 0;
+            } else if (blueThisCycle) {
+                blueConsecutive++;
+                redConsecutive = 0;
+            } else {
+                // Neither colour — only reset counters when the lane is confirmed empty
+                // (avoids resetting mid-ball when a facet edge produces a momentary miss)
+                bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
+                bool nearRight = rightLaneOptical.get_proximity() > 50;
+                if (!nearLeft && !nearRight) {
+                    redConsecutive  = 0;
+                    blueConsecutive = 0;
+                }
+            }
+
+            // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
+            if (redConsecutive >= REQUIRED_CONSECUTIVE) {
+                rudderPneumatics.set_value(true);   // route to right lane
+                redConsecutive = 0;
+            } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
+                rudderPneumatics.set_value(false);  // route to left lane
+                blueConsecutive = 0;
+            }
         }
+
+        pros::delay(10);
     }
 
-    // Fire rudder after REQUIRED_CONSECUTIVE confirms colour (2 × 10ms = ~20ms)
-    if (redConsecutive >= REQUIRED_CONSECUTIVE) {
-        rudderPneumatics.set(true);   // Right lane
-        redConsecutive = 0;
-    } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
-        rudderPneumatics.set(false);  // Left lane
-        blueConsecutive = 0;
-    }
-}
-
-        vex::task::sleep(10);
-    }
-
-    //cleanup
-    intakeMotor1.stop();
-    intakeMotor2.stop();
-    frontHoodPneumatics.set(false);
-    matchLoadPneumatics.set(false);
-    ptoPneumatics.set(false);
+    // Cleanup: stop motors and reset all mechanism pneumatics
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
+    frontHoodPneumatics.set_value(false);
+    matchLoadPneumatics.set_value(false);
+    ptoPneumatics.set_value(false);
     g_enableColourDetection = false;
     g_intakeTaskRunning.store(false);
-    return 0;
 }
 
-//asynchronous intake
 void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
-    // if already running, stop previous then start new
-    if (g_intakeTaskRunning.load()) {   
+    // Stop any running intake task before launching a new one
+    if (g_intakeTaskRunning.load()) {
         g_intakeTaskRunning.store(false);
-        vex::task::sleep(20);
+        pros::delay(20);
     }
-    g_intakeTimeMs = timeMs;
+    g_intakeTimeMs      = timeMs;
     g_intakePistonState = pistonState;
-    g_intakePct = intakePct;
-    g_matchLoadState = matchLoad;
-    g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
+    g_intakePct         = intakePct;
+    g_matchLoadState    = matchLoad;
+    pros::Task(intakeTaskEntry, nullptr, "intakeTask");
 }
 
+// Same as intakeStart but enables the colour-sort rudder logic
 void intakeColourStart(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
-    if (g_intakeTaskRunning.load()) {   
+    if (g_intakeTaskRunning.load()) {
         g_intakeTaskRunning.store(false);
-        vex::task::sleep(20);
+        pros::delay(20);
     }
-    g_intakeTimeMs = timeMs;
-    g_intakePistonState = pistonState;
-    g_intakePct = intakePct;
-    g_matchLoadState = matchLoad;
+    g_intakeTimeMs          = timeMs;
+    g_intakePistonState     = pistonState;
+    g_intakePct             = intakePct;
+    g_matchLoadState        = matchLoad;
     g_enableColourDetection = true;
-    g_intakeTaskHandle = vex::task(intakeTaskEntry, nullptr);
+    pros::Task(intakeTaskEntry, nullptr, "intakeTask");
 }
 
-//stop the async intake task early
+// Signal the running intake task to stop early
 void intakeStop() {
     g_intakeTaskRunning.store(false);
-    vex::task::sleep(20);
+    pros::delay(20);
 }
 
-void score(double time, double power) //skibidi score
-{
-    vex::timer scoringTime;
-    scoringTime.reset();
+// ══════════════════════════════════════════════════════════════════════════════
+// BLOCKING SCORING HELPERS
+// Open hood, engage PTO, run intake motors for 'time' ms, then clean up.
+// ══════════════════════════════════════════════════════════════════════════════
 
-    frontHoodPneumatics.set(true); //open front hood and close back hood
-    ptoPneumatics.set(true); //engage pto for scoring
+void score(double time, double power) {
+    uint32_t startTime = pros::millis();
+    frontHoodPneumatics.set_value(true);  // open front hood for scoring
+    ptoPneumatics.set_value(true);        // engage PTO
 
-    double voltagePower = (power / 8.34); //convert power percentage to voltage
+    int32_t voltage = static_cast<int32_t>((power / 8.34) * 1000);
 
-    //(scoringTime.time(timeUnits::msec) < time) voltagePower -= time * 0.006;
-    while (scoringTime.time(timeUnits::msec) < time)
-    {  
-        intakeMotor1.spin(forward, voltagePower, voltageUnits::volt);
-        intakeMotor2.spin(forward, voltagePower, voltageUnits::volt);
-        vex::task::sleep(10);
+    while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
+        intakeMotor1.move_voltage(voltage);
+        intakeMotor2.move_voltage(voltage);
+        pros::delay(10);
     }
-    frontHoodPneumatics.set(false); //close back hood after scoring
-    intakeMotor1.stop();
-    intakeMotor2.stop();
-    ptoPneumatics.set(false); //disengage pto after scoring
+
+    frontHoodPneumatics.set_value(false);  // close hood after scoring
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
+    ptoPneumatics.set_value(false);        // disengage PTO
 }
 
-void leftScore(double time, double power) //skibidi score
-{
-    vex::timer scoringTime;
-    scoringTime.reset();
+// Score through the left lane only (right gate blocks the right lane)
+void leftScore(double time, double power) {
+    uint32_t startTime = pros::millis();
+    frontHoodPneumatics.set_value(true);
+    ptoPneumatics.set_value(true);
+    rightGatePneumatics.set_value(true);   // block right lane
+    leftGatePneumatics.set_value(false);   // open left lane
 
-    frontHoodPneumatics.set(true); //open front hood and close back hood
-    ptoPneumatics.set(true); //engage pto for scoring
-    rightGatePneumatics.set(true);
-    leftGatePneumatics.set(false);
+    int32_t voltage = static_cast<int32_t>((power / 8.34) * 1000);
 
-    double voltagePower = (power / 8.34); //convert power percentage to voltage
-
-    //(scoringTime.time(timeUnits::msec) < time) voltagePower -= time * 0.006;
-    while (scoringTime.time(timeUnits::msec) < time)
-    {  
-        intakeMotor1.spin(forward, voltagePower, voltageUnits::volt);
-        intakeMotor2.spin(forward, voltagePower, voltageUnits::volt);
-        vex::task::sleep(10);
+    while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
+        intakeMotor1.move_voltage(voltage);
+        intakeMotor2.move_voltage(voltage);
+        pros::delay(10);
     }
-    frontHoodPneumatics.set(false); //close back hood after scoring
-    intakeMotor1.stop();
-    intakeMotor2.stop();
-    ptoPneumatics.set(false); //disengage pto after scoring
+
+    frontHoodPneumatics.set_value(false);
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
+    ptoPneumatics.set_value(false);
 }
 
-void rightScore(double time, double power) //skibidi score
-{
-    vex::timer scoringTime;
-    scoringTime.reset();
+// Score through the right lane only (left gate blocks the left lane)
+void rightScore(double time, double power) {
+    uint32_t startTime = pros::millis();
+    frontHoodPneumatics.set_value(true);
+    ptoPneumatics.set_value(true);
+    rightGatePneumatics.set_value(false);  // open right lane
+    leftGatePneumatics.set_value(true);    // block left lane
 
-    frontHoodPneumatics.set(true); //open front hood and close back hood
-    ptoPneumatics.set(true); //engage pto for scoring
-    rightGatePneumatics.set(false);
-    leftGatePneumatics.set(true);
+    int32_t voltage = static_cast<int32_t>((power / 8.34) * 1000);
 
-    double voltagePower = (power / 8.34); //convert power percentage to voltage
-
-    //(scoringTime.time(timeUnits::msec) < time) voltagePower -= time * 0.006;
-    while (scoringTime.time(timeUnits::msec) < time)
-    {  
-        intakeMotor1.spin(forward, voltagePower, voltageUnits::volt);
-        intakeMotor2.spin(forward, voltagePower, voltageUnits::volt);
-        vex::task::sleep(10);
+    while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
+        intakeMotor1.move_voltage(voltage);
+        intakeMotor2.move_voltage(voltage);
+        pros::delay(10);
     }
-    frontHoodPneumatics.set(false); //close back hood after scoring
-    intakeMotor1.stop();
-    intakeMotor2.stop();
-    ptoPneumatics.set(false); //disengage pto after scoring
+
+    frontHoodPneumatics.set_value(false);
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
+    ptoPneumatics.set_value(false);
 }
 
-void stopScore(){
-    intakeMotor1.stop();
-    intakeMotor2.stop();
+void stopScore() {
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
 }
 
-void outtake(double time, double power) //skibidi outtake
-{
-    vex::timer outtakeTime;
-    outtakeTime.reset();
+// ══════════════════════════════════════════════════════════════════════════════
+// BLOCKING OUTTAKE
+// ══════════════════════════════════════════════════════════════════════════════
 
-    ptoPneumatics.set(true); //engage pto for outtake
-    frontHoodPneumatics.set(false); //close front hood for outtake
+void outtake(double time, double power) {
+    uint32_t startTime = pros::millis();
+    ptoPneumatics.set_value(true);         // engage PTO
+    frontHoodPneumatics.set_value(false);  // close front hood for outtake
 
-    while (outtakeTime.time(timeUnits::msec) < time)
-    {
-        double outtakePower = (power / 8.34);
-        intakeMotor1.spin(reverse, outtakePower, voltageUnits::volt);
-        intakeMotor2.spin(reverse, outtakePower, voltageUnits::volt);
-        vex::task::sleep(10);
+    while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
+        int32_t voltage = static_cast<int32_t>((power / 8.34) * 1000);
+        intakeMotor1.move_voltage(-voltage);  // negative = reverse
+        intakeMotor2.move_voltage(-voltage);
+        pros::delay(10);
     }
-    ptoPneumatics.set(false); //disengage pto after outtake
-    intakeMotor1.stop();
-    intakeMotor2.stop();
+
+    ptoPneumatics.set_value(false);  // disengage PTO
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
 }
 
-void stopOuttake(){
-    intakeMotor1.stop();
-    intakeMotor2.stop();
+void stopOuttake() {
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
 }
 
-/*
-int headingDisplayTask(void *params) {
-    HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
-    
+// ══════════════════════════════════════════════════════════════════════════════
+// DISPLAY TASKS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Heading display: shows encoder distances, IMU heading, and nav targets on the
+// driver controller.  Updates every 500 ms — anything faster risks VEXnet drops.
+void headingDisplayTask(void* params) {
+    HeadingDisplayParams* p = static_cast<HeadingDisplayParams*>(params);
+
     while (p->isRunning) {
-        // 1. Read Sensors
-        double heading = getNormalizedHeading(); 
-        double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
-        double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
-        // VERIFY NAME: Check your robot_config.h for the exact name of your X/Center/Aux encoder
-        double centerEnc = passiveEncoderX.position(rotationUnits::deg); 
-        
-        // 2. Convert to CM
-        double leftCM = leftEnc * encoderWheelCircumferenceCM / 360.0;
-        double rightCM = rightEnc * encoderWheelCircumferenceCM / 360.0;
+        // Read encoder positions: PROS returns centidegrees, divide by 100 for degrees
+        double leftEnc   = passiveEncoderLeft.get_position()  / 100.0;
+        double rightEnc  = passiveEncoderRight.get_position() / 100.0;
+        double centerEnc = passiveEncoderX.get_position()     / 100.0;
+
+        // Convert encoder degrees to centimeters travelled
+        double leftCM   = leftEnc   * encoderWheelCircumferenceCM / 360.0;
+        double rightCM  = rightEnc  * encoderWheelCircumferenceCM / 360.0;
         double centerCM = centerEnc * encoderWheelCircumferenceCM / 360.0;
-        double avgCM = (leftCM + rightCM) / 2.0;
-        
-        // 3. Print to Controller (Optimized Layout)
-        
-        // Line 1: Encoders (L=Left, R=Right, X=Center)
-        Controller.Screen.setCursor(1, 1);
-        // using %.0f removes decimals to save screen space and make it readable
-        Controller.Screen.print("L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
-        
-        // Line 2: Global Averages
-        Controller.Screen.setCursor(2, 1);
-        Controller.Screen.print("Avg:%.0f  H:%.1f   ", avgCM, heading);
-        
-        // Line 3: Targets
-        Controller.Screen.setCursor(3, 1);
-        Controller.Screen.print("Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
-        
-        // 4. SAFETY DELAY
-        // 250ms = 4 updates/sec. 
-        // Anything faster than 100ms risks disconnecting VEXnet during comps.
-        wait(500, msec);
+        double avgCM    = (leftCM + rightCM) / 2.0;
+        double heading  = getNormalizedHeading();
+
+        // Line 0: encoder distances (L=left, R=right, X=lateral)
+        // %.0f strips decimals to fit within the controller's 15-char line width
+        Controller.print(0, 0, "L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
+
+        // Line 1: average distance and current heading
+        Controller.print(1, 0, "Avg:%.0f  H:%.1f   ", avgCM, heading);
+
+        // Line 2: current navigation targets (updated by motion functions)
+        Controller.print(2, 0, "Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
+
+        pros::delay(500);
     }
-    
-    Controller.Screen.clearScreen();
-    return 0;
+
+    Controller.clear();
 }
 
-*/
+// Driver display: shows LeftMotor3 diagnostics for troubleshooting.
+// Reads all six drive motor RPMs, but only displays LeftMotor3 detail.
+void driverDisplayTask(void* params) {
+    HeadingDisplayParams* p = static_cast<HeadingDisplayParams*>(params);
 
-int headingDisplayTask(void *params) {
-    HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
-    
-    while (p->isRunning) {
-        // 1. Read Sensors
-        double heading = getNormalizedHeading(); 
-        double leftEnc = passiveEncoderLeft.position(rotationUnits::deg);
-        double rightEnc = passiveEncoderRight.position(rotationUnits::deg);
-        // VERIFY NAME: Check your robot_config.h for the exact name of your X/Center/Aux encoder
-        double centerEnc = passiveEncoderX.position(rotationUnits::deg); 
-        
-        // 2. Convert to CM
-        double leftCM = leftEnc * encoderWheelCircumferenceCM / 360.0;
-        double rightCM = rightEnc * encoderWheelCircumferenceCM / 360.0;
-        double centerCM = centerEnc * encoderWheelCircumferenceCM / 360.0;
-        double avgCM = (leftCM + rightCM) / 2.0;
-        
-        // 3. Print to Controller (Optimized Layout)
-        
-        // Line 1: Encoders (L=Left, R=Right, X=Center)
-        Controller.Screen.setCursor(1, 1);
-        // using %.0f removes decimals to save screen space and make it readable
-        Controller.Screen.print("L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
-        
-        // Line 2: Global Averages
-        Controller.Screen.setCursor(2, 1);
-        Controller.Screen.print("Avg:%.0f  H:%.1f   ", avgCM, heading);
-        
-        // Line 3: Targets
-        Controller.Screen.setCursor(3, 1);
-        Controller.Screen.print("Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
-        
-        // 4. SAFETY DELAY
-        // 250ms = 4 updates/sec. 
-        // Anything faster than 100ms risks disconnecting VEXnet during comps.
-        wait(500, msec);
-    }
-    
-    Controller.Screen.clearScreen();
-    return 0;
-}
-
-/**
- * Driver Control Display Task
- * Displays real-time motor RPM for all six drivetrain motors
- * Shows left and right side motor speeds for diagnostics
- */
-int driverDisplayTask(void *params) {
-    HeadingDisplayParams *p = static_cast<HeadingDisplayParams *>(params);
-    
     while (p->isRunning) {
         // Read current RPM from all six drivetrain motors
-        double leftRpm1 = LeftMotor1.velocity(vex::velocityUnits::rpm);
-        double leftRpm2 = LeftMotor2.velocity(vex::velocityUnits::rpm);
-        double leftRpm3 = LeftMotor3.velocity(vex::velocityUnits::rpm);
-        double rightRpm1 = RightMotor1.velocity(vex::velocityUnits::rpm);
-        double rightRpm2 = RightMotor2.velocity(vex::velocityUnits::rpm);
-        double rightRpm3 = RightMotor3.velocity(vex::velocityUnits::rpm);
-        
- // Display diagnostic information for LeftMotor3 troubleshooting
-        Controller.Screen.clearScreen();
-        
-        // Line 1: LeftMotor3 RPM and connection status
-        Controller.Screen.setCursor(1, 1);
-        Controller.Screen.print("L3 RPM:%.0f OK:%d", 
-            leftRpm3, 
-            LeftMotor3.installed());
-        
-        // Line 2: LeftMotor3 voltage and current draw
-        Controller.Screen.setCursor(2, 1);
-        Controller.Screen.print("V:%.1f A:%.2f", 
-            LeftMotor3.voltage(vex::voltageUnits::volt),
-            LeftMotor3.current(vex::currentUnits::amp));
-        
-        // Line 3: LeftMotor3 temperature
-        Controller.Screen.setCursor(3, 1);
-        Controller.Screen.print("Temp:%.0f%%", 
-            LeftMotor3.temperature(vex::percentUnits::pct));
-        
-        // Update every 500ms for easy reading
-        wait(500, msec);
+        double leftRpm1  = LeftMotor1.get_actual_velocity();
+        double leftRpm2  = LeftMotor2.get_actual_velocity();
+        double leftRpm3  = LeftMotor3.get_actual_velocity();
+        double rightRpm1 = RightMotor1.get_actual_velocity();
+        double rightRpm2 = RightMotor2.get_actual_velocity();
+        double rightRpm3 = RightMotor3.get_actual_velocity();
+
+        Controller.clear();
+
+        // Line 0: LeftMotor3 RPM and installed status (1=connected, 0=missing)
+        Controller.print(0, 0, "L3 RPM:%.0f OK:%d",
+            leftRpm3,
+            LeftMotor3.is_installed() ? 1 : 0);
+
+        // Line 1: voltage (PROS returns mV → /1000 for V) and current (mA → /1000 for A)
+        Controller.print(1, 0, "V:%.1f A:%.2f",
+            LeftMotor3.get_voltage()       / 1000.0,
+            LeftMotor3.get_current_draw()  / 1000.0);
+
+        // Line 2: motor temperature in °C (PROS reports Celsius, not %)
+        Controller.print(2, 0, "Temp:%.0fC",
+            LeftMotor3.get_temperature());
+
+        pros::delay(500);
     }
-    
-    // Clean up when task stops
-    Controller.Screen.clearScreen();
-    return 0;
+
+    Controller.clear();
 }
-//asynchronous scoring
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ASYNC SCORING TASK
+// ══════════════════════════════════════════════════════════════════════════════
 static std::atomic<bool> g_scoringTaskRunning(false);
 static double g_scoringTimeMs = 0;
-static double g_scoringPower = 100;
-static vex::task g_scoringTaskHandle;
-int scoringTaskEntry(void*) {
+static double g_scoringPower  = 100;
+
+void scoringTaskEntry(void*) {
     g_scoringTaskRunning.store(true);
 
-    frontHoodPneumatics.set(false); //open front hood and close back hood
-    ptoPneumatics.set(true); //engage pto for scoring
+    frontHoodPneumatics.set_value(false);  // ensure hood is closed before engaging PTO
+    ptoPneumatics.set_value(true);         // engage PTO for scoring
 
-    vex::timer t;
-    t.reset();
-    double voltagePower = g_scoringPower / 8.34;
+    uint32_t startTime = pros::millis();
+    int32_t  voltage   = static_cast<int32_t>((g_scoringPower / 8.34) * 1000);
 
-    while (g_scoringTaskRunning.load() && t.time(timeUnits::msec) < g_scoringTimeMs) {
-        intakeMotor1.spin(forward, voltagePower, voltageUnits::volt);
-        intakeMotor2.spin(forward, voltagePower, voltageUnits::volt);
-        vex::task::sleep(10);
+    while (g_scoringTaskRunning.load() &&
+           pros::millis() - startTime < static_cast<uint32_t>(g_scoringTimeMs)) {
+        intakeMotor1.move_voltage(voltage);
+        intakeMotor2.move_voltage(voltage);
+        pros::delay(10);
     }
 
-    frontHoodPneumatics.set(false); //close back hood after scoring
-    intakeMotor1.stop();
-    intakeMotor2.stop();
-    ptoPneumatics.set(false);
+    frontHoodPneumatics.set_value(false);  // close hood after scoring
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
+    ptoPneumatics.set_value(false);        // disengage PTO
     g_scoringTaskRunning.store(false);
-
-    return 0;
 }
 
 void scoreStart(double timeMs, double power) {
-    if (g_scoringTaskRunning.load()) {   
+    if (g_scoringTaskRunning.load()) {
         g_scoringTaskRunning.store(false);
-        vex::task::sleep(20);
+        pros::delay(20);
     }
     g_scoringTimeMs = timeMs;
-    g_scoringPower = power;
-    g_scoringTaskHandle = vex::task(scoringTaskEntry, nullptr);
+    g_scoringPower  = power;
+    pros::Task(scoringTaskEntry, nullptr, "scoringTask");
 }
 
-
-//async intake with matchload
-static std::atomic<bool> g_matchLoadIntakeTaskRunning(false);
-static double g_matchLoadIntakeTimeMs = 0;
-static double g_matchLoadIntakePower = 100;
-static bool g_matchLoadIntakeMatchload = false;
-static double g_matchLoadIntakeDelayMs = 0;
-int matchLoadIntakeTaskEntry(void*) {
-    g_matchLoadIntakeTaskRunning.store(true);
-
-    if (g_matchLoadIntakeDelayMs > 0) {
-        vex::task::sleep(g_matchLoadIntakeDelayMs);
-    }
-
-    frontHoodPneumatics.set(true);  
-
-    vex::timer t;
-    double voltage = g_matchLoadIntakePower / 8.34;
-    intakeMotor1.spin(forward, voltage, voltageUnits::volt);
-    intakeMotor2.spin(forward, voltage, voltageUnits::volt);
-
-
-    if (g_matchLoadIntakeMatchload) {
-        vex::task::sleep(matchloadRetractDelay);
-        matchLoadPneumatics.set(true);
-    }
-
-    while (g_matchLoadIntakeTaskRunning.load() && t.time(msec) < g_matchLoadIntakeTimeMs) {
-        vex::task::sleep(10);
-    }
-
-    // Stop intake first
-    intakeMotor1.stop();
-    intakeMotor2.stop();
-
-    // Delay then retract pneumatic if it was extended
-    if (g_matchLoadIntakeMatchload) {
-        matchLoadPneumatics.set(false);
-    }
-
-    g_matchLoadIntakeTaskRunning.store(false);
-    return 0;
-}
-
-void matchLoadIntake(double timeMs, double power, bool matchload, double matchloadDelay){
-
-}
-
-
-// ======================================================================
+// ══════════════════════════════════════════════════════════════════════════════
 // COORDINATE FINDER TASK
-// Displays real-time position for path planning
-// ======================================================================
+// Prints live (X, Y, heading) to the Brain screen so the programmer can push
+// the robot around the field and record coordinates for autonomous path planning.
+// ══════════════════════════════════════════════════════════════════════════════
 
-// Global task control
-struct CoordinateFinderParams {
-    bool isRunning;
-};
+struct CoordinateFinderParams { bool isRunning; };
+static CoordinateFinderParams coordFinderParams = {false};
 
-CoordinateFinderParams coordFinderParams = {false};
+void coordinateFinderTask(void* params) {
+    CoordinateFinderParams* p = static_cast<CoordinateFinderParams*>(params);
 
-/**
- * Background task that continuously displays robot position
- * Updates every 500ms and overrides all other screen output
- * Use this to manually push robot around and record coordinates
- */
-int coordinateFinderTask(void *params) {
-    CoordinateFinderParams *p = static_cast<CoordinateFinderParams *>(params);
-    
     while (p->isRunning) {
-        // Update odometry
-        updateOdometry();
-        
-        // Clear screen and display position prominently
-        Brain.Screen.clearScreen();
-        Brain.Screen.setPenColor(vex::color::white);
-        
-        // Title
-        Brain.Screen.setFont(vex::fontType::mono20);
-        Brain.Screen.printAt(10, 30, "=== COORDINATE FINDER ===");
-        
-        // Position data (large font)
-        Brain.Screen.setFont(vex::fontType::mono40);
-        Brain.Screen.printAt(10, 80, "X: %.1f cm", globalX);
-        Brain.Screen.printAt(10, 130, "Y: %.1f cm", globalY);
-        
-        // Heading (medium font)
-        Brain.Screen.setFont(vex::fontType::mono30);
-        Brain.Screen.printAt(10, 180, "H: %.1f deg", getNormalizedHeading());
-        
-        // Instructions (small font)
-        Brain.Screen.setFont(vex::fontType::mono15);
-        Brain.Screen.setPenColor(vex::color::yellow);
-        Brain.Screen.printAt(10, 220, "Push robot to target position");
-        Brain.Screen.printAt(10, 240, "Record coordinates above");
-        
-        // Wait 500ms before next update
-        wait(500, msec);
+        updateOdometry();  // refresh globalX/Y from encoder and IMU readings
+
+        pros::screen::erase();
+        pros::screen::set_pen(0xFFFFFF);  // white
+
+        // Title bar (medium text, line 1)
+        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "=== COORDINATE FINDER ===");
+
+        // Large position readout — easy to read from across the field
+        pros::screen::print(pros::E_TEXT_LARGE, 3, "X: %.1f cm", globalX);
+        pros::screen::print(pros::E_TEXT_LARGE, 5, "Y: %.1f cm", globalY);
+        pros::screen::print(pros::E_TEXT_LARGE, 7, "H: %.1f deg", getNormalizedHeading());
+
+        // Usage instructions in yellow (small text, lines 9-10)
+        pros::screen::set_pen(0xFFFF00);
+        pros::screen::print(pros::E_TEXT_SMALL, 9,  "Push robot to target position");
+        pros::screen::print(pros::E_TEXT_SMALL, 10, "Record coordinates above");
+
+        pros::delay(500);
     }
-    
-    return 0;
 }
 
-/**
- * Start the coordinate finder task
- * Call this after setStartPosition() to begin tracking
- */
 void startCoordinateFinder() {
     if (!coordFinderParams.isRunning) {
         coordFinderParams.isRunning = true;
-        task coordTask(coordinateFinderTask, &coordFinderParams);
+        pros::Task(coordinateFinderTask, &coordFinderParams, "coordFinder");  // pass params struct by address
     }
 }
 
-/**
- * Stop the coordinate finder task
- * Call this to return control to normal screen output
- */
 void stopCoordinateFinder() {
     coordFinderParams.isRunning = false;
-    wait(600, msec);  // Wait for task to finish current cycle
-    Brain.Screen.clearScreen();
+    pros::delay(600);  // wait for the task to finish its current 500 ms cycle
+    pros::screen::erase();
 }
 
-// ===== MATCHLOAD PNEUMATIC ONLY TASK =====
-// Drops the match load piston for a set duration then retracts it
-// No motors - designed to run alongside intakeHopperTask
+// ══════════════════════════════════════════════════════════════════════════════
+// MATCHLOAD PNEUMATIC-ONLY TASK
+// Drops the match-load piston for a set duration, then retracts.
+// No motors — designed to run in parallel with intakeHopperTask.
+// ══════════════════════════════════════════════════════════════════════════════
 static AsyncTaskParams matchloadPneumaticParams;
 
-int matchloadPneumaticTask(void*) {
+void matchloadPneumaticTask(void*) {
     matchloadPneumaticParams.running.store(true);
 
-    // Wait before firing if a delay was requested
+    // Honor optional start delay before firing the piston
     if (matchloadPneumaticParams.delayMs > 0) {
-        vex::task::sleep(matchloadPneumaticParams.delayMs);
+        pros::delay(static_cast<uint32_t>(matchloadPneumaticParams.delayMs));
     }
 
-    // Drop the match load piston
-    matchLoadPneumatics.set(true);
+    matchLoadPneumatics.set_value(true);  // drop piston
 
-    // Hold piston down for the full duration
-    vex::timer t;
-    while (matchloadPneumaticParams.running.load() && t.time(msec) < matchloadPneumaticParams.timeMs) {
-        vex::task::sleep(10);
+    // Hold piston down for the full requested duration
+    uint32_t startTime = pros::millis();
+    while (matchloadPneumaticParams.running.load() &&
+           pros::millis() - startTime < static_cast<uint32_t>(matchloadPneumaticParams.timeMs)) {
+        pros::delay(10);
     }
 
-    // Retract piston when time is up
-    matchLoadPneumatics.set(false);
-
+    matchLoadPneumatics.set_value(false);  // retract piston
     matchloadPneumaticParams.running.store(false);
-    return 0;
 }
 
 void matchloadPneumaticStart(double timeMs, double delayMs, bool async) {
     // Stop any previous instance before starting a new one
     if (matchloadPneumaticParams.running.load()) {
         matchloadPneumaticParams.running.store(false);
-        vex::task::sleep(20);
+        pros::delay(20);
     }
-    matchloadPneumaticParams.timeMs = timeMs;
+    matchloadPneumaticParams.timeMs  = timeMs;
     matchloadPneumaticParams.delayMs = delayMs;
 
     if (async) {
-        matchloadPneumaticParams.handle = vex::task(matchloadPneumaticTask, nullptr);
+        pros::Task(matchloadPneumaticTask, nullptr, "matchloadPneumatic");
     } else {
         matchloadPneumaticTask(nullptr);
     }
@@ -736,44 +588,48 @@ void matchloadPneumaticStart(double timeMs, double delayMs, bool async) {
 
 void matchloadPneumaticStop() {
     matchloadPneumaticParams.running.store(false);
-    matchLoadPneumatics.set(false);
+    matchLoadPneumatics.set_value(false);  // immediately retract
 }
 
-    static std::atomic<bool>g_matchloadPistonTaskRunning(false);
-    static double g_matchloadPistonTimeMs = 0;
-    static double g_matchloadPistonDelayMs = 0;
-    static vex::task g_matchloadPistonTaskHandle;
+// ══════════════════════════════════════════════════════════════════════════════
+// MATCHLOAD PISTON TIMED TASK
+// Extends the match-load piston for timeMs ms (with optional start delay),
+// then retracts.  Runs as a background PROS task.
+// ══════════════════════════════════════════════════════════════════════════════
+static std::atomic<bool> g_matchloadPistonTaskRunning(false);
+static double g_matchloadPistonTimeMs  = 0;
+static double g_matchloadPistonDelayMs = 0;
 
-
-int matchloadPistonStart(void*) {
-    vex::timer t;
-    t.reset();
-    while (g_matchloadPistonTaskRunning.load() && t.time(timeUnits::msec) < g_matchloadPistonTimeMs){
-        wait(g_matchloadPistonDelayMs, msec);
-        matchLoadPneumatics.set(true);
-        vex::task::sleep(10);
+// Internal task function — renamed from matchloadPistonStart to avoid conflict
+// with the public API overload that takes (double, double)
+void matchloadPistonTaskFn(void*) {
+    uint32_t startTime = pros::millis();
+    while (g_matchloadPistonTaskRunning.load() &&
+           pros::millis() - startTime < static_cast<uint32_t>(g_matchloadPistonTimeMs)) {
+        pros::delay(static_cast<uint32_t>(g_matchloadPistonDelayMs));
+        matchLoadPneumatics.set_value(true);  // extend piston
+        pros::delay(10);
     }
-    matchLoadPneumatics.set(false);
-    vex::task::sleep(10);
-    return 0;
+    matchLoadPneumatics.set_value(false);  // retract when time is up
+    pros::delay(10);
 }
 
 void matchloadPistonStart(double timeMs, double delayMs) {
     if (g_matchloadPistonTaskRunning.load()) {
         g_matchloadPistonTaskRunning.store(false);
-        vex::task::sleep(10);
+        pros::delay(10);
     }
     g_matchloadPistonDelayMs = delayMs;
     g_matchloadPistonTaskRunning.store(true);
     g_matchloadPistonTimeMs = timeMs;
-    g_matchloadPistonTaskHandle = vex::task(matchloadPistonStart, nullptr);
+    pros::Task(matchloadPistonTaskFn, nullptr, "matchloadPiston");
 }
 
 void matchloadPistonStop() {
-    // If the task is running, signal it to stop and retract the piston
+    // Signal the task to stop, then ensure piston is retracted
     if (g_matchloadPistonTaskRunning.load()) {
         g_matchloadPistonTaskRunning.store(false);
-        vex::task::sleep(10);  // Brief wait to let the task exit cleanly
+        pros::delay(10);  // brief wait for the task to exit cleanly
     }
-    matchLoadPneumatics.set(false);  // Ensure piston is retracted
+    matchLoadPneumatics.set_value(false);
 }

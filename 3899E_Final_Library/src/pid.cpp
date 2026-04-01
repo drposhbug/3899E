@@ -1,46 +1,46 @@
-#include "pid.h"          // Include the PID header file
-#include "vex.h"          // Include the VEX library
-#include "robot_config.h" // Include the robot configuration to use the Brain object
+#include "pid.h"
+#include "main.h"          // PROS entry point (replaces vex.h)
+#include "robot_config.h"
 
-using namespace vex; // Use the VEX namespace
-
-// Constructor to initialize PID coefficients and internal variables
+// ── Constructor ───────────────────────────────────────────────────────────────
 PID::PID(double kp, double ki, double kd)
-    : kp(kp), ki(ki), kd(kd), prevError(0), integral(0) {}
+    : kp(kp), ki(ki), kd(kd), prevError(0.0), integral(0.0) {}
 
-// Get PID control value after given target value and current reading
+// ── calculate ─────────────────────────────────────────────────────────────────
+// Standard PID formula:
+//   output = kp*error + ki*∫error + kd*(Δerror / Δt)
+// Called once per control loop iteration.
 double PID::calculate(double targetValue, double currentReading)
 {
-    // Calculate the error
     double error = targetValue - currentReading;
 
-    // Proportional term
+    // Proportional: reacts to current error magnitude
     double pTerm = kp * error;
 
-    // Integral term
+    // Integral: accumulates past error to eliminate steady-state offset
     integral += error;
     double iTerm = ki * integral;
 
-    // Derivative term
+    // Derivative: damps oscillation by reacting to rate of error change
     double dTerm = kd * (error - prevError);
-    prevError = error; // Update previous error
+    prevError = error;  // save for next iteration
 
-    // PID output
     return pTerm + iTerm + dTerm;
 }
 
-// Method to reset the PID controller (useful when switching contexts)
+// ── pidReset ──────────────────────────────────────────────────────────────────
+// Clears state so the controller starts fresh (use between autonomous moves).
 void PID::pidReset()
 {
-    error = 0;
-    prevError = 0; // Reset previous error to 0
-    integral = 0;  // Reset integral term to 0
+    prevError = 0.0;
+    integral  = 0.0;
 }
 
-// Method to set PID coefficients dynamically
+// ── setCoefficients ───────────────────────────────────────────────────────────
+// Allows gain changes at runtime, e.g. for gain-scheduled straight/turn loops.
 void PID::setCoefficients(double newKp, double newKi, double newKd)
 {
-    kp = newKp; // Set new proportional coefficient
-    ki = newKi; // Set new integral coefficient
-    kd = newKd; // Set new derivative coefficient
+    kp = newKp;
+    ki = newKi;
+    kd = newKd;
 }

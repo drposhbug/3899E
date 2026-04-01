@@ -4,35 +4,36 @@
 /*    Based on:   VEX Robotics VAIC_25_26 ai_jetson.cpp by James Pearman     */
 /*    Modified:   Team 3899 VAIRC Push Back                                   */
 /*                                                                            */
-/*    Key changes from original:                                              */
-/*      1. Serial I/O: getchar()/fopen replaced by vex::serial on Smart Port */
-/*      2. Constructor takes port number parameter                            */
-/*      3. request_map() removed entirely — Jetson pushes asynchronously     */
-/*      4. kStateGoodPacket: third memcpy added for strategyCode/reserved     */
-/*      5. get_strategy() convenience getter added                            */
-/*      6. Baud rate: 460800 (was 115200)                                     */
-/*      7. Parser state machine and CRC32 unchanged from original             */
+/*    Key changes from original VEXcode version:                              */
+/*      1. Serial I/O: vexGenericSerial* replaced by pros::Serial             */
+/*      2. vex::thread replaced by pros::Task at TASK_PRIORITY_DEFAULT+2      */
+/*      3. timer.time() / timer.clear() → timer.value() / timer.reset()       */
+/*         (matching the PROS Timer wrapper defined in ai_jetson.h)           */
+/*      4. timer.system() → pros::millis()                                    */
+/*      5. this_thread::yield() / sleep_for() → pros::delay()                */
+/*      6. receive_task return type: int → void (PROS task signature)         */
+/*      7. Parser state machine, CRC32, and deserialization unchanged         */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
-#include "vex.h"
 #include "ai_jetson.h"
+#include <cstring>
 
-using namespace vex;
 using namespace ai;
 
-// ── CRC32 table (static, shared across all instances) ────────────────────────
+// ── CRC32 lookup table (static, shared across all instances) ─────────────────
 uint32_t jetson::_crc32_table[256];
 
 /*----------------------------------------------------------------------------*/
-/** @brief  Constructor — opens Smart Port serial at 460800 baud             */
-/** @param  port  V5 Smart Port number (1-21)                                 */
+/** @brief  Constructor — opens Smart Port serial at JETSON_BAUD_RATE baud   */
+/** @param  port  V5 Smart Port number (1-indexed, matches physical wiring)   */
 /*----------------------------------------------------------------------------*/
 jetson::jetson(int32_t port) : _port(port) {
     state = jetson_state::kStateSyncWait1;
 
-    // High-priority receive task — same pattern as original
-    thread t1 = thread(receive_task, static_cast<void *>(this));
-    t1.setPriority(thread::threadPriorityHigh);
+    // Launch high-priority background receive task.
+    // TASK_PRIORITY_DEFAULT+2 matches the original threadPriorityHigh intent.
+    pros::Task(receive_task, static_cast<void*>(this),
+               TASK_PRIORITY_DEFAULT + 2, TASK_STACK_DEPTH_DEFAULT, "JetsonRx");
 }
 
 jetson::~jetson() {
@@ -47,13 +48,13 @@ int32_t jetson::get_timeouts() { return timeouts; }
 int32_t jetson::get_total()    { return total_data_received; }
 
 /*----------------------------------------------------------------------------*/
-/** @brief  Copy latest received AI_RECORD to caller's buffer                */
-/** @return Payload length of last good packet, or 0 if none received yet    */
+/** @brief  Thread-safe copy of the latest AI_RECORD into the caller's buffer */
+/** @return Payload length of last good packet, or 0 if none received yet     */
 /*----------------------------------------------------------------------------*/
 int32_t
-jetson::get_data(AI_RECORD *map) {
+jetson::get_data(AI_RECORD* map) {
     int32_t length = 0;
-    if (map != NULL) {
+    if (map != nullptr) {
         maplock.lock();
         memcpy(map, &last_map, sizeof(AI_RECORD));
         length = last_payload_length;
@@ -63,7 +64,7 @@ jetson::get_data(AI_RECORD *map) {
 }
 
 /*----------------------------------------------------------------------------*/
-/** @brief  Convenience getter for strategy code from latest packet          */
+/** @brief  Convenience getter — returns only strategyCode from latest packet */
 /*----------------------------------------------------------------------------*/
 int32_t
 jetson::get_strategy(void) {
@@ -77,11 +78,11 @@ jetson::get_strategy(void) {
 /** @brief  CRC32 — identical algorithm to original and vaic_protocol.py     */
 /*----------------------------------------------------------------------------*/
 uint32_t
-jetson::crc32(uint8_t *pData, uint32_t numberOfBytes, uint32_t accumulator) {
+jetson::crc32(uint8_t* pData, uint32_t numberOfBytes, uint32_t accumulator) {
     uint32_t i, j;
     const uint32_t POLYNOMIAL_CRC32 = 0x04C11DB7;
 
-    // Build table on first call
+    // Build the lookup table on the first call (lazy initialization)
     if (_crc32_table[1] == 0) {
         uint32_t crc_accum;
         for (i = 0; i < 256; i++) {
@@ -96,6 +97,7 @@ jetson::crc32(uint8_t *pData, uint32_t numberOfBytes, uint32_t accumulator) {
         }
     }
 
+    // Accumulate CRC one byte at a time
     for (j = 0; j < numberOfBytes; j++) {
         i = ((accumulator >> 24) ^ *pData++) & 0xFF;
         accumulator = (accumulator << 8) ^ _crc32_table[i];
@@ -104,23 +106,28 @@ jetson::crc32(uint8_t *pData, uint32_t numberOfBytes, uint32_t accumulator) {
 }
 
 /*----------------------------------------------------------------------------*/
-/** @brief  Parse one received byte — state machine unchanged from original  */
-/** @return true if more processing needed (recall immediately)              */
+/** @brief  Parse one received byte through the packet state machine          */
+/** @return true if the state machine needs another immediate pass            */
+/*                                                                            */
+/** State machine is unchanged from the original James Pearman implementation.*/
+/** Timer calls updated to match the PROS Timer wrapper in ai_jetson.h:       */
+/**   timer.time()  → timer.value()   (elapsed ms since last reset)          */
+/**   timer.clear() → timer.reset()   (restart the elapsed counter)          */
 /*----------------------------------------------------------------------------*/
 bool
 jetson::parse(uint8_t data) {
     bool bRecall = false;
 
-    // 250ms inter-byte timeout — resets state machine on stalled packet
-    // At 460800 baud a 300-byte packet transmits in ~5ms, so 250ms is generous
-    if (state != jetson_state::kStateSyncWait1 && timer.time() > 250) {
+    // 250 ms inter-byte timeout — resets the state machine on a stalled packet.
+    // At 460800 baud a 300-byte packet transmits in ~5 ms, so 250 ms is generous.
+    if (state != jetson_state::kStateSyncWait1 && timer.value() > 250) {
         timeouts++;
         state = jetson_state::kStateSyncWait1;
     }
-    timer.clear();
+    timer.reset();  // restart the inter-byte timeout for the next byte
 
     switch (state) {
-      // ── Sync sequence ─────────────────────────────────────────────────────
+      // ── Sync sequence — four fixed bytes mark the start of every packet ──
       case jetson_state::kStateSyncWait1:
         if (static_cast<sync_byte>(data) == sync_byte::kSync1)
             state = jetson_state::kStateSyncWait2;
@@ -147,7 +154,7 @@ jetson::parse(uint8_t data) {
         }
         break;
 
-      // ── Payload length (2 bytes little-endian) ────────────────────────────
+      // ── Payload length (2 bytes, little-endian) ──────────────────────────
       case jetson_state::kStateLength:
         payload_length = (payload_length >> 8) + ((uint16_t)data << 8);
         if (index++ == 1) {
@@ -157,7 +164,7 @@ jetson::parse(uint8_t data) {
         }
         break;
 
-      // ── Packet type (2 bytes little-endian) ──────────────────────────────
+      // ── Packet type (2 bytes, little-endian) ──────────────────────────────
       case jetson_state::kStateSpare:
         payload_type = (payload_type >> 8) + ((uint16_t)data << 8);
         if (index++ == 1) {
@@ -167,7 +174,7 @@ jetson::parse(uint8_t data) {
         }
         break;
 
-      // ── CRC32 (4 bytes little-endian) ─────────────────────────────────────
+      // ── Expected CRC32 (4 bytes, little-endian) ───────────────────────────
       case jetson_state::kStateCrc32:
         payload_crc32 = (payload_crc32 >> 8) + ((uint32_t)data << 24);
         if (index++ == 3) {
@@ -177,37 +184,39 @@ jetson::parse(uint8_t data) {
         }
         break;
 
-      // ── Payload data ──────────────────────────────────────────────────────
+      // ── Payload data — accumulate bytes and run CRC in parallel ──────────
       case jetson_state::kStatePayload:
         if (index < sizeof(payload)) {
             payload.bytes[index] = data;
             index++;
-            // Running CRC — avoids recalculating over whole buffer at end
+            // Running CRC avoids re-scanning the whole buffer at end-of-packet
             calc_crc32 = crc32(&data, 1, calc_crc32);
 
             if (index == payload_length) {
+                // All payload bytes received — check CRC
                 if (payload_crc32 == calc_crc32)
                     state = jetson_state::kStateGoodPacket;
                 else
                     state = jetson_state::kStateBadPacket;
-                bRecall = true;
+                bRecall = true;  // state machine needs one more pass
             }
         } else {
+            // Payload overflows buffer — discard packet
             state = jetson_state::kStateBadPacket;
             bRecall = true;
         }
         break;
 
-      // ── Good packet — deserialize AI_RECORD ──────────────────────────────
+      // ── Good packet — deserialize AI_RECORD from raw bytes ───────────────
       case jetson_state::kStateGoodPacket:
         if (payload_type == MAP_PACKET_TYPE) {
             AI_RECORD newMap;
             memset(&newMap, 0, sizeof(newMap));
 
-            // ── memcpy 1: detectionCount + POS_RECORD (44 bytes) ─────────
+            // ── memcpy 1: detectionCount + POS_RECORD (36 bytes) ─────────
             memcpy(&newMap, &payload.bytes[0], MAP_POS_SIZE);
 
-            // Clamp detection count — never trust unvalidated input
+            // Clamp detection count — never trust unvalidated data from the wire
             if (newMap.detectionCount > MAX_DETECTIONS)
                 newMap.detectionCount = MAX_DETECTIONS;
 
@@ -217,12 +226,12 @@ jetson::parse(uint8_t data) {
                    &payload.bytes[MAP_POS_SIZE],
                    det_bytes);
 
-            // ── memcpy 3: Extension fields (strategyCode + reserved) ──────
-            // Guard: only read if payload includes extension bytes.
-            // This makes the parser backward-compatible if extension is absent.
+            // ── memcpy 3: extension fields (strategyCode + reserved) ──────
+            // Guard: only read if payload is long enough to include the extension.
+            // Older Jetson builds without the extension remain forward-compatible.
             uint32_t ext_offset = MAP_POS_SIZE + det_bytes;
-            uint32_t ext_size   = sizeof(int32_t)       // strategyCode
-                                + sizeof(int32_t) * 3;  // reserved[3]
+            uint32_t ext_size   = sizeof(int32_t)      // strategyCode
+                                + sizeof(int32_t) * 3; // reserved[3]
 
             if (payload_length >= ext_offset + ext_size) {
                 memcpy(&newMap.strategyCode,
@@ -233,19 +242,20 @@ jetson::parse(uint8_t data) {
                        sizeof(int32_t) * 3);
             }
 
-            // ── Thread-safe update ────────────────────────────────────────
+            // ── Thread-safe update of the shared last_map ─────────────────
             maplock.lock();
             memcpy(&last_map, &newMap, sizeof(AI_RECORD));
             last_payload_length = payload_length;
             maplock.unlock();
         }
 
-        last_packet_time = timer.system();
+        // Record arrival time using PROS monotonic clock
+        last_packet_time = pros::millis();
         packets++;
         state = jetson_state::kStateSyncWait1;
         break;
 
-      // ── Bad packet ────────────────────────────────────────────────────────
+      // ── Bad packet (CRC failure or buffer overflow) ───────────────────────
       case jetson_state::kStateBadPacket:
         errors++;
         state = jetson_state::kStateSyncWait1;
@@ -260,40 +270,37 @@ jetson::parse(uint8_t data) {
 }
 
 /*----------------------------------------------------------------------------*/
-/** @brief  Background receive task — reads Smart Port, feeds parser         */
+/** @brief  Background receive task — reads Smart Port bytes, feeds parser    */
 /*                                                                            */
-/** Key difference from original:                                             */
-/*   Original used getchar() on USB CDC stdin (/dev/serial1).                */
-/*   This version uses vex::serial on a Smart Port at 460800 baud.           */
-/*   vex::serial::read() is non-blocking; we sleep briefly when no data      */
-/*   to avoid spinning the CPU, but sleep is short enough not to add latency.*/
+/** Serial I/O change from original:                                          */
+/**   Original used getchar() on USB CDC stdin (/dev/serial1).               */
+/**   This version opens a pros::Serial on the configured Smart Port.        */
+/**   read_byte() is non-blocking (returns -1 when no data); the task        */
+/**   sleeps 1 ms when the buffer is empty to avoid spinning the CPU,        */
+/**   but stays responsive — a packet arrives roughly every 7 ms at 460800.  */
 /*----------------------------------------------------------------------------*/
-int
-jetson::receive_task(void *arg) {
-    if (arg == NULL) return 0;
+void
+jetson::receive_task(void* arg) {
+    if (arg == nullptr) return;
 
-    jetson *instance = static_cast<jetson *>(arg);
+    jetson* instance = static_cast<jetson*>(arg);
 
-    // Open Smart Port serial at 460800 baud
-    // Port number set in constructor, matches physical RS485 wiring
-    vexGenericSerialEnable(instance->_port - 1, 0);
-    vexGenericSerialBaudrate(instance->_port - 1, JETSON_BAUD_RATE);
+    // Open Smart Port serial at JETSON_BAUD_RATE baud (port is 1-indexed in PROS)
+    pros::Serial serial(instance->_port, JETSON_BAUD_RATE);
 
-    while (1) {
-        uint8_t buf[1];
-        int rxchar = vexGenericSerialReceive(instance->_port - 1, buf, 1) > 0 ? buf[0] : -1;
+    while (true) {
+        int rxchar = serial.read_byte();  // returns -1 if no byte available
 
         if (rxchar >= 0) {
             instance->total_data_received++;
-            // parse() returns true if state machine needs another cycle
-            // (kStateGoodPacket / kStateBadPacket need one more call)
-            while (instance->parse((uint8_t)rxchar))
-                this_thread::yield();
+            // parse() returns true when the state machine needs another immediate
+            // pass (kStateGoodPacket / kStateBadPacket each need one extra call).
+            // Yield between passes so higher-priority tasks can run.
+            while (instance->parse(static_cast<uint8_t>(rxchar)))
+                pros::delay(1);
         } else {
-            // No byte available — yield to other tasks rather than spin
-            // 1ms sleep adds negligible latency (packet arrives every ~7ms)
-            this_thread::sleep_for(1);
+            // No byte available — sleep rather than busy-wait
+            pros::delay(1);
         }
     }
-    return 0;
 }

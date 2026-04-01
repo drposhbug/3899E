@@ -1,77 +1,35 @@
-#include "vex.h" // Include the VEX library
-#include "robot_config.h" // Include the robot configuration
-#include "driver.h" // Include the driver control functions
-#include "auton.h" // Include the autonomous functions
+#include "main.h"
+#include "robot_config.h"
+#include "driver.h"
+#include "auton.h"
 #include "utils.h"
 #include "navigation.h"
 #include "autontasks.h"
 
-#define COMPETITION_PROGRAM_NAME "Test"
-
-using namespace vex;
-
-vex::competition Competition;
-
-void runAuton(void) {
-  Brain.Screen.clearScreen();
-  Brain.Screen.print("Running Autonomous Mode...");
-
-  // Start heading display task (autonomous-only)
-  //headingDisplayParams.isRunning = false;
-  //vex::task heading_task(headingDisplayTask, &headingDisplayParams);
-  wingPneumatics.set(false);
-  
-  //Start heading display task
-  //visionSensorTest(); 
-  //autonTest();  
-  //CoordinateFinderTask();  
-  //autonLeft(); 
-  //autonRight();
-  //autonFwdRight();
-  //autonFwdLeft();
-  //SpeedwayAutonLeft();
-  //SevenBallRight();
-  //SevenBallLeft();
-  //soloAWP();
-  //soloAWPMiddle();
-  //leftSideLong();
-  //leftSidemiddle();
-  //nothing();
-  //soloAwp2(); //BRAMPTON AUTO
-  ////rightMiddleAuto();
-  //calibration();
-  //doubleDoinkerBlue();
-  //skills();
-  //odomTest();
-  //skillsAutonGateway();
-  //soloAwpOdom();
-  ////skillsAuton();
-  //skillsAuton2();
-//systemTest();
-  provsAuto();
-  //provsAutoLeft();
-  //visionDemo();
-  //heading_task.stop();
-  //Brain.Screen.print("Autonomous Program Complete");
+// Called once when the robot powers on (before competition starts)
+void initialize() {
+    wingPneumatics.set_value(false);
+    passiveEncoderLeft.set_reversed(true);
+    passiveEncoderRight.set_reversed(false);
+    passiveEncoderX.set_reversed(true);
 }
 
-void runDriver(void) {
-  Brain.Screen.clearScreen();
-  Brain.Screen.print("Running Driver Control Mode...");
-  
-  //headingDisplayParams.isRunning = false;
-  //vex::task driver_display_task(driverDisplayTask, &headingDisplayParams); 
-  Controller.Screen.clearScreen(); // stop controller prints during driver control
-  driverControl(); // Start driver control function
+// Called when the robot is disabled by the field controller
+void disabled() {}
+
+// Called during the pre-autonomous phase of a competition
+void competition_initialize() {}
+
+// Called when the autonomous period begins
+void autonomous() {
+    pros::screen::erase();
+    wingPneumatics.set_value(false);
+    provsAuto();
 }
 
-int main()
-{
-    // Initializing Robot Configuration. DO NOT REMOVE!
-    wingPneumatics.set(false);
-    vexcodeInit();
-    //initializeOpticalSensor();
-
-    Competition.autonomous(runAuton);
-    Competition.drivercontrol(runDriver);
+// Called when the driver control period begins
+void opcontrol() {
+    pros::screen::erase();
+    Controller.clear();  // stop controller prints during driver control
+    driverControl();
 }

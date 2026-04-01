@@ -1,90 +1,125 @@
-#include "vex.h"  
 #ifndef ODOMETRY_H
 #define ODOMETRY_H
-#include "navigation.h"
+
+#include "main.h"          // PROS entry point
+#include "navigation.h"    // MotionDefaults namespace
 #include "robot_config.h"
-#include <thread>
-#include <chrono>
 
-// Global Position Variables
-extern double globalX;           // X-coordinate on the field
-extern double globalY;           // Y-coordinate on the field
-extern double globalRotation;    // Cumulative rotation in degrees
+// ══════════════════════════════════════════════════════════════════════════════
+// GLOBAL POSITION STATE
+// Updated continuously by the odometry background task.
+// Read from motion functions and auton routines; write only from updateOdometry().
+// Units: centimeters for X/Y, degrees for rotation.
+// ══════════════════════════════════════════════════════════════════════════════
+extern double globalX;         // robot X position on the field (cm)
+extern double globalY;         // robot Y position on the field (cm)
+extern double globalRotation;  // cumulative (unbounded) rotation in degrees
 
-// Previous Encoder Values
-extern double prevLeftEncoder;   // Previous left encoder reading
-extern double prevRightEncoder;  // Previous right encoder reading
-extern double prevXEncoder;      // Previous X encoder reading
-extern double prevRotation;      // Previous rotation reading
+// ── Previous encoder snapshots (used to compute deltas each iteration) ────────
+extern double prevLeftEncoder;   // left tracking wheel position, previous cycle (degrees)
+extern double prevRightEncoder;  // right tracking wheel position, previous cycle (degrees)
+extern double prevXEncoder;      // lateral encoder position, previous cycle (degrees)
+extern double prevRotation;      // gyro/encoder heading, previous cycle (degrees)
 
-// Encoder State
-extern bool xEncoderEnabled;    // X encoder enable/disable flag
+// ── Encoder configuration ─────────────────────────────────────────────────────
+extern bool xEncoderEnabled;  // false = skip the lateral encoder in the odometry update
 
-// Function Declarations
-void updateOdometry();          // Updates the robot's position and orientation
+// ══════════════════════════════════════════════════════════════════════════════
+// CORE ODOMETRY UPDATE
+// Called each iteration of the odometry task (~10 ms).
+// Reads current encoder values, computes delta, and updates globalX/Y/Rotation.
+// ══════════════════════════════════════════════════════════════════════════════
+void updateOdometry();
 
-// Initialization
-void setStartPosition(double startX = 0, double startY = 0, double startHeading = 0);
+// ══════════════════════════════════════════════════════════════════════════════
+// INITIALIZATION
+// Set the robot's known position and heading before autonomous starts.
+// Defaults to the field origin (0, 0) facing East (0°).
+// ══════════════════════════════════════════════════════════════════════════════
+void setStartPosition(double startX = 0.0, double startY = 0.0, double startHeading = 0.0);
 
-// Navigation Helper Functions
-void calculatePathToTarget(double currentX, double currentY, 
-                         double targetX, double targetY, 
-                         double& distance, double& heading);
+// ══════════════════════════════════════════════════════════════════════════════
+// NAVIGATION HELPERS
+// Used internally by odometry-based motion functions.
+// ══════════════════════════════════════════════════════════════════════════════
 
-void turnToPoint(double targetX, double targetY,            
-                double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
-                double minSpeed = MotionDefaults::TurningLeft::MIN_SPEED,  
-                double maxSpeed = MotionDefaults::TurningLeft::MAX_SPEED);
+// Given current position and a target, compute straight-line distance (cm)
+// and the absolute heading required to reach it (Standard Cartesian degrees).
+void calculatePathToTarget(double currentX, double currentY,
+                           double targetX,  double targetY,
+                           double& distance, double& heading);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// POINT-TO-POINT TURN HELPERS
+// Turn the robot to face a field coordinate rather than an absolute heading.
+// All three functions use the same motion profile (MotionDefaults::TurningLeft).
+//
+// turnToPoint   – chooses the shorter direction automatically.
+// turnLeftToPoint  – forces a counter-clockwise turn.
+// turnRightToPoint – forces a clockwise turn.
+// ══════════════════════════════════════════════════════════════════════════════
+void turnToPoint(double targetX, double targetY,
+                 double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
+                 double minSpeed               = MotionDefaults::TurningLeft::MIN_SPEED,
+                 double maxSpeed               = MotionDefaults::TurningLeft::MAX_SPEED);
 
 void turnLeftToPoint(double targetX, double targetY,
-                    double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
-                    double minSpeed = MotionDefaults::TurningLeft::MIN_SPEED,
-                    double maxSpeed = MotionDefaults::TurningLeft::MAX_SPEED,
-                    double exitTolerance = 0.5);
+                     double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
+                     double minSpeed               = MotionDefaults::TurningLeft::MIN_SPEED,
+                     double maxSpeed               = MotionDefaults::TurningLeft::MAX_SPEED,
+                     double exitTolerance          = 0.5);
 
 void turnRightToPoint(double targetX, double targetY,
-                     double breakDistanceInDegrees = MotionDefaults::TurningRight::BREAK_DISTANCE,
-                     double minSpeed = MotionDefaults::TurningRight::MIN_SPEED,
-                     double maxSpeed = MotionDefaults::TurningRight::MAX_SPEED,
-                        double exitTolerance = 0.5);
+                      double breakDistanceInDegrees = MotionDefaults::TurningRight::BREAK_DISTANCE,
+                      double minSpeed               = MotionDefaults::TurningRight::MIN_SPEED,
+                      double maxSpeed               = MotionDefaults::TurningRight::MAX_SPEED,
+                      double exitTolerance          = 0.5);
 
+// ══════════════════════════════════════════════════════════════════════════════
+// POINT-TO-POINT STRAIGHT DRIVE HELPERS
+// Drive from the current position to a target field coordinate.
+// forwardToPoint  – approach facing the target.
+// backwardToPoint – approach with the robot reversed.
+// ══════════════════════════════════════════════════════════════════════════════
+void forwardToPoint(double targetX, double targetY,
+                    double breakDistance          = 10.0,
+                    double minSpeed               = 24.0,
+                    double distanceTolerance      = 5.0,
+                    double kp_heading             = 1.1,
+                    double ki_heading             = 0.0,
+                    double kd_heading             = 0.0,
+                    double accelHeadingScaling    = 0.1,
+                    double decelHeadingScaling    = 0.1,
+                    double approachHeadingScaling = 0.3,
+                    double maxSpeed               = 100.0);
 
-// In include/odometry.h
+void backwardToPoint(double targetX, double targetY,
+                     double breakDistance          = 10.0,
+                     double minSpeed               = 24.0,
+                     double distanceTolerance      = 5.0,
+                     double kp_heading             = 1.1,
+                     double ki_heading             = 0.0,
+                     double kd_heading             = 0.0,
+                     double accelHeadingScaling    = 0.1,
+                     double decelHeadingScaling    = 0.1,
+                     double approachHeadingScaling = 0.3,
+                     double maxSpeed               = 100.0);
 
-// In odometry.h
-
-void forwardToPoint(double targetX, double targetY,             
-               double breakDistance = 10,
-               double minSpeed = 24,  
-               double distanceTolerance = 5,
-               double kp_heading = 1.1,
-               double ki_heading = 0.0,
-               double kd_heading = 0,
-               double accelHeadingScaling = 0.1,
-               double decelHeadingScaling = 0.1,
-               double approachHeadingScaling = 0.3,
-               double maxSpeed = 100);    
-
-void backwardToPoint(double targetX, double targetY,             
-               double breakDistance = 10,
-               double minSpeed = 24,  
-               double distanceTolerance = 5,
-               double kp_heading = 1.1,
-               double ki_heading = 0.0,
-               double kd_heading = 0,
-               double accelHeadingScaling = 0.1,
-               double decelHeadingScaling = 0.1,
-               double approachHeadingScaling = 0.3,
-               double maxSpeed = 100);
-               
-// Odometry Task Management
+// ══════════════════════════════════════════════════════════════════════════════
+// ODOMETRY BACKGROUND TASK
+// The task runs updateOdometry() in a tight loop (~10 ms period).
+// OdometryTaskParams.isRunning is the stop flag: set false to cleanly exit.
+// ══════════════════════════════════════════════════════════════════════════════
 struct OdometryTaskParams {
-    bool isRunning;  // Flag to control task execution
+    bool isRunning;  // task reads this each iteration; set false to stop
 };
 
-int odometryTask(void *params);
+// PROS task function — void(void*) signature.
+void odometryTask(void* params);
+
 extern OdometryTaskParams odometryParams;
 
+// Convenience wrappers: create / delete the PROS task.
 void startOdometryTask();
 void stopOdometryTask();
 

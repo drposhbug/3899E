@@ -1,9 +1,7 @@
 #include "odometry.h"
 #include "robot_config.h"
 #include "utils.h"
-#include "vex.h"
-
-using namespace vex;
+#include "main.h"
 
 // Global position (cm) and heading (degrees, continuous Standard Cartesian)
 // 0° = East, positive counterclockwise
@@ -44,14 +42,14 @@ void setStartPosition(double startX, double startY, double startHeading) {
     robotStartingHeadingStandard = startHeading;
     
     // 4. Reset Sensors
-    // This tells the gyro "0 change has happened since we started"
-    gyroReadingAtStart = InertialSensor.rotation(degrees);
+    // Snapshot current IMU rotation — odometry treats this as the zero reference
+    gyroReadingAtStart = InertialSensor.get_rotation();
 
     // 5. Reset Encoders to 0 (Clean Slate)
     // It is much safer to track "Change from Start" than "Absolute Wheel Rotations"
-    passiveEncoderLeft.resetPosition();
-    passiveEncoderRight.resetPosition();
-    passiveEncoderX.resetPosition();
+    passiveEncoderLeft.reset();
+    passiveEncoderRight.reset();
+    passiveEncoderX.reset();
     
     // Initialize previous readings to 0
     prevLeftEncoder = 0;
@@ -73,10 +71,11 @@ void setStartPosition(double startX, double startY, double startHeading) {
  */
 void updateOdometry() {
     // 1. Read Current Sensor Values
-    double leftEncoder  = passiveEncoderLeft.position(vex::rotationUnits::deg);
-    double rightEncoder = passiveEncoderRight.position(vex::rotationUnits::deg);
+    // PROS Rotation returns centidegrees; divide by 100 to get degrees
+    double leftEncoder  = passiveEncoderLeft.get_position()  / 100.0;
+    double rightEncoder = passiveEncoderRight.get_position() / 100.0;
     // Use the stored previous value if the X encoder is disabled
-    double xEncoder     = xEncoderEnabled ? passiveEncoderX.position(vex::rotationUnits::deg) : prevXEncoder;
+    double xEncoder     = xEncoderEnabled ? passiveEncoderX.get_position() / 100.0 : prevXEncoder;
     double currentRotation = getContinuousStandardHeading();
 
     // 2. Calculate Deltas (Change since last loop)
@@ -129,9 +128,9 @@ void updateOdometry() {
     globalY += deltaYPos;
     globalRotation = currentRotation;
 
-    // Debug: Print position to screen (converted back to North-Up for readability)
-    Brain.Screen.printAt(10, 20, "X: %.2f, Y: %.2f, H: %.2f",
-                         globalX, globalY, getNormalizedHeading());
+    // Debug: Print position to brain screen (North-Up heading for readability)
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "X: %.2f, Y: %.2f, H: %.2f",
+                        globalX, globalY, getNormalizedHeading());
 }
 
 // ======================================================================
@@ -254,19 +253,19 @@ void backwardToPoint(double targetX, double targetY, double breakDistance,
 // ======================================================================
 OdometryTaskParams odometryParams = {false};
 
-int odometryTask(void *params) {
+// PROS task functions must return void — called by pros::Task internally
+void odometryTask(void *params) {
     OdometryTaskParams *p = static_cast<OdometryTaskParams *>(params);
     while (p->isRunning) {
         updateOdometry();
-        wait(10, msec);
+        pros::delay(10);  // ~100Hz update rate
     }
-    return 0;
 }
 
 void startOdometryTask() {
     if (!odometryParams.isRunning) {
         odometryParams.isRunning = true;
-        task odomTask(odometryTask, &odometryParams);
+        pros::Task(odometryTask, &odometryParams, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "OdometryTask");
     }
 }
 

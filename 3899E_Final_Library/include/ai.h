@@ -1,6 +1,7 @@
 #ifndef AI_H
 #define AI_H
 
+// Perform a vision-guided sweep toward North on the field.
 void visionSweepNorth();
 
-#endif // AI_NORTH_SWEEP_H
+#endif // AI_H

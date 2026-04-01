@@ -1,677 +1,405 @@
-#include "vex.h"
-#include "robot_config.h" 
+#include "main.h"
+#include "robot_config.h"
 #include "utils.h"
 #include <cmath>
 #include <algorithm>
 
-using namespace vex;
+// ══════════════════════════════════════════════════════════════════════════════
+// HEADING CONVERSION
+// ══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Converts VEX coordinate system angle to Standard Cartesian
- * VEX: 0° = East, increases Clockwise (CW+)
- * Standard: 0° = East, increases Counter-Clockwise (CCW+)
- * Formula: Negate to flip direction, then add 90° offset
- */
+// VEX IMU reports CW+ (clockwise positive); Standard Cartesian is CCW+.
+// Flip the sign and offset by 90° to convert between the two systems.
 double vexToStandardCartesian(double vexAngle) {
     return -vexAngle + 90.0;
 }
 
-// ───────────────────────────────────────────────
-// Core heading access functions (all return Standard Cartesian)
-// Use getContinuousStandardHeading() for internal math, odometry, turns, PID
-// ───────────────────────────────────────────────
+// ── Gyro scalar ───────────────────────────────────────────────────────────────
+// Corrects for accumulated sensor error over full rotations.
+// Calibration method: spin the robot exactly 10 full turns; measure the
+// reported angle.  GYRO_SCALE = 3600 / measured_value.
+// If you get +32° after 10 turns → decrease GYRO_SCALE (< 1.0).
+// If you get -328° after 10 turns → increase GYRO_SCALE (> 1.0).
+static const double GYRO_SCALE = 1.009017;
 
-// =========================================================
-// GYRO SCALAR: Corrects physical sensor error
-// Formula: Target (3600) / Actual (3568) = ~1.009
-// If you spin 10 times and get a POSITIVE angle (e.g. 32), decrease this (< 1.0)
-// If you spin 10 times and get a NEGATIVE angle (e.g. -328), increase this (> 1.0)
-// =========================================================
-const double GYRO_SCALE = 1.009017; 
-
-/**
- * Returns continuous (unbounded) robot heading in Standard Cartesian coordinates
- * Does NOT wrap - can return values like 720°, -450°, etc.
- * Reference: East = 0°, North = 90°, West = 180°, South = 270°
- * Direction: Counter-clockwise positive (CCW+)
- * 
- * Used for: Internal calculations, odometry tracking, preventing wrap-around in PID
- */
-
+// Returns continuous (unbounded) Standard Cartesian heading in degrees.
+// Does NOT wrap — can return 720°, -450°, etc.  Use this for PID and odometry.
+// Convention: East = 0°, North = +90°, CCW positive.
 double getContinuousStandardHeading() {
-    // 1. Get raw rotation from sensor
-    double currentSensorRotation = InertialSensor.rotation(degrees);
+    // PROS get_rotation() returns unbounded degrees (CW positive for VEX IMU).
+    double currentSensorRotation = InertialSensor.get_rotation();
 
-    // 2. Calculate the raw change since start
-    double unscaledDelta = currentSensorRotation - gyroReadingAtStart;
+    // Delta from the recorded start value, then scaled for sensor error.
+    double scaledDelta = (currentSensorRotation - gyroReadingAtStart) * GYRO_SCALE;
 
-    // 3. Apply gyro calibration scalar to fix rotation magnitude
-    double scaledDelta = unscaledDelta * GYRO_SCALE;
-
-    // 4. Return continuous heading: Starting heading - rotation change
-    // Note: Subtraction because VEX gyro increases CW, we want CCW+
+    // Subtract because VEX rotation is CW+ and we want CCW+.
     return robotStartingHeading - scaledDelta;
 }
 
-
-// Normalized -180..+180 Standard Cartesian (shortest path friendly)
+// Returns heading normalized to −180…+180° Standard Cartesian.
 double getNormalizedStandardHeading() {
-    double continuous = getContinuousStandardHeading();
-    return fmod(continuous + 540.0, 360.0) - 180.0;
+    return fmod(getContinuousStandardHeading() + 540.0, 360.0) - 180.0;
 }
 
-/**
- * Returns the robot's current heading in Standard Cartesian coordinates
- * Range: -180 to +180 degrees (normalized for shortest path calculations)
- * Reference: East = 0°, North = 90°, West = ±180°, South = -90°
- * Direction: Counter-clockwise positive (CCW+)
- * 
- * Used for: UI display, printing, telemetry, and user-facing angle values
- * This is an alias for getNormalizedStandardHeading() for convenience
- */
+// Alias for getNormalizedStandardHeading() — use for display / telemetry.
 double getNormalizedHeading() {
     return getNormalizedStandardHeading();
 }
 
-// Minimum threshold for division operations to prevent divide by zero errors
-const double DIV_BY_ZERO_THRESHOLD = 0.001;
-
-extern double robotStartingHeading; 
-extern double gyroReadingAtStart;
-
-/**
- * Returns the robot's current heading in Standard Cartesian coordinates
- * Range: -180 to +180 degrees (normalized for shortest path calculations)
- * Reference: East = 0°, North = 90°, West = ±180°, South = -90°
- * Direction: Counter-clockwise positive (CCW+)
- * 
- * Alias for getNormalizedHeading() - both names are valid and return the same value
- */
+// Legacy alias — kept so existing call sites compile without changes.
 double getAdjustedRotation() {
     return getNormalizedHeading();
 }
 
-// Implement slip detection logic
-bool isSlipping(double motorSpeed, double encoderSpeed)
-{
+// ══════════════════════════════════════════════════════════════════════════════
+// MOTOR / ENCODER SPEED HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Small denominator guard used throughout this file.
+static const double DIV_BY_ZERO_THRESHOLD = 0.001;
+
+// Returns wheel surface speed in cm/s from the drive motor's internal encoder.
+double getMotorSpeed(pros::Motor& motor) {
+    // get_actual_velocity() → RPM at the motor shaft.
+    // Divide by gearRatio to get wheel RPM, then convert RPM → cm/s.
+    return motor.get_actual_velocity() / gearRatio * wheelCircumferenceCM / 60.0;
+}
+
+// Returns wheel surface speed in cm/s from a passive tracking-wheel encoder.
+// get_velocity() returns centidegrees/s; divide by 100 for deg/s, then
+// convert deg/s → RPM and multiply by circumference.
+double getEncoderSpeed(pros::Rotation& encoder) {
+    double degPerSec = encoder.get_velocity() / 100.0;  // centideg/s → deg/s
+    double rpm = degPerSec / 360.0 * 60.0;
+    return rpm * encoderWheelCircumferenceCM / 60.0;    // cm/s
+}
+
+// True when the drive wheel is spinning faster than the chassis is moving
+// (loss of traction / wheelspin).
+bool isSlipping(double motorSpeed, double encoderSpeed) {
     const double slipThreshold = 0.1;
-    return (motorSpeed > encoderSpeed * (1 + slipThreshold));
+    return motorSpeed > encoderSpeed * (1.0 + slipThreshold);
 }
 
-// Implement lock-up detection logic
-bool isLocking(double motorSpeed, double encoderSpeed)
-{
-    const double lockThreshold = .85; // 10% threshold
-    return (motorSpeed < encoderSpeed * (1.0 - lockThreshold));
+// True when the wheel is rotating much slower than the chassis
+// (wheel lock-up under heavy braking).
+bool isLocking(double motorSpeed, double encoderSpeed) {
+    const double lockThreshold = 0.85;
+    return motorSpeed < encoderSpeed * (1.0 - lockThreshold);
 }
 
-// Color Detection Constants for utils.cpp
-// ======================================================================
-// COLOUR DETECTION CONSTANTS — Single source of truth for the whole codebase.
-// Both driver control and auton routines reference these values.
-// Never redefine these locally in other files (driver.cpp, auton routines, etc.)
-//
-// Hue is measured in degrees (0°–360°) around the colour wheel:
-//   Red wraps around 0° so it needs TWO ranges — one near 360° and one near 0°
-//   Blue sits mid-wheel around 215°–225° and only needs one range
-// ======================================================================
-const double RED_HUE_MIN_1 = 325.0;  // Octoball red lower bound (observed 329°, buffer added)
-const double RED_HUE_MAX_1 = 360.0;  // Octoball red upper bound
-const double RED_HUE_MIN_2 = 0.0;    // Red wrap-around lower band (not observed, kept as safety)
-const double RED_HUE_MAX_2 = 15.0;   // Red wrap-around upper band
-const double BLUE_HUE_MIN  = 218.0;  // Octoball blue lower bound (observed 221°, buffer added)
-const double BLUE_HUE_MAX  = 245.0;  // Octoball blue upper bound (observed 242°, buffer added)
-const double MIN_BRIGHTNESS = 5.0;
-// Function to initialize the Optical Sensor
-void initializeOpticalSensor()
-{
-    opticalSensor.setLightPower(100, percent); // Turn on the sensor light at 100% power
-    opticalSensor.setLight(ledState::on);      // Ensure the light is on
+// True when the requested speed is higher than the current speed in the same
+// direction, or when the direction is reversing (both count as accelerating).
+bool isAccelerating(double targetDriverSpeed, double currentSpeed) {
+    if (targetDriverSpeed * currentSpeed > 0)
+        return std::fabs(targetDriverSpeed) > std::fabs(currentSpeed);
+    if (targetDriverSpeed * currentSpeed < 0)
+        return true;   // direction reversal = accelerating
+    return false;
 }
 
-// Track consecutive detections to prevent false positives
-static int consecutiveDetections = 0;
-static bool lastDetectedColor = false; // false = no color, true = color detected
+// SAE J670 slip ratio: |wheelSpeed − robotSpeed| / max(|wheelSpeed|, |robotSpeed|).
+// 0.0 = perfect traction, 1.0 = full spin / full lock.
+double calculateSlipRatio(double wheelSpeed, double robotSpeed) {
+    double ref = std::max(std::fabs(wheelSpeed), std::fabs(robotSpeed));
+    if (ref < DIV_BY_ZERO_THRESHOLD) return 0.0;
+    return std::fabs((wheelSpeed - robotSpeed) / ref);
+}
 
-/**
- * Detect if a specific color is present
- * @param targetColor The color to detect (Color::RED or Color::BLUE)
- * @return true if the target color is detected, false otherwise
- */
-bool detectColor(Color targetColor)
-{
-    double hue = opticalSensor.hue();
-    double brightness = opticalSensor.brightness();
-    bool colorDetected = false;
+// Lockup ratio: how much the wheel has slowed below the chassis speed.
+// Used by adaptiveABS to detect impending wheel lock.
+double calculateLockupRatio(double wheelSpeed, double robotSpeed) {
+    if (std::fabs(robotSpeed) < DIV_BY_ZERO_THRESHOLD)
+        return (std::fabs(wheelSpeed) < DIV_BY_ZERO_THRESHOLD) ? 0.0 : 1.0;
+    return std::fabs((robotSpeed - wheelSpeed) / robotSpeed);
+}
 
-    // Check brightness threshold
-    if (brightness < MIN_BRIGHTNESS)
-    {
+// Exponential rolling average over n samples.
+// Keeps recent values weighted more heavily without storing a history buffer.
+float rollingAverage(float newValue, float currentAverage, int n) {
+    return currentAverage * (n - 1) / n + newValue / n;
+}
+
+// Voltage cap that preserves the left/right differential (PID correction term).
+// If one side exceeds absoluteMaxVoltage, both sides are scaled so the
+// over-limit side is clamped and the other side is reduced by the same amount,
+// keeping the turn intent intact.
+void PIDVoltageCapCorrection(double& leftVoltage, double& rightVoltage,
+                             double absoluteMaxVoltage) {
+    double diff = std::fabs(leftVoltage - rightVoltage);
+    if (std::fabs(leftVoltage) > absoluteMaxVoltage) {
+        leftVoltage  = std::copysign(absoluteMaxVoltage, leftVoltage);
+        rightVoltage = std::copysign(absoluteMaxVoltage - diff, rightVoltage);
+    } else if (std::fabs(rightVoltage) > absoluteMaxVoltage) {
+        leftVoltage  = std::copysign(absoluteMaxVoltage - diff, leftVoltage);
+        rightVoltage = std::copysign(absoluteMaxVoltage, rightVoltage);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COLOR DETECTION
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Hue thresholds — calibrated under competition lighting.
+// Red wraps across 0°/360° on the hue wheel, so two ranges are needed.
+const double RED_HUE_MIN_1 = 325.0;
+const double RED_HUE_MAX_1 = 360.0;
+const double RED_HUE_MIN_2 =   0.0;
+const double RED_HUE_MAX_2 =  15.0;
+const double BLUE_HUE_MIN  = 218.0;
+const double BLUE_HUE_MAX  = 245.0;
+const double MIN_BRIGHTNESS =  5.0;  // ignore readings below this brightness
+
+// Turn on the optical sensor's illumination LED at full power.
+void initializeOpticalSensor() {
+    opticalSensor.set_led_pwm(100);  // 0–100% LED brightness
+}
+
+// Debounce state — require 3 consecutive matching readings before reporting.
+static int  consecutiveDetections = 0;
+static bool lastDetectedColor = false;
+
+// Returns true when targetColor has been seen for 3 consecutive calls.
+// Filters single-frame noise from reflections or fast-moving objects.
+bool detectColor(Color targetColor) {
+    double hue        = opticalSensor.get_hue();
+    double brightness = opticalSensor.get_brightness();
+
+    if (brightness < MIN_BRIGHTNESS) {
         consecutiveDetections = 0;
         lastDetectedColor = false;
         return false;
     }
 
-    // Check for the target color only
-    if (targetColor == Color::RED)
-    {
-        // Check for red hue ranges
-        if ((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
-            (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2))
-        {
-            colorDetected = true;
-        }
-    }
-    else if (targetColor == Color::BLUE)
-    {
-        // Check for blue hue range
-        if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX)
-        {
-            colorDetected = true;
-        }
+    bool colorDetected = false;
+    if (targetColor == Color::RED) {
+        colorDetected = (hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
+                        (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2);
+    } else if (targetColor == Color::BLUE) {
+        colorDetected = (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX);
     }
 
-    // Handle consecutive detections
     if (colorDetected == lastDetectedColor && colorDetected)
-    {
         consecutiveDetections++;
-    }
     else
-    {
         consecutiveDetections = 1;
-    }
 
     lastDetectedColor = colorDetected;
-
-    // Return true if we have enough consecutive detections
-    return (consecutiveDetections >= 3); // Require 3 consecutive detections
+    return (consecutiveDetections >= 3);
 }
 
-/**
- * Detect if red color is present
- * @return true if red is detected, false otherwise
- */
-bool detectRed()
-{
-    return detectColor(Color::RED);
-}
+bool detectRed()  { return detectColor(Color::RED);  }
+bool detectBlue() { return detectColor(Color::BLUE); }
 
-/**
- * Detect if blue color is present
- * @return true if blue is detected, false otherwise
- */
-bool detectBlue()
-{
-    return detectColor(Color::BLUE);
-}
-
-// Reset detection state if needed
-void resetColorDetection()
-{
+void resetColorDetection() {
     consecutiveDetections = 0;
     lastDetectedColor = false;
 }
 
-/*
-// Handle the ejection process
-void ringEjection()
-{
-    // Spin forward by 720 degrees (2 rotations) at 100% velocity
-    intakeMotor.spinFor(forward, 720, rotationUnits::deg, 100, velocityUnits::pct);
+// ringEjection: commented out — re-implement when arm/intake hardware is confirmed.
+// void ringEjection() { ... }
 
-    // Spin in reverse by 180 degrees to eject the ring
-    intakeMotor.spinFor(reverse, 180, rotationUnits::deg, 100, velocityUnits::pct);
+// ══════════════════════════════════════════════════════════════════════════════
+// MOTOR CONTROL TASK
+// Runs a timed motor burst. Called directly or launched as a PROS background task.
+// ══════════════════════════════════════════════════════════════════════════════
 
-    // Resume forward intake at 12 volts
-    intakeMotor.spin(forward, 12, voltageUnits::volt);
-}
-*/
-// Generic function to control any motor
-// Function to control any motor
-void MotorControl(motor &targetMotor, int DelayStart, int OnTime, directionType dir)
-{
-    task::sleep(DelayStart);                       // Wait before starting
-    targetMotor.spin(dir, 12, voltageUnits::volt); // Spin motor
-    task::sleep(OnTime);                           // Keep spinning
-    targetMotor.stop();                            // Stop motor
+// Blocking version: waits DelayStart ms, spins for OnTime ms, then stops.
+// reversed = true → negative voltage (reverse direction).
+void MotorControl(pros::Motor& targetMotor, int DelayStart, int OnTime, bool reversed) {
+    pros::delay(DelayStart);
+    targetMotor.move_voltage(reversed ? -12000 : 12000);
+    pros::delay(OnTime);
+    targetMotor.move(0);
 }
 
-// Wrapper function matching the expected thread signature
-int MotorControlThread(void *params)
-{
-    MotorControlParams *mcParams = static_cast<MotorControlParams *>(params);
-    MotorControl(*mcParams->targetMotor, mcParams->DelayStart, mcParams->OnTime, mcParams->dir);
-    return 0; // Return value as required by thread signature
+// PROS task wrapper — casts void* to MotorControlParams, builds a temporary
+// Motor from the stored port number, then calls the blocking helper.
+void MotorControlThread(void* params) {
+    MotorControlParams* p = static_cast<MotorControlParams*>(params);
+    pros::Motor motor(p->motorPort, pros::MotorGears::blue);
+    MotorControl(motor, p->DelayStart, p->OnTime, p->reversed);
 }
 
-bool isAccelerating(double targetDriverSpeed, double currentSpeed)
-{
-    // If both speeds are in the same direction
-    if ((targetDriverSpeed * currentSpeed) > 0)
-    {
-        // Check if the target speed is greater than the current speed
-        return fabs(targetDriverSpeed) > fabs(currentSpeed);
-    }
-    // If the speeds are in opposite directions
-    else if ((targetDriverSpeed * currentSpeed) < 0)
-    {
-        // Moving from positive to negative or vice versa is still a sign of acceleration
-        return true;
-    }
+// ══════════════════════════════════════════════════════════════════════════════
+// COLOR DETECTION TASK
+// Monitors the optical sensor continuously and ejects a wrong-color ring.
+// ══════════════════════════════════════════════════════════════════════════════
+void colorDetectionTask(void* params) {
+    ColorTaskParams* p = static_cast<ColorTaskParams*>(params);
 
-    // If both are zero, or no acceleration
-    return false;
-}
+    while (p->isRunning) {
+        double hue = opticalSensor.get_hue();
 
-// Function to calculate motor speed in cm per second using a constant circumference
-double getMotorSpeed(vex::motor &motor)
-{
-    // Get motor velocity in RPM and convert to cm/s using the constant circumference
-    return motor.velocity(vex::velocityUnits::rpm) / gearRatio * wheelCircumferenceCM / 60.0;
-}
+        bool redSeen  = (hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
+                        (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2);
+        bool blueSeen = (hue >= BLUE_HUE_MIN  && hue <= BLUE_HUE_MAX);
 
-// Function to calculate motor encoder speed in cm per second
-double getEncoderSpeed(vex::rotation &encoder)
-{
-    return encoder.velocity(vex::velocityUnits::rpm) * encoderWheelCircumferenceCM / 60.0;
-}
-
-void PIDVoltageCapCorrection(double &leftVoltage, double &rightVoltage, double absoluteMaxVoltage)
-{
-    double pidCorrectionDiff = fabs(leftVoltage - rightVoltage);
-
-    if (std::abs(leftVoltage) > absoluteMaxVoltage)
-    {
-        leftVoltage = std::copysign(absoluteMaxVoltage, leftVoltage);
-        rightVoltage = std::copysign((absoluteMaxVoltage - pidCorrectionDiff), rightVoltage);
-    }
-    else if (std::abs(rightVoltage) > absoluteMaxVoltage)
-    {
-        leftVoltage = std::copysign((absoluteMaxVoltage - pidCorrectionDiff), leftVoltage);
-        rightVoltage = std::copysign(absoluteMaxVoltage, rightVoltage);
-    }
-}
-
-/**
- * Calculates slip ratio using SAE J670 standard formula
- * 
- * Slip ratio quantifies the difference between wheel speed and actual ground speed:
- * - During acceleration: Detects wheel spin (wheelSpeed > robotSpeed)
- * - During braking: Detects wheel lock (wheelSpeed < robotSpeed)
- * 
- * @param wheelSpeed Motor-driven wheel speed in RPM (from motor.velocity())
- * @param robotSpeed Actual ground speed in RPM (from tracking wheel encoder)
- * @return Slip ratio from 0.0 to 1.0, where:
- *         0.0 = perfect traction (no slip/lock)
- *         1.0 = complete slip or lock
- * 
- * Formula: |wheelSpeed - robotSpeed| / max(|wheelSpeed|, |robotSpeed|)
- * The larger speed becomes the reference to ensure the ratio stays within 0-1 range
- */
-double calculateSlipRatio(double wheelSpeed, double robotSpeed)
-{
-    // Use the larger of the two speeds as the reference denominator
-    // This ensures slip ratio is always between 0.0 and 1.0
-    double referenceSpeed = std::max(std::fabs(wheelSpeed), std::fabs(robotSpeed));
-    
-    // Prevent division by zero when robot is stationary
-    if (referenceSpeed < DIV_BY_ZERO_THRESHOLD)
-    {
-        return 0.0;  // No slip when both speeds are zero
-    }
-    
-    // Calculate slip as percentage of reference speed
-    return std::fabs((wheelSpeed - robotSpeed) / referenceSpeed);
-}
-
-// Calculate wheel lockup ratio for ABS braking
-// Formula: (robotSpeed - wheelSpeed) / robotSpeed
-// Returns 0-1 where 0 = no lockup, 1 = full lockup
-double calculateLockupRatio(double wheelSpeed, double robotSpeed)
-{
-    if (std::fabs(robotSpeed) < DIV_BY_ZERO_THRESHOLD)
-    {
-        return (std::fabs(wheelSpeed) < DIV_BY_ZERO_THRESHOLD) ? 0.0 : 1.0;
-    }
-    
-    return std::fabs((robotSpeed - wheelSpeed) / robotSpeed);
-}
-
-/**
- * Calculates rolling average of a value over N samples
- * @param newValue Latest measurement to include in average
- * @param currentAverage Previous rolling average value
- * @param n Number of samples to average over (typical: 5-10 for 50-100ms window at 10ms rate)
- * @return Updated rolling average
- */
-float rollingAverage(float newValue, float currentAverage, int n)
-{
-    return currentAverage * (n - 1) / n + newValue / n;
-}
-
-/*
-int armTask(void *params)
-{
-    ArmTaskParams *p = static_cast<ArmTaskParams *>(params);
-
-    while (p->isRunning)
-    {
-        if (p->moveRequested && p->delayMs > 0)
-        {
-            wait(p->delayMs, msec); // Wait for specified delay
-            armMotor1.spinToPosition(p->targetPosition, rotationUnits::deg, 100, velocityUnits::pct, false);
-            armMotor2.spinToPosition(p->targetPosition, rotationUnits::deg, 100, velocityUnits::pct, false);
-            p->moveRequested = false; // Reset the move request
-        }
-        wait(10, msec); // Small delay to prevent CPU overload
-    }
-    return 0;
-}
-*/    
-
-int colorDetectionTask(void *params)
-{
-    ColorTaskParams *p = static_cast<ColorTaskParams *>(params);
-
-    while (p->isRunning)
-    {
-        double hue = opticalSensor.hue();
-        Brain.Screen.clearLine(1);    // Clear line 1 before printing
-        Brain.Screen.setCursor(1, 1); // Set cursor to beginning of line 1
-
-        if (((hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
-             (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2)) &&
-            p->targetColor == Color::RED)
-        {
-            Brain.Screen.print("RED");
-            wait(p->delayMs, msec);
-            intakeMotor1.stop(); // Stop the motor
-            wait(50, msec);
-            intakeMotor1.spin(reverse, 100, velocityUnits::pct); // Spins continuously until stopped
-        }
-        else if ((hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) && p->targetColor == Color::BLUE)
-        {
-            Brain.Screen.print("BLUE");
-            wait(p->delayMs, msec);
-            intakeMotor1.stop(); // Stop the motor
-            wait(50, msec); //adjust waite time before 
-            intakeMotor1.spin(reverse, 100, velocityUnits::pct); // Spins continuously until stopped
+        if (redSeen  && p->targetColor == Color::RED) {
+            pros::lcd::set_text(0, "DETECT: RED");
+            pros::delay(p->delayMs);
+            intakeMotor1.move(0);         // stop
+            pros::delay(50);
+            intakeMotor1.move(-100);      // reverse to eject (negative = reverse in PROS)
+        } else if (blueSeen && p->targetColor == Color::BLUE) {
+            pros::lcd::set_text(0, "DETECT: BLUE");
+            pros::delay(p->delayMs);
+            intakeMotor1.move(0);
+            pros::delay(50);
+            intakeMotor1.move(-100);
         }
 
-        wait(10, msec); // Small delay to prevent CPU overload
+        pros::delay(10);  // ~100 Hz loop
     }
-    return 0;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// BUTTON WAIT HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Blocks until the driver presses and releases R1 on the controller.
+// Used during pre-match setup to confirm alliance color selection.
 void waitForButtonPress() {
-    // Display a message on the Brain's screen
-    Brain.Screen.setCursor(1, 1);
-    Brain.Screen.print("Press R1 to continue");
-    
-    // Wait until the R1 button is not pressed (in case it's already pressed)
-    while(Controller.ButtonR1.pressing()) {
-      wait(20, msec);
-    }
-    
-    // Wait until the R1 button is pressed
-    while(!Controller.ButtonR1.pressing()) {
-      wait(20, msec);
-    }
-    
-    // Wait until the R1 button is released
-    while(Controller.ButtonR1.pressing()) {
-      wait(20, msec);
-    }
-    
-    // Clear the message
-    Brain.Screen.clearScreen();
-  }
-/*
-  int armResetTask(void *params)
-{
-    ArmResetTaskParams *p = static_cast<ArmResetTaskParams *>(params);
-    
-    bool wasBumperPressed = false;
-    bool isMovingDown = false;
-    
-    // Start the arm moving down
-    armMotor1.setBrake(brakeType::coast);
-    armMotor2.setBrake(brakeType::coast);
-    armMotor1.spin(reverse, 100, velocityUnits::pct);
-    armMotor2.spin(reverse, 100, velocityUnits::pct);
-    isMovingDown = true;
-    p->isResetComplete = false;
-    
-    while (p->isRunning)
-    {
-        // Check if bumper is pressed and arm has stopped moving
-        if (armBumper.value() == 1 && 
-            fabs(armMotor1.velocity(velocityUnits::rpm)) < 5 && 
-            fabs(armMotor2.velocity(velocityUnits::rpm)) < 5)
-        {
-            if (!wasBumperPressed && isMovingDown)
-            {
-                wasBumperPressed = true;
-                armMotor1.stop(brakeType::coast);
-                armMotor2.stop(brakeType::coast);
-                armMotor1.resetPosition();
-                armMotor2.resetPosition();
-                armstat = ArmPosition::Starting;
-                isMovingDown = false;
-                p->isResetComplete = true;
-                
-            }
-        }
-        else
-        {
-            wasBumperPressed = false;
-        }
-        
-        wait(20, msec); // Small delay to prevent CPU overload
-    }
-    return 0;
-}
-*/
+    pros::lcd::set_text(1, "Press R1 to continue");
 
+    // Drain any pre-existing press so we wait for a fresh one.
+    while (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+        pros::delay(20);
 
-void runIntakeToStall() {
-    // Start the intake
-    intakeMotor1.spin(reverse, 100, velocityUnits::pct);
-    
-    // Wait for intake to stall
-    waitUntil(intakeMotor1.velocity(percentUnits::pct) < 1.0 && 
-              intakeMotor1.current(currentUnits::amp) > 7);
-    
-    // Small delay to ensure it's actually stalled
-    //wait(50, msec);
-    
-    // Stop the intake and set to coast mode
-    intakeMotor1.stop(brakeType::coast);
-    
-    // Back up slightly to release pressure
-  // Briefly reverse the intake to relieve pressure
-  intakeMotor1.spin(forward, 30, velocityUnits::pct);
-  wait(150, msec);
-  
-  // Stop the intake and set to coast mode
-  intakeMotor1.stop(brakeType::coast);
+    while (!Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+        pros::delay(20);
+
+    while (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+        pros::delay(20);
+
+    pros::lcd::clear();
 }
 
-// Add this near your other global variables at the top of the file
+// Alias used by older code paths.
+void waitForButton() {
+    waitForButtonPress();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INTAKE STALL DETECTION TASK
+// Detects a jammed intake and briefly reverses it to clear the blockage.
+// ══════════════════════════════════════════════════════════════════════════════
 IntakeStallTaskParams intakeStallParams;
 
-// Add this near your other task functions like colorDetectionTask
-// Task function for monitoring intake stalls
-int intakeStallTask(void *params) {
-    IntakeStallTaskParams *p = static_cast<IntakeStallTaskParams *>(params);
-    
-    // Counter for consecutive stall detections
+void intakeStallTask(void* params) {
+    IntakeStallTaskParams* p = static_cast<IntakeStallTaskParams*>(params);
+    const int REQUIRED_CONSECUTIVE_STALLS = 10;  // ~200 ms at 20 ms loop rate
     int stallCounter = 0;
-    const int REQUIRED_CONSECUTIVE_STALLS = 10;
-    
+
     while (p->isRunning) {
-        // Get current velocity
-        double currentVelocity = fabs(intakeMotor1.velocity(percentUnits::pct));
-        
-        // Check for stall condition
-        if (currentVelocity < p->stallThreshold) {
+        // Measure absolute velocity as a percentage of maximum.
+        double velPct = std::fabs(intakeMotor1.get_actual_velocity())
+                        / absoluteMaxRPM * 100.0;
+
+        if (velPct < p->stallThreshold) {
             stallCounter++;
-            
-            // If we have enough consecutive stalls
             if (stallCounter >= REQUIRED_CONSECUTIVE_STALLS) {
-                // Briefly reverse the intake by specified rotation
-                intakeMotor1.spinFor(forward, p->reverseRotation, rotationUnits::deg, 
-                                    p->reverseSpeed, velocityUnits::pct, false);
-                
-                // Wait for reversal to complete
-                waitUntil(!intakeMotor1.isSpinning());
-                
-                // Stop the intake and set to coast mode
-                intakeMotor1.stop(brakeType::coast);
-                
-                // Task accomplished, exit
+                // Reverse the intake to clear the jam.
+                intakeMotor1.move_relative(p->reverseRotation,
+                                           p->reverseSpeed * absoluteMaxRPM / 100.0);
+
+                // Wait for the move to complete (poll velocity ≈ 0).
+                while (std::fabs(intakeMotor1.get_actual_velocity()) > 5.0)
+                    pros::delay(10);
+
+                // Coast to a stop.
+                intakeMotor1.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                intakeMotor1.move(0);
+
                 p->isRunning = false;
                 break;
             }
         } else {
-            // Reset counter if not stalled
-            stallCounter = 0;
+            stallCounter = 0;  // reset if intake is spinning freely again
         }
-        
-        // Check every 20ms as requested
-        wait(20, msec);
+
+        pros::delay(20);
     }
-    
-    return 0;
 }
 
-// Add this near your other utility functions
-// Function to start monitoring intake for stalls
+// Starts the intake and launches the stall-detection task.
 void startIntakeStallDetection() {
-    // Set up parameters
-    intakeStallParams.isRunning = true;
-    intakeStallParams.stallThreshold = 1.0;     // 5% velocity threshold
-    intakeStallParams.reverseRotation = 210;     // 90 degrees of reversal
-    intakeStallParams.reverseSpeed = 60;        // 30% speed for reversal
-    
-    // Start the intake motor
-    intakeMotor1.spin(reverse, 100, velocityUnits::pct);
-    
-    // Start the stall detection task
-    vex::task stall_task(intakeStallTask, &intakeStallParams);
+    intakeStallParams.isRunning       = true;
+    intakeStallParams.stallThreshold  = 1.0;   // % velocity below which a stall is declared
+    intakeStallParams.reverseRotation = 210;   // degrees to reverse to clear jam
+    intakeStallParams.reverseSpeed    = 60;    // % speed for the reversal
+
+    intakeMotor1.move(-100);  // run intake in intake direction (negative = forward intake)
+    pros::Task stall_task(intakeStallTask, &intakeStallParams, "IntakeStall");
 }
 
-// Add this to your utils.cpp file
+// ══════════════════════════════════════════════════════════════════════════════
+// SIMPLE ARM TASK
+// Moves the arm to an encoder position asynchronously.
+// ══════════════════════════════════════════════════════════════════════════════
+static SimpleArmTaskParams simpleArmParams;
 
-void waitForButton() {
-    // Display message on the brain screen
-    Brain.Screen.setCursor(12, 1); // Position near bottom of screen
-    Brain.Screen.setPenColor(vex::color::yellow);
-    Brain.Screen.print("Press auton button to continue...");
-    
-    // Wait for button press
-    while (!autonBumper.pressing()) {
-        // Add a small delay to prevent CPU hogging
-        wait(20, msec);
-    }
-    
-    // Wait for button release to prevent multiple triggers
-    while (autonBumper.pressing()) {
-        wait(20, msec);
-    }
-    
-    // Clear the message
-    Brain.Screen.setCursor(12, 1);
-    Brain.Screen.clearLine();
-    
-    // Add a small delay to debounce
-    wait(300, msec);
-}
-
-SimpleArmTaskParams simpleArmParams;
-
-/**
- * Task to move arm to a position after a delay
- * @param params Pointer to SimpleArmTaskParams
- * @return 0 when task completes
- */
-int simpleArmTask(void *params) {
-    SimpleArmTaskParams *p = static_cast<SimpleArmTaskParams *>(params);
-    
+void simpleArmTask(void* params) {
+    SimpleArmTaskParams* p = static_cast<SimpleArmTaskParams*>(params);
     p->isComplete = false;
-    
-    // Wait for the specified delay
-    if (p->delayMs > 0) {
-        wait(p->delayMs, msec);
-    }
-    
-    // Calculate position with adjustment
-    double targetPosition = static_cast<double>(p->position) + p->adjustment;
-    
-    // Move arm to position
-    //armMotor1.spinToPosition(targetPosition, rotationUnits::deg, 100, velocityUnits::pct, false);
-    //armMotor2.spinToPosition(targetPosition, rotationUnits::deg, 100, velocityUnits::pct, false);
-    
+
+    if (p->delayMs > 0)
+        pros::delay(p->delayMs);
+
+    // targetPosition = enum value + optional fine-tune offset.
+    // Arm motor move_absolute calls go here once arm motors are re-added.
+    // double targetPos = static_cast<double>(p->position) + p->adjustment;
+    // armMotor1.move_absolute(targetPos, 100);
+    // armMotor2.move_absolute(targetPos, 100);
+
     p->isComplete = true;
-    p->isRunning = false;
-    
-    return 0;
+    p->isRunning  = false;
 }
 
-/**
- * Move arm to a position with optional adjustment and delay
- * @param position Position enum value
- * @param adjustment Adjustment to add to position value
- * @param delayMs Delay before moving in milliseconds
- */
+// Queues an arm move by filling simpleArmParams and launching the task.
 void moveArm(ArmPosition position, int adjustment, int delayMs) {
-    // Setup parameters
-    simpleArmParams.isRunning = true;
-    simpleArmParams.position = position;
-    simpleArmParams.adjustment = adjustment;
-    simpleArmParams.delayMs = delayMs;
-    simpleArmParams.isComplete = false;
-    
-    // Start the task
-    vex::task arm_task(simpleArmTask, &simpleArmParams);
+    simpleArmParams.isRunning   = true;
+    simpleArmParams.position    = position;
+    simpleArmParams.adjustment  = adjustment;
+    simpleArmParams.delayMs     = delayMs;
+    simpleArmParams.isComplete  = false;
+    pros::Task arm_task(simpleArmTask, &simpleArmParams, "ArmTask");
 }
 
-void smartStop(double linearThreshold, double angularThreshold, int timeoutMsec, bool brakeLock) {
-    
-    // 1. FORCE BRAKE (Defensive)
-    // Immediately tell motors to slow down via back-EMF.
-    for(int i = 0; i < 3; i++) {
-        leftMotor[i].stop(vex::brakeType::brake);
-        rightMotor[i].stop(vex::brakeType::brake);
+// ══════════════════════════════════════════════════════════════════════════════
+// SMART STOP
+// Applies brakes and waits until both linear and angular speeds drop below
+// their thresholds (or the timeout expires), then optionally locks in HOLD mode.
+// ══════════════════════════════════════════════════════════════════════════════
+void smartStop(double linearThreshold, double angularThreshold,
+               int timeoutMsec, bool brakeLock) {
+    // Immediately command both groups to brake.
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.brake();
+    rightDrive.brake();
+
+    // Poll until the robot settles or the timeout expires.
+    int elapsed = 0;
+    while (elapsed < timeoutMsec) {
+        // Linear speed from passive encoder (centideg/s → deg/s → RPM → cm/s).
+        double linearSpeed  = std::fabs(passiveEncoderLeft.get_velocity() / 100.0
+                                        / 360.0 * 60.0 * encoderWheelCircumferenceCM / 60.0);
+        // Angular speed from IMU z-axis gyro (degrees/s).
+        double angularSpeed = std::fabs(InertialSensor.get_gyro_rate().z);
+
+        if (linearSpeed < linearThreshold && angularSpeed < angularThreshold)
+            break;
+
+        pros::delay(10);
+        elapsed += 10;
     }
 
-    // 2. WAIT FOR SETTLE
-    int timeSpent = 0;
-    while(timeSpent < timeoutMsec) {
-        
-        // Check sensors (Passive Encoders + Gyro)
-        double linearSpeed = fabs(passiveEncoderLeft.velocity(vex::rpm)); 
-        double angularSpeed = fabs(InertialSensor.gyroRate(vex::axisType::zaxis, vex::velocityUnits::dps));
-
-        // Exit immediately if the robot is effectively stopped
-        if (linearSpeed < linearThreshold && angularSpeed < angularThreshold) {
-            break; 
-        }
-
-        vex::task::sleep(10);
-        timeSpent += 10;
-    }
-
-    // 3. OPTIONAL LOCK
-    // If brakeLock is true, we clamp the motors in HOLD mode.
+    // Optionally lock the robot in place with HOLD mode.
     if (brakeLock) {
-        for(int i = 0; i < 3; i++) {
-            leftMotor[i].stop(vex::brakeType::hold);
-            rightMotor[i].stop(vex::brakeType::hold);
-        }
+        leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+        rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+        leftDrive.brake();
+        rightDrive.brake();
     }
 }
-
-/*bool leftGateScore(){
-    leftLaneOptical.objectDetected
-}*/

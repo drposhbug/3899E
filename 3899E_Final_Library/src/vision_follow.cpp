@@ -1,202 +1,174 @@
 #include "vision_follow.h"
 #include "robot_config.h"
-#include "vex.h"
 
-using namespace vex;
 using namespace VisionFollow;
 
-// PID controller variables
+// ── PID state variables ───────────────────────────────────────────────────────
 double turnError = 0, lastTurnError = 0, turnIntegral = 0;
 double moveError = 0, lastMoveError = 0, moveIntegral = 0;
 
-/**
- * Calculates PID output for turning to center the object
- * @return Speed adjustment (-100 to 100) for turning
- */
+// ── Turn PID ─────────────────────────────────────────────────────────────────
+// Computes turn speed to horizontally center the detected object on screen.
+// Returns a speed adjustment in the range [-MAX_TURN_SPEED, +MAX_TURN_SPEED].
 double calculateTurnPID(double errorPixels) {
     turnError = errorPixels;
-    
-    // Integral term with anti-windup
+
+    // Integral with anti-windup clamp
     turnIntegral += turnError;
-    if (turnIntegral > 100) turnIntegral = 100;
+    if (turnIntegral >  100) turnIntegral =  100;
     if (turnIntegral < -100) turnIntegral = -100;
-    
-    // Derivative term
+
+    // Derivative: rate of change of error
     double derivative = turnError - lastTurnError;
     lastTurnError = turnError;
-    
-    // Calculate PID output
+
     double output = (TURN_KP * turnError) + (TURN_KI * turnIntegral) + (TURN_KD * derivative);
-    
-    // Clamp output
-    if (output > MAX_TURN_SPEED) output = MAX_TURN_SPEED;
+
+    // Clamp output to speed limit
+    if (output >  MAX_TURN_SPEED) output =  MAX_TURN_SPEED;
     if (output < -MAX_TURN_SPEED) output = -MAX_TURN_SPEED;
-    
+
     return output;
 }
 
-/**
- * Calculates PID output for moving forward/backward to maintain distance
- * @return Speed adjustment (-100 to 100) for forward/backward motion
- */
+// ── Move PID ─────────────────────────────────────────────────────────────────
+// Computes forward/backward speed to maintain the target object pixel-width.
+// Returns a speed adjustment in the range [-MAX_MOVE_SPEED, +MAX_MOVE_SPEED].
 double calculateMovePID(double errorPixels) {
     moveError = errorPixels;
-    
-    // Integral term with anti-windup
+
+    // Integral with anti-windup clamp
     moveIntegral += moveError;
-    if (moveIntegral > 100) moveIntegral = 100;
+    if (moveIntegral >  100) moveIntegral =  100;
     if (moveIntegral < -100) moveIntegral = -100;
-    
-    // Derivative term
+
+    // Derivative: rate of change of error
     double derivative = moveError - lastMoveError;
     lastMoveError = moveError;
-    
-    // Calculate PID output
+
     double output = (MOVE_KP * moveError) + (MOVE_KI * moveIntegral) + (MOVE_KD * derivative);
-    
-    // Clamp output
-    if (output > MAX_MOVE_SPEED) output = MAX_MOVE_SPEED;
+
+    // Clamp output to speed limit
+    if (output >  MAX_MOVE_SPEED) output =  MAX_MOVE_SPEED;
     if (output < -MAX_MOVE_SPEED) output = -MAX_MOVE_SPEED;
-    
+
     return output;
 }
 
-/**
- * Applies motor speeds to the drivetrain
- * @param turnSpeed: Rotational speed (-100 to 100)
- * @param moveSpeed: Forward/backward speed (-100 to 100)
- */
+// ── Motor speed application ───────────────────────────────────────────────────
+// Mixes turn and move speeds into left/right drive voltages.
+// turnSpeed > 0: turn right (left faster, right slower).
+// moveSpeed > 0: move forward.
 void applyMotorSpeeds(double turnSpeed, double moveSpeed) {
-    // Calculate left and right motor speeds
-    // turnSpeed > 0: turn right (slow left, speed right)
-    // moveSpeed > 0: move forward
-    
-    double leftSpeed = moveSpeed - turnSpeed;
+    double leftSpeed  = moveSpeed - turnSpeed;
     double rightSpeed = moveSpeed + turnSpeed;
-    
-    // Clamp to valid range
-    if (leftSpeed > 100) leftSpeed = 100;
-    if (leftSpeed < -100) leftSpeed = -100;
-    if (rightSpeed > 100) rightSpeed = 100;
+
+    // Clamp to [-100, 100] pct before converting to millivolts
+    if (leftSpeed  >  100) leftSpeed  =  100;
+    if (leftSpeed  < -100) leftSpeed  = -100;
+    if (rightSpeed >  100) rightSpeed =  100;
     if (rightSpeed < -100) rightSpeed = -100;
-    
-    // Apply speeds to motor arrays
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].spin(directionType::fwd, leftSpeed, velocityUnits::pct);
-        rightMotor[i].spin(directionType::fwd, rightSpeed, velocityUnits::pct);
-    }
+
+    // MotorGroup applies the command to all three motors per side simultaneously.
+    // Multiply by 120 to convert [-100, 100] pct → [-12000, 12000] mV.
+    leftDrive.move_voltage(static_cast<int32_t>(leftSpeed  * 120.0));
+    rightDrive.move_voltage(static_cast<int32_t>(rightSpeed * 120.0));
 }
 
-/**
- * Checks if a red ball is detected by the AI Vision sensor
- * @return true if red object detected, false otherwise
- */
+// ── Detection check ───────────────────────────────────────────────────────────
+// Returns true if the Vision sensor currently sees at least one object.
 bool isRedBallDetected() {
-    return AIVision20.objectCount > 0;
+    return aiVision.get_object_count() > 0;
 }
 
-/**
- * Main function to follow a red ball
- * Uses vision sensor to detect red objects and drive toward them
- */
+// ── Main follow loop ──────────────────────────────────────────────────────────
+// Continuously reads the Vision sensor for the red-cube signature, then drives
+// the robot to keep the object centered horizontally and at STOP_DISTANCE width.
 void followRedBall() {
-    Brain.Screen.clearScreen();
-    Brain.Screen.print("Vision Follow: Red Ball");
-    
+    pros::screen::erase();
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Vision Follow: Red Ball");
+
     while (true) {
-        // Take a snapshot with the red cube signature
-        AIVision20.takeSnapshot(AIVision20__redCube);
-        
-        // Check if any red objects are detected
-        if (!isRedBallDetected()) {
-            // No ball detected - stop and search
-            applyMotorSpeeds(0, 0);
-            Brain.Screen.clearScreen();
-            Brain.Screen.print("No ball detected");
-            vex::task::sleep(100);
+        // Get the largest object matching the red-cube signature (index 0 = biggest).
+        // PROS Vision sensor is live — no separate takeSnapshot step needed.
+        pros::vision_object_s_t redObject = aiVision.get_by_sig(0, aiVision_redCube.id);
+
+        // signature == VISION_OBJECT_ERR_SIG means no match was found
+        if (redObject.signature == VISION_OBJECT_ERR_SIG) {
+            applyMotorSpeeds(0, 0);  // stop while searching
+            pros::screen::erase();
+            pros::screen::print(pros::E_TEXT_MEDIUM, 1, "No ball detected");
+            pros::delay(100);
             continue;
         }
-        
-        // Get the first (largest) red object from the objects array
-        vex::aivision::object redObject = AIVision20.objects[0];
-        
-        // Get object position and size
-        double objectX = redObject.centerX;
-        double objectY = redObject.centerY;
-        double objectWidth = redObject.width;
+
+        // Extract position and size from the detected object
+        double objectX      = redObject.x_middle_coord;  // horizontal center (pixels)
+        double objectY      = redObject.y_middle_coord;  // vertical center (pixels)
+        double objectWidth  = redObject.width;
         double objectHeight = redObject.height;
-        
-        // Display information on brain screen
-        Brain.Screen.clearScreen();
-        Brain.Screen.setFont(monoL);
-        Brain.Screen.print("X: %.0f  Y: %.0f", objectX, objectY);
-        Brain.Screen.newLine();
-        Brain.Screen.print("Size: %.0f x %.0f", objectWidth, objectHeight);
-        
-        // ===== TURN CONTROL =====
-        // Calculate error from screen center X
+
+        // Display live detection info on the Brain screen
+        pros::screen::erase();
+        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "X: %.0f  Y: %.0f",   objectX,     objectY);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Size: %.0f x %.0f",  objectWidth, objectHeight);
+
+        // ── TURN CONTROL ─────────────────────────────────────────────────────
+        // Error = horizontal offset from screen center; positive = object is right of center.
         double turnErrorPixels = objectX - SCREEN_CENTER_X;
         double turnSpeed = 0;
-        
+
         if ((turnErrorPixels > TURN_DEADZONE) || (turnErrorPixels < -TURN_DEADZONE)) {
             turnSpeed = calculateTurnPID(turnErrorPixels);
         } else {
-            turnSpeed = 0;
-            turnIntegral = 0;  // Reset integral when in deadzone
+            turnSpeed    = 0;
+            turnIntegral = 0;  // reset integral when inside deadzone to prevent windup
         }
-        
-        // ===== FORWARD/BACKWARD CONTROL =====
-        // Calculate error from desired distance
-        // Larger object means too close, smaller means too far
+
+        // ── FORWARD/BACKWARD CONTROL ─────────────────────────────────────────
+        // Error = difference between current width and target width (STOP_DISTANCE).
+        // Larger width → too close; smaller width → too far.
         double moveErrorPixels = objectWidth - STOP_DISTANCE;
         double moveSpeed = 0;
-        
+
         if (objectWidth < MIN_OBJECT_SIZE) {
-            // Ball is too far away
-            moveSpeed = 30;  // Move forward with moderate speed
+            moveSpeed = 30;   // ball too far — move forward at moderate speed
         } else if (objectWidth > MAX_OBJECT_SIZE) {
-            // Ball is too close
-            moveSpeed = -30;  // Back away
+            moveSpeed = -30;  // ball too close — back away
         } else if ((moveErrorPixels > MOVE_DEADZONE) || (moveErrorPixels < -MOVE_DEADZONE)) {
             moveSpeed = calculateMovePID(moveErrorPixels);
         } else {
-            moveSpeed = 0;
-            moveIntegral = 0;  // Reset integral when in deadzone
+            moveSpeed    = 0;
+            moveIntegral = 0;  // reset integral when inside deadzone
         }
-        
-        // Apply calculated speeds
+
         applyMotorSpeeds(turnSpeed, moveSpeed);
-        
-        Brain.Screen.newLine();
-        Brain.Screen.print("Turn Err: %.1f", turnErrorPixels);
-        Brain.Screen.newLine();
-        Brain.Screen.print("Move Err: %.1f", moveErrorPixels);
-        Brain.Screen.newLine();
-        Brain.Screen.print("L: %.0f  R: %.0f", 
-                          moveSpeed - turnSpeed, 
-                          moveSpeed + turnSpeed);
-        
-        // Small delay to prevent loop from running too fast
-        vex::task::sleep(50);
+
+        // Display PID debug values
+        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Turn Err: %.1f", turnErrorPixels);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 4, "Move Err: %.1f", moveErrorPixels);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 5, "L: %.0f  R: %.0f",
+                            moveSpeed - turnSpeed,
+                            moveSpeed + turnSpeed);
+
+        pros::delay(50);  // 50 ms → 20 Hz control loop
     }
 }
 
-/**
- * Stops the robot and halts the following behavior
- */
+// ── Stop ─────────────────────────────────────────────────────────────────────
+// Halts both drive sides and resets all PID state.
 void stopFollowing() {
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop();
-        rightMotor[i].stop();
-    }
-    
-    // Reset PID variables
-    turnError = 0;
+    // MotorGroup move(0) respects the configured brake mode for all motors in the group
+    leftDrive.move(0);
+    rightDrive.move(0);
+
+    // Reset PID state so the next followRedBall() call starts clean
+    turnError    = 0;
     lastTurnError = 0;
     turnIntegral = 0;
-    moveError = 0;
+    moveError    = 0;
     lastMoveError = 0;
     moveIntegral = 0;
-    
-    Brain.Screen.clearScreen();
+
+    pros::screen::erase();
 }

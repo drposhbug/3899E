@@ -1,7 +1,7 @@
 #include "robot_config.h"
-#include "vex.h"
+#include "main.h"
 #include "utils.h"
-#include "pid.h" 
+#include "pid.h"
 #include <cmath>
 #include <atomic>
 #include "odometry.h"
@@ -10,14 +10,14 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-using namespace vex;
+// Horizontal center of the vision sensor frame (pixels)
+const double VISION_CENTER_X = 160;
 
-const double VISION_CENTER_X = 160;  
-  
-enum MotionPhase { READY, LAUNCH, CRUISE, DECELERATE, APPROACH, STOP };
-
+// Returns the average distance traveled by the passive encoder wheels (cm).
+// Uses centidegree PROS output (÷100 → degrees), then converts to distance.
 double getCurrentEncoderDistanceCM() {
-    double avgDeg = (passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0;
+    double avgDeg = (passiveEncoderLeft.get_position() / 100.0 +
+                     passiveEncoderRight.get_position() / 100.0) / 2.0;
     return (avgDeg / 360.0) * encoderWheelCircumferenceCM;
 }
 
@@ -26,57 +26,63 @@ double getCurrentEncoderDistanceCM() {
 // Basic move for fixed distance
 // Used for simple forward/backward commands
 // ======================================================================
-void move(double distanceCM, double maxSpeed, vex::directionType dir) {
+// Open-loop drive for a fixed distance at maxSpeed%.
+// Non-blocking: motors coast to their target position, then the function returns.
+void move(double distanceCM, double maxSpeed, bool reversed) {
     double targetRotations = distanceCM / wheelCircumferenceCM;
 
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].setBrake(brakeType::coast);
-        rightMotor[i].setBrake(brakeType::coast);
-    }
+    // Coast mode so motors stop naturally when target rotation is reached
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].spinFor(dir, targetRotations, rotationUnits::rev, maxSpeed, velocityUnits::pct, false);
-        rightMotor[i].spinFor(dir, targetRotations, rotationUnits::rev, maxSpeed, velocityUnits::pct, false);
-    }
+    // move_relative takes degrees; negate for reverse. Velocity in RPM (maxSpeed% of max).
+    double degrees = targetRotations * 360.0;
+    if (reversed) degrees = -degrees;
+    leftDrive.move_relative(degrees, maxSpeed / 100.0 * absoluteMaxRPM);
+    rightDrive.move_relative(degrees, maxSpeed / 100.0 * absoluteMaxRPM);
 }
 
-void smartMove(double distanceCM, double maxSpeed, vex::directionType dir, double wallStalledTimeMs) {
-    const double WALL_STOP_THRESHOLD_RPM = 5.0;
-    vex::timer wallStallTimer;
+// Drive for a set distance with optional wall-stall abort.
+// wallStalledTimeMs < 0 disables stall detection.
+void smartMove(double distanceCM, double maxSpeed, bool reversed, double wallStalledTimeMs) {
+    const double WALL_STOP_THRESHOLD_RPM = 5.0;  // RPM below which a side is considered stalled
+    uint32_t wallStallStart = 0;                  // millis() timestamp when stall began
     bool wallDetected = false, wallDetectEnabled = (wallStalledTimeMs > 0), isCurrentlyStalled = false;
 
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].setBrake(brakeType::coast);
-        rightMotor[i].setBrake(brakeType::coast);
-    }
+    // Coast so motors don't fight themselves mid-drive
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 
+    // Compute signed voltage: forward positive, reversed negative
     double voltage = maxSpeed * 0.01 * absoluteMaxVoltage;
-    if (dir == vex::reverse) voltage = -voltage;
+    if (reversed) voltage = -voltage;
 
     double startDist = getCurrentEncoderDistanceCM();
     double distanceTravelled = 0;
 
     while (fabs(distanceTravelled) < fabs(distanceCM) && !wallDetected) {
         distanceTravelled = getCurrentEncoderDistanceCM() - startDist;
-        double avgEncoderSpeed = (fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) + fabs(passiveEncoderRight.velocity(velocityUnits::rpm))) / 2.0;
+        double avgEncoderSpeed = (fabs(passiveEncoderLeft.get_velocity()) +
+                                  fabs(passiveEncoderRight.get_velocity())) / 2.0;
 
+        // Wall stall: if encoder barely moving, start (or extend) stall timer
         if (wallDetectEnabled) {
             if (avgEncoderSpeed < WALL_STOP_THRESHOLD_RPM) {
-                if (!isCurrentlyStalled) { wallStallTimer.reset(); isCurrentlyStalled = true; }
-                else if (wallStallTimer.time(msec) >= wallStalledTimeMs) wallDetected = true;
+                if (!isCurrentlyStalled) { wallStallStart = pros::millis(); isCurrentlyStalled = true; }
+                else if (pros::millis() - wallStallStart >= (uint32_t)wallStalledTimeMs) wallDetected = true;
             } else isCurrentlyStalled = false;
         }
 
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward, voltage, voltageUnits::volt);
-            rightMotor[i].spin(forward, voltage, voltageUnits::volt);
-        }
-        vex::task::sleep(10);
+        // Apply voltage to both sides (sign encodes direction)
+        leftDrive.move_voltage((int32_t)(voltage * 1000));
+        rightDrive.move_voltage((int32_t)(voltage * 1000));
+        pros::delay(10);
     }
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brake);
-        rightMotor[i].stop(brake);
-    }
+    // Brake stop
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.move(0);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.move(0);
 }
 
 void turnOdometry(double targetHeading, double breakDistanceInDegrees, double minSpeed, double maxSpeed, double exitTolerance) {
@@ -101,8 +107,8 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
 
     // ... (The rest of the function stays exactly the same) ... 
     
-    Brain.Screen.printAt(10, 40, "Target Head: %.2f", targetHeading);
-    Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
+    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Target Head: %.2f", targetHeading);
+    pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Curr Rotation: %.2f", currentHeading);
 
    // CORRECTED - Uses positive headingError so the loop logic works
     double maxSpeedVoltage       = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, headingError);
@@ -137,15 +143,17 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         currentHeading = getContinuousStandardHeading();
         headingError = targetRotationHeading - currentHeading;
 
-        Brain.Screen.printAt(10, 100, "Curr Rotation: %.2f", currentHeading);
-        Brain.Screen.printAt(10, 140, "Target: %.2f", targetHeading);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Curr Rotation: %.2f", currentHeading);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 7, "Target: %.2f", targetHeading);
 
-        double leftMotorRPM = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
+        // Read speeds; motor index [1] is the middle motor, used as the representative sample
+        double leftMotorRPM  = fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM = fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ;
 
-        double leftEncoderRPM = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) *
-                                (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) *
+        // Encoder RPM scaled to the same units as drive motor RPM
+        double leftEncoderRPM  = fabs(passiveEncoderLeft.get_velocity())  *
+                                 (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = fabs(passiveEncoderRight.get_velocity()) *
                                  (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
         double averageEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2.0;
@@ -191,47 +199,46 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
             }
             decel = true;
 
-            double leftMotorRPMDecel = fabs(leftMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
-            double rightMotorRPMDecel = fabs(rightMotor[1].velocity(vex::velocityUnits::rpm)) * DRIVE_MOTOR_RPM_ADJ;
-            double leftEncoderRPMDecel = fabs(passiveEncoderLeft.velocity(velocityUnits::rpm)) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-            double rightEncoderRPMDecel = fabs(passiveEncoderRight.velocity(velocityUnits::rpm)) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            double leftMotorRPMDecel    = fabs(leftDrive.get_actual_velocity())   * DRIVE_MOTOR_RPM_ADJ;
+            double rightMotorRPMDecel   = fabs(rightDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ;
+            double leftEncoderRPMDecel  = fabs(passiveEncoderLeft.get_velocity())  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            double rightEncoderRPMDecel = fabs(passiveEncoderRight.get_velocity()) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
             double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPMDecel, leftEncoderRPMDecel);
             double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPMDecel, rightEncoderRPMDecel);
 
-            vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
-            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+            pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
-            vex::brakeType syncedBrakeMode;
-            if (leftBrakeMode == vex::coast || rightBrakeMode == vex::coast) {
-                syncedBrakeMode = vex::coast;
+            // If either side wants to coast (lockup), sync both to coast
+            pros::motor_brake_mode_e_t syncedBrakeMode;
+            if (leftBrakeMode == pros::E_MOTOR_BRAKE_COAST || rightBrakeMode == pros::E_MOTOR_BRAKE_COAST) {
+                syncedBrakeMode = pros::E_MOTOR_BRAKE_COAST;
             } else {
-                syncedBrakeMode = vex::brake;
+                syncedBrakeMode = pros::E_MOTOR_BRAKE_BRAKE;
             }
 
             double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
 
-            for (int i = 0; i < 3; i++)
-            {
-                leftMotor[i].setBrake(syncedBrakeMode);
-                rightMotor[i].setBrake(syncedBrakeMode);
+            leftDrive.set_brake_mode(syncedBrakeMode);
+            rightDrive.set_brake_mode(syncedBrakeMode);
 
-                if (syncedBrakeMode == vex::brake && syncedDecelVoltage > 0.0)
-                {
-                    motorVoltageLeft[i] = std::copysign(syncedDecelVoltage, motorVoltageLeft[i]);
-                    motorVoltageRight[i] = std::copysign(syncedDecelVoltage, motorVoltageRight[i]);
-                }
-                else
-                {
-                    motorVoltageLeft[i] = 0.0;
-                    motorVoltageRight[i] = 0.0;
-                }
+            // Apply decel voltage or zero-out and let brake mode hold
+            if (syncedBrakeMode == pros::E_MOTOR_BRAKE_BRAKE && syncedDecelVoltage > 0.0)
+            {
+                motorVoltageLeft[0]  = std::copysign(syncedDecelVoltage, motorVoltageLeft[0]);
+                motorVoltageRight[0] = std::copysign(syncedDecelVoltage, motorVoltageRight[0]);
+            }
+            else
+            {
+                motorVoltageLeft[0]  = 0.0;
+                motorVoltageRight[0] = 0.0;
             }
 
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPMDecel, leftEncoderRollingAverage, 3);
+            leftEncoderRollingAverage  = rollingAverage(leftEncoderRPMDecel, leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPMDecel, rightEncoderRollingAverage, 3);
 
-            if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
+            if (fabs(leftEncoderRollingAverage)  <= fabs(minDriveMotorRPM) &&
                 fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
             {
                 decelCompleted = true;
@@ -240,30 +247,22 @@ void turnOdometry(double targetHeading, double breakDistanceInDegrees, double mi
         // Final Approach
         else if (decelCompleted == true)
         {
-            for (int i = 0; i < 3; i++)
-            {
-                motorVoltageLeft[i] = minSpeedVoltage;
-                motorVoltageRight[i] = minSpeedVoltage;
-            }
+            motorVoltageLeft[0]  = minSpeedVoltage;
+            motorVoltageRight[0] = minSpeedVoltage;
         }
 
-        // Power Drive Motors
-        for (int i = 0; i < 3; i++)
-        {
-            leftMotor[i].spin(forward, -motorVoltageLeft[i], voltageUnits::volt);
-            rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
-        }
+        // Apply voltages — left side is negated because it faces opposite direction to right
+        leftDrive.move_voltage((int32_t)(-motorVoltageLeft[0]  * 1000));
+        rightDrive.move_voltage((int32_t)( motorVoltageRight[0] * 1000));
 
-        vex::task::sleep(10);
+        pros::delay(10);
     }
 
-    for (int i = 0; i < 3; i++)
-    {
-        leftMotor[i].setBrake(brake);
-        rightMotor[i].setBrake(brake);
-        leftMotor[i].stop();
-        rightMotor[i].stop();
-    }
+    // Final stop with brake
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.move(0);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.move(0);
 }
 
 tractionControl::tractionControl(double minSpeedVoltage, double maxSpeedVoltage, double slipThreshold) : minSpeedVoltage(minSpeedVoltage), maxSpeedVoltage(maxSpeedVoltage), slipThreshold(slipThreshold) {}
@@ -273,15 +272,35 @@ double tractionControl::tractionControlSpeed(double motorVoltage, double wheelSp
     return std::copysign(std::max(std::fabs(minSpeedVoltage), std::min(std::fabs(motorVoltage), std::fabs(maxSpeedVoltage))), motorVoltage);
 }
 
-adaptiveABS::adaptiveABS(double decelStepPercent, double lockThreshold) : lockThreshold(lockThreshold), lastAttemptedVoltage(0.0), wasLockedLastCycle(false), currentBrakeMode(vex::brake) {
+adaptiveABS::adaptiveABS(double decelStepPercent, double lockThreshold)
+    : lockThreshold(lockThreshold), lastAttemptedVoltage(0.0),
+      wasLockedLastCycle(false), currentBrakeMode(pros::E_MOTOR_BRAKE_BRAKE) {
     decelStepVoltage = absoluteMaxVoltage * (decelStepPercent / 100.0);
 }
-void adaptiveABS::initialize(double startingVoltage) { lastAttemptedVoltage = startingVoltage; wasLockedLastCycle = false; currentBrakeMode = vex::brake; }
+
+// Resets ABS state at the start of a deceleration phase
+void adaptiveABS::initialize(double startingVoltage) {
+    lastAttemptedVoltage = startingVoltage;
+    wasLockedLastCycle   = false;
+    currentBrakeMode     = pros::E_MOTOR_BRAKE_BRAKE;
+}
+
+// Steps down voltage; switches to coast if lockup detected, back to brake once cleared
 double adaptiveABS::decelControlSpeed(double wheelSpeed, double robotSpeed) {
     double lockupRatio = calculateLockupRatio(wheelSpeed, robotSpeed);
-    if (lockupRatio > lockThreshold) { lastAttemptedVoltage = 0.0; currentBrakeMode = vex::coast; wasLockedLastCycle = true; }
-    else if (wasLockedLastCycle) { currentBrakeMode = vex::brake; wasLockedLastCycle = false; }
-    else { lastAttemptedVoltage = std::copysign(std::max(0.0, std::fabs(lastAttemptedVoltage) - decelStepVoltage), lastAttemptedVoltage); currentBrakeMode = vex::brake; }
+    if (lockupRatio > lockThreshold) {
+        lastAttemptedVoltage = 0.0;
+        currentBrakeMode     = pros::E_MOTOR_BRAKE_COAST;
+        wasLockedLastCycle   = true;
+    } else if (wasLockedLastCycle) {
+        currentBrakeMode   = pros::E_MOTOR_BRAKE_BRAKE;
+        wasLockedLastCycle = false;
+    } else {
+        lastAttemptedVoltage = std::copysign(
+            std::max(0.0, std::fabs(lastAttemptedVoltage) - decelStepVoltage),
+            lastAttemptedVoltage);
+        currentBrakeMode = pros::E_MOTOR_BRAKE_BRAKE;
+    }
     return lastAttemptedVoltage;
 }
 
@@ -295,729 +314,24 @@ void arcTurn(double targetDistance, double breakDistance, double minSpeed, doubl
 
     while (std::fabs(distanceTravelled) <= fabs(targetDistance)) {
         distanceTravelled = getCurrentEncoderDistanceCM() - startDist;
-        if (fabs(distanceTravelled) < (fabs(targetDistance) - breakDistance)) { innerV = std::min(maxV * innerRatio, innerV + 0.1); outerV = std::min(maxV * outerRatio, outerV + 0.1); }
-        else { innerV = std::max(minV * innerRatio, innerV - 0.1); outerV = std::max(minV * outerRatio, outerV - 0.1); }
-        for (int i = 0; i < 3; i++) { leftMotor[i].spin(forward, turnLeft ? innerV : outerV, volt); rightMotor[i].spin(forward, turnLeft ? outerV : innerV, volt); }
-        vex::task::sleep(20);
+        // Ramp up before break point, ramp down after
+        if (fabs(distanceTravelled) < (fabs(targetDistance) - breakDistance)) {
+            innerV = std::min(maxV * innerRatio, innerV + 0.1);
+            outerV = std::min(maxV * outerRatio, outerV + 0.1);
+        } else {
+            innerV = std::max(minV * innerRatio, innerV - 0.1);
+            outerV = std::max(minV * outerRatio, outerV - 0.1);
+        }
+        // Left turn: left is inner (slower), right is outer (faster); vice versa for right
+        leftDrive.move_voltage((int32_t)((turnLeft ? innerV : outerV) * 1000));
+        rightDrive.move_voltage((int32_t)((turnLeft ? outerV : innerV) * 1000));
+        pros::delay(20);
     }
-    for (int i = 0; i < 3; i++) { leftMotor[i].stop(coast); rightMotor[i].stop(coast); }
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+    leftDrive.move(0);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+    rightDrive.move(0);
 }
-
-void straightOdometry(double targetDistance,
-                      double breakDistance,
-                      double targetHeading,
-                      double minSpeed,
-                      double kp_heading,
-                      double ki_heading,
-                      double kd_heading,
-                      double accelHeadingScaling,
-                      double decelHeadingScaling,
-                      double approachHeadingScaling,
-                      double maxSpeed)
-{
-
-    // ========================================
-    // CONFIGURATION CONSTANTS
-    // ========================================
-    // Adaptive Launch Control Configuration
-    const double LAUNCH_VOLTAGE = 12;         // Starting voltage, must be higher than 0
-    const double ACCEL_FACTOR_LAUNCH = 1.25; // Acceleration rate MUST be > 1.0
-    // slipThreshold: 0-1 range (0 = no slip allowed, 1 = full slip allowed, .15-.25 = optimal slip)
-    const double SLIP_THRESHOLD_TRACTION = 0.25; // Slip threshold 1 is always power, 0 is no power
-    // Adaptive ABS configuration
-    const double DECEL_STEP_PERCENT = 20;    // Voltage step as % of 12V (range: 1-10)
-    const double LOCK_THRESHOLD_DECEL = 0.25; // Lockup sensitivity (range: 0.15-0.40)
-    // ========================================
-
-    // Add timer for acceleration phase
-    vex::timer accelTimer;
-
-    // Reset the encoders to start counting from zero
-    passiveEncoderLeft.resetPosition();
-    passiveEncoderRight.resetPosition();
-
-    // Initialize PID controllers
-    PID headingPID(kp_heading, ki_heading, kd_heading);
-    headingPID.pidReset(); // Remove extra blank line after this
-
-    // Motion Parameters
-    double currentDistance = 0;
-    // double headingDirection = (targetDistance > 0) ? 1.0 : -1.0;
-
-    // Target Speeds & Voltages
-    double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
-    double minSpeedVoltage = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
-    double launchVoltage = std::copysign(LAUNCH_VOLTAGE, targetDistance);
-    double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), targetDistance);
-
-    // RPM Parameters
-    double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM; // Adjusted for frictional losses
-    double maxEncoderRPM = 0;
-    // Motor Arrays
-    double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
-    double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
-    double leftMotorRPM = 0;
-    double rightMotorRPM = 0;
-
-    // PID and Heading Control
-
-    // double normTargetHeading = normHeading(targetHeading);
-    double avgMotorVoltage = 0; // Used for phase transition checking
-    double leftEncoderRollingAverage = 0;
-    double rightEncoderRollingAverage = 0;
-    double voltageRollingAverage = 0;
-
-    bool decel = false;
-    bool decelCompleted = false;
-    bool accelCompleted = false;
-    int consecutiveAtTarget = 0;
-    const int REQUIRED_CONSECUTIVE = 3;
-
-    // TEMPORARY - Voltage tracking for debugging traction control
-    double maxLeftVoltageReached = 0;
-    double maxRightVoltageReached = 0;
-    double maxAvgLeftVoltage = 0;
-    double maxAvgRightVoltage = 0;
-    double maxLeftMotor[3] = {0, 0, 0};  // â† ADD THIS
-    double maxRightMotor[3] = {0, 0, 0}; // â† ADD THIS
-
-    // Declare arrays of Slip Control instances for each wheel
-    tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
-    tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
-
-    // Create ABS instances for left and right sides
-    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
-    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
-
-    while (std::fabs(currentDistance) <= fabs(targetDistance) - 6)
-    {
-
-        currentDistance = ((passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * encoderWheelCircumferenceCM;
-        avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2]) / numberDriveMotor;
-
-        // Display current encoder distance
-        Brain.Screen.clearScreen();
-        Brain.Screen.setCursor(1, 1);
-        Brain.Screen.print("Current: %.2f cm", std::fabs(currentDistance));
-        Brain.Screen.setCursor(2, 1);
-        Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
-
-        /*
-        // Distance calculation debug
-        Brain.Screen.clearScreen();  // Clear previous prints
-        Brain.Screen.setCursor(1,1);
-        Brain.Screen.print("L/R deg: %.1f/%.1f",
-            passiveEncoderLeft.position(degrees),
-            passiveEncoderRight.position(degrees));
-        Brain.Screen.setCursor(2,1);
-        Brain.Screen.print("Dist/Target: %.1f/%.1f", currentDistance, targetDistance);
-
-        Brain.Screen.setCursor(4,1);
-        Brain.Screen.print("Launch/Cruise/Decel: %d/%d/%d",
-            (std::fabs(currentDistance) < (std::fabs(targetDistance) - breakDistance) && !accelCompleted && !decel),
-            (std::fabs(currentDistance) < (std::fabs(targetDistance) - breakDistance) && accelCompleted == true),
-            (std::fabs(currentDistance) >= std::fabs(targetDistance) - breakDistance));
-        */
-
-        // Calculate the heading correction using the PID controller
-        // double headingError = getHeadingError360(targetHeading, InertialSensor.heading());
-        // Calculate the heading correction using the PID controller with normalization
-        // Calculate the heading correction using normalized error
-        // Use continuous rotation instead of heading()
-        double currentHeading = getAdjustedRotation();
-        double headingCorrection = headingPID.calculate(targetHeading, currentHeading);
-
-        // Get encoder speeds FIRST
-        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2;
-
-        // Get motor RPMs
-        // Get middle motor RPM only (index 1 - traction wheel)
-        double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-
-        // Launch Phase
-        if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && !accelCompleted && !decel)
-        { // will keep going until acceleration is complete and not in decel
-          //  Brain.Screen.printAt(10, 20, "Launch Phase");
-
-            // Print initial values
-            // Brain.Screen.printAt(10, 80, "Init L: %.2f, R: %.2f", motorVoltageLeft[i], motorVoltageRight[i]);
-
-            // Call traction cotrol class and get adjusted motor voltage
-            double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
-            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
-            // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
-
-            // Synchronized control - use the lower voltage (more conservative) for BOTH sides
-            // Synchronized control - use the lower MAGNITUDE voltage (more conservative) for BOTH sides
-            // For negative values, std::min picks the MORE negative (higher magnitude), so use fabs comparison
-            double syncedMotorVoltage = (std::fabs(leftTractionVoltage) < std::fabs(rightTractionVoltage)) 
-                ? leftTractionVoltage 
-                : rightTractionVoltage;
-
-            // Apply to all 3 motors on both sides with PID correction
-            // Apply to all 3 motors on both sides with PID correction - CORRECTED SIGNS
-            for (int i = 0; i < 3; i++)
-            {
-                motorVoltageLeft[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
-                motorVoltageRight[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
-            }
-
-            maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
-
-            if (fabs(avgMotorVoltage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE))
-            {
-
-                //  Brain.Screen.setCursor(12,1);
-                // Brain.Screen.print("Raw RPM L/R: %.1f/%.1f", leftMotor[0].velocity(velocityUnits::rpm), rightMotor[0].velocity(velocityUnits::rpm));
-
-                accelCompleted = true;
-                /*
-                        // Stop all motors at end of routine after approach
-                        for (int i = 0; i < 3; i++) {
-                            motorVoltageLeft[i] = 0;
-                            motorVoltageRight[i] = 0;
-                            leftMotor[i].stop(brake);
-                            rightMotor[i].stop(brake);
-                        }
-                  */
-            }
-
-            // Cruise Phase
-        }
-        else if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && accelCompleted == true)
-        {
-            // break;
-            // Brain.Screen.printAt(10, 20, "Cruise Phase"); // Else condition - specify actions here if the if condition is not met
-
-            for (int i = 0; i < 3; i++)
-            {
-                // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = maxSpeedVoltage - (headingCorrection);
-                motorVoltageRight[i] = maxSpeedVoltage + (headingCorrection);
-                // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
-            }
-
-            /*
-                Brain.Screen.setCursor(1,1);
-            Brain.Screen.print("Distance: %.1f Target: %.1f Break: %.1f",
-                std::fabs(currentDistance), std::fabs(targetDistance), breakDistance);
-
-            Brain.Screen.setCursor(2,1);
-            Brain.Screen.print("Accel/Decel: %d/%d", accelCompleted, decel);
-
-            Brain.Screen.setCursor(3,1);
-            Brain.Screen.print("Dist Check: %d",
-                std::fabs(currentDistance) >= std::fabs(targetDistance) - breakDistance);
-
-            */
-
-            // Decel Phase
-            // If declerating then go to ABS routine
-        }
-
-        // Deceleration phase with adaptive ABS
-        else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && decelCompleted == false)
-        {
-// First entry - initialize ABS
-            if (!decel)
-            {
-                adaptiveABSLeft.initialize(motorVoltageLeft[1]);
-                adaptiveABSRight.initialize(motorVoltageRight[1]);
-            }
-            decel = true;
-
-            // Get motor and encoder speeds
-            double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-            double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-            double leftEncoderRPM = passiveEncoderLeft.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-            double rightEncoderRPM = passiveEncoderRight.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-
-            // Calculate brake voltages using adaptive ABS
-            // Each side independently determines how much voltage to apply based on lockup detection
-            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
-
-            // Get brake modes from ABS
-            // Returns coast if wheel is locking up, brake if wheel has traction
-            vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
-            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
-
-            // SYNC brake mode: if EITHER side is locking up (coasting), BOTH sides coast
-            // This keeps the robot straight - prevents one side braking harder than the other
-            vex::brakeType syncedBrakeMode;
-            if (leftBrakeMode == vex::coast || rightBrakeMode == vex::coast) {
-                syncedBrakeMode = vex::coast;
-            } else {
-                syncedBrakeMode = vex::brake;
-            }
-
-            // SYNC voltage: use the MINIMUM magnitude (most conservative) for BOTH sides
-            // Mirrors accel phase pattern - whichever side needs less power dictates both
-            // This ensures both sides decelerate at the same rate to maintain straight tracking
-            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
-                ? leftDecelVoltage
-                : rightDecelVoltage;
-
-            // Calculate steering correction scaled for decel phase
-            double steeringCorrection = headingCorrection * decelHeadingScaling;
-
-            // Apply synced voltage with heading correction (mirrors accel phase pattern)
-            // Pattern: syncedBase + correction (left) / syncedBase - correction (right)
-            for (int i = 0; i < 3; i++)
-            {
-                // Only apply voltage if we're actively braking AND have voltage to apply
-                if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0)
-                {
-                    double correctedLeft = syncedDecelVoltage - steeringCorrection;
-                    double correctedRight = syncedDecelVoltage + steeringCorrection;
-                    
-                    // Clamp toward zero - don't let steering correction reverse motor direction
-                    // Forward (positive voltage): use max(0, x) to prevent negative values
-                    // Backward (negative voltage): use min(0, x) to prevent positive values
-                    if (syncedDecelVoltage > 0) {
-                        motorVoltageLeft[i] = std::max(0.0, correctedLeft);
-                        motorVoltageRight[i] = std::max(0.0, correctedRight);
-                    } else {
-                        motorVoltageLeft[i] = std::min(0.0, correctedLeft);
-                        motorVoltageRight[i] = std::min(0.0, correctedRight);
-                    }
-                }
-                else
-                {
-                    // Coasting to release lockup OR fully stopped - zero voltage
-                    motorVoltageLeft[i] = 0.0;
-                    motorVoltageRight[i] = 0.0;
-                }
-                
-                // Set synced brake mode for both sides to maintain symmetry
-                leftMotor[i].setBrake(syncedBrakeMode);
-                rightMotor[i].setBrake(syncedBrakeMode);
-            }
-
-            // Update rolling averages for exit detection
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
-            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
-
-            // Exit when BOTH sides slowed to minimum speed, confirmed multiple times
-            if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
-                fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
-            {
-                consecutiveAtTarget++;
-                if (consecutiveAtTarget >= REQUIRED_CONSECUTIVE)
-                {
-                    decelCompleted = true;
-                }
-            }
-            else
-            {
-                consecutiveAtTarget = 0;  // Reset if we pop back above target
-            }
-        }
-
-        // Final Approach Phase
-        else if (decelCompleted == true)
-        {
-            // break;
-            //    Brain.Screen.printAt(10, 20, "Approach Phase");
-            //    Brain.Screen.printAt(10, 40, "Decel Compl: %d", decelCompleted);
-
-            for (int i = 0; i < 3; i++)
-            {
-                // Example action: Set motor voltage to target voltage directly
-                motorVoltageLeft[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-                // PIDVoltageCapCorrection(motorVoltageLeft[i], motorVoltageRight[i], absoluteMaxVoltage);
-            }
-        }
-
-        // Track maximum voltages - both individual motors AND averages
-        for (int i = 0; i < 3; i++)
-        {
-            // Track highest voltage for ANY motor on each side
-            maxLeftVoltageReached = std::max(maxLeftVoltageReached, std::fabs(motorVoltageLeft[i]));
-            maxRightVoltageReached = std::max(maxRightVoltageReached, std::fabs(motorVoltageRight[i]));
-
-            maxLeftMotor[i] = std::max(maxLeftMotor[i], std::fabs(motorVoltageLeft[i]));
-            maxRightMotor[i] = std::max(maxRightMotor[i], std::fabs(motorVoltageRight[i]));
-        }
-
-        // Calculate and track average voltage across all motors
-        double currentAvgLeftVoltage = (std::fabs(motorVoltageLeft[0]) +
-                                        std::fabs(motorVoltageLeft[1]) +
-                                        std::fabs(motorVoltageLeft[2])) /
-                                       3.0;
-
-        double currentAvgRightVoltage = (std::fabs(motorVoltageRight[0]) +
-                                         std::fabs(motorVoltageRight[1]) +
-                                         std::fabs(motorVoltageRight[2])) /
-                                        3.0;
-
-        static double maxAvgLeftVoltage = 0;
-        static double maxAvgRightVoltage = 0;
-        maxAvgLeftVoltage = std::max(maxAvgLeftVoltage, currentAvgLeftVoltage);
-        maxAvgRightVoltage = std::max(maxAvgRightVoltage, currentAvgRightVoltage);
-
-        // Power Drive Motors
-
-        // turnDirection = std::copysign(turnDirection, normTargetHeading);
-        // if (!decel == true || decelCompleted == true)
-        //{
-        for (int i = 0; i < 3; i++)
-        {
-            leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
-            rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
-        }
-        //}
-        /*
-        Brain.Screen.clearScreen();
-        Brain.Screen.setCursor(1, 1);
-        Brain.Screen.print("=== Movement Complete ===");
-
-        Brain.Screen.setCursor(2, 1);
-        Brain.Screen.print("LEFT: %.1f %.1f %.1f",
-                           maxLeftMotor[0], maxLeftMotor[1], maxLeftMotor[2]);
-
-        Brain.Screen.setCursor(3, 1);
-        Brain.Screen.print("RIGHT: %.1f %.1f %.1f",
-                           maxRightMotor[0], maxRightMotor[1], maxRightMotor[2]);
-
-        Brain.Screen.setCursor(4, 1);
-        Brain.Screen.print("MaxL: %.2f MaxR: %.2f",
-                           maxLeftVoltageReached, maxRightVoltageReached);
-
-        Brain.Screen.setCursor(5, 1);
-        Brain.Screen.print("AvgL: %.2f AvgR: %.2f",
-                           maxAvgLeftVoltage, maxAvgRightVoltage);
-
-        Brain.Screen.setCursor(6, 1);
-        Brain.Screen.print("Target: %.2fV", fabs(maxSpeedVoltage));
-
-        Brain.Screen.setCursor(7, 1);
-        Brain.Screen.print("Distance: %.1f / %.1f",
-                           fabs(currentDistance), fabs(targetDistance));
-        */
-        vex::task::sleep(10);
-    }
-
-    // Stop all motors at end of routine after approach
-    // Stop all motors at end of routine after approach
-    for (int i = 0; i < 3; i++)
-    {
-        leftMotor[i].setBrake(brake);
-        rightMotor[i].setBrake(brake);
-        leftMotor[i].stop();
-        rightMotor[i].stop();
-    }
-
-    //wait(120, msec); // brief pause to allow motors to settle
-/*
-       for (int i = 0; i < 3; i++)
-    {
-        leftMotor[i].setBrake(hold);
-        rightMotor[i].setBrake(hold);
-        leftMotor[i].stop();
-        rightMotor[i].stop();
-    }
-*/
- 
-    // Display detailed movement summary with all 6 motors
-    Brain.Screen.clearScreen();
-    Brain.Screen.setCursor(1, 1);
-    Brain.Screen.print("=== Movement Complete ===");
-
-    Brain.Screen.setCursor(2, 1);
-    Brain.Screen.print("LEFT: %.1f %.1f %.1f",
-                       maxLeftMotor[0], maxLeftMotor[1], maxLeftMotor[2]);
-
-    Brain.Screen.setCursor(3, 1);
-    Brain.Screen.print("RIGHT: %.1f %.1f %.1f",
-                       maxRightMotor[0], maxRightMotor[1], maxRightMotor[2]);
-
-    Brain.Screen.setCursor(4, 1);
-    Brain.Screen.print("MaxL: %.2f MaxR: %.2f",
-                       maxLeftVoltageReached, maxRightVoltageReached);
-
-    Brain.Screen.setCursor(5, 1);
-    Brain.Screen.print("AvgL: %.2f AvgR: %.2f",
-                       maxAvgLeftVoltage, maxAvgRightVoltage);
-
-    Brain.Screen.setCursor(6, 1);
-    Brain.Screen.print("Target: %.2fV", fabs(maxSpeedVoltage));
-
-    Brain.Screen.setCursor(7, 1);
-    Brain.Screen.print("Distance: %.1f / %.1f",
-                       fabs(currentDistance), fabs(targetDistance));
-
-    // wait(10000, msec);
-    /*
-        currentDistance = (passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees) ) / 2 * (encoderWheelCircumferenceCM / 360.0);
-        // Debug print: Stopping motors
-        Brain.Screen.clearLine(8);
-        Brain.Screen.setCursor(8, 1);
-        Brain.Screen.print("Distance Complete");
-        Brain.Screen.print("Current Distance: %.2f", currentDistance);
-    */
-}
-
-
-void straightOdometryV2(double targetDistance,
-                      double breakDistance,
-                      double targetHeading,
-                      double minSpeed,
-                      double distanceTolerance,
-                      double kp_heading,
-                      double ki_heading,
-                      double kd_heading,
-                      double accelHeadingScaling,
-                      double decelHeadingScaling,
-                      double approachHeadingScaling,
-                      double maxSpeed)
-{
-    // ========================================
-    // CONFIGURATION CONSTANTS
-    // ========================================
-    const double LAUNCH_VOLTAGE = 6;
-    const double ACCEL_FACTOR_LAUNCH = 1.25;
-    const double SLIP_THRESHOLD_TRACTION = 0.3;
-    const double DECEL_STEP_PERCENT = 20;
-    const double LOCK_THRESHOLD_DECEL = 0.25;
-    // ========================================
-
-    vex::timer accelTimer;
-
-    passiveEncoderLeft.resetPosition();
-    passiveEncoderRight.resetPosition();
-
-    PID headingPID(kp_heading, ki_heading, kd_heading);
-    headingPID.pidReset();
-
-    double currentDistance = 0;
-
-    double maxSpeedVoltage = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
-    double minSpeedVoltage = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
-    double launchVoltage = std::copysign(LAUNCH_VOLTAGE, targetDistance);
-    double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), targetDistance);
-
-    double minDriveMotorRPM = (minSpeed * .01) * absoluteMaxRPM;
-    double maxEncoderRPM = 0;
-
-    double motorVoltageLeft[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
-    double motorVoltageRight[3] = {minLaunchSpeedVoltage, minLaunchSpeedVoltage, minLaunchSpeedVoltage};
-    double leftMotorRPM = 0;
-    double rightMotorRPM = 0;
-
-    double avgMotorVoltage = 0;
-    double leftEncoderRollingAverage = 0;
-    double rightEncoderRollingAverage = 0;
-    double voltageRollingAverage = 0;
-
-    bool decel = false;
-    bool decelCompleted = false;
-    bool accelCompleted = false;
-    int consecutiveAtTarget = 0;
-    const int REQUIRED_CONSECUTIVE = 3;
-
-    double maxLeftVoltageReached = 0;
-    double maxRightVoltageReached = 0;
-    double maxAvgLeftVoltage = 0;
-    double maxAvgRightVoltage = 0;
-    double maxLeftMotor[3] = {0, 0, 0};
-    double maxRightMotor[3] = {0, 0, 0};
-
-    tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
-    tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
-
-    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
-    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
-
-    while (std::fabs(currentDistance) <= fabs(targetDistance) - distanceTolerance)
-    {
-        currentDistance = ((passiveEncoderLeft.position(degrees) + passiveEncoderRight.position(degrees)) / 2.0 / 360.0) * encoderWheelCircumferenceCM;
-        avgMotorVoltage = (motorVoltageLeft[0] + motorVoltageLeft[1] + motorVoltageLeft[2] + motorVoltageRight[0] + motorVoltageRight[1] + motorVoltageRight[2]) / numberDriveMotor;
-
-        Brain.Screen.clearScreen();
-        Brain.Screen.setCursor(1, 1);
-        Brain.Screen.print("Current: %.2f cm", std::fabs(currentDistance));
-        Brain.Screen.setCursor(2, 1);
-        Brain.Screen.print("Target: %.2f cm", std::fabs(targetDistance));
-
-        // Use continuous heading to prevent wrap-around discontinuities at ±180°
-        double currentHeading = getContinuousStandardHeading();
-        // Adjust target heading to match current rotation count (prevents wrap-around jumps)
-        double rotationsDiff = std::round((currentHeading - targetHeading) / 360.0);
-        double adjustedTargetHeading = targetHeading + (rotationsDiff * 360.0);
-        double headingCorrection = headingPID.calculate(adjustedTargetHeading, currentHeading);
-
-        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double avgEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2;
-
-        double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-
-        // Launch Phase
-        if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && !accelCompleted && !decel)
-        {
-            double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
-            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
-
-            double syncedMotorVoltage = (std::fabs(leftTractionVoltage) < std::fabs(rightTractionVoltage)) 
-                ? leftTractionVoltage 
-                : rightTractionVoltage;
-
-            for (int i = 0; i < 3; i++)
-            {
-                motorVoltageLeft[i] = syncedMotorVoltage - (headingCorrection * accelHeadingScaling);
-                motorVoltageRight[i] = syncedMotorVoltage + (headingCorrection * accelHeadingScaling);
-            }
-
-            maxEncoderRPM = std::max(maxEncoderRPM, fabs(avgEncoderRPM));
-
-            if (fabs(avgMotorVoltage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE))
-            {
-                accelCompleted = true;
-            }
-        }
-        // Cruise Phase
-        else if (fabs(currentDistance) < (fabs(targetDistance) - breakDistance) && accelCompleted == true)
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                motorVoltageLeft[i] = maxSpeedVoltage - (headingCorrection);
-                motorVoltageRight[i] = maxSpeedVoltage + (headingCorrection);
-            }
-        }
-        // Deceleration phase with adaptive ABS
-        else if (fabs(currentDistance) >= (fabs(targetDistance) - breakDistance) && decelCompleted == false)
-        {
-            if (!decel)
-            {
-                adaptiveABSLeft.initialize(motorVoltageLeft[1]);
-                adaptiveABSRight.initialize(motorVoltageRight[1]);
-            }
-            decel = true;
-
-            double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-            double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-            double leftEncoderRPM = passiveEncoderLeft.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-            double rightEncoderRPM = passiveEncoderRight.velocity(velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-
-            double leftDecelVoltage = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
-
-            vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
-            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
-
-            vex::brakeType syncedBrakeMode;
-            if (leftBrakeMode == vex::coast || rightBrakeMode == vex::coast) {
-                syncedBrakeMode = vex::coast;
-            } else {
-                syncedBrakeMode = vex::brake;
-            }
-
-            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
-                ? leftDecelVoltage
-                : rightDecelVoltage;
-
-            double steeringCorrection = headingCorrection * decelHeadingScaling;
-
-            for (int i = 0; i < 3; i++)
-            {
-                if (syncedBrakeMode == vex::brake && std::fabs(syncedDecelVoltage) > 0.0)
-                {
-                    double correctedLeft = syncedDecelVoltage - steeringCorrection;
-                    double correctedRight = syncedDecelVoltage + steeringCorrection;
-                    
-                    if (syncedDecelVoltage > 0) {
-                        motorVoltageLeft[i] = std::max(0.0, correctedLeft);
-                        motorVoltageRight[i] = std::max(0.0, correctedRight);
-                    } else {
-                        motorVoltageLeft[i] = std::min(0.0, correctedLeft);
-                        motorVoltageRight[i] = std::min(0.0, correctedRight);
-                    }
-                }
-                else
-                {
-                    motorVoltageLeft[i] = 0.0;
-                    motorVoltageRight[i] = 0.0;
-                }
-                
-                leftMotor[i].setBrake(syncedBrakeMode);
-                rightMotor[i].setBrake(syncedBrakeMode);
-            }
-
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 10);
-            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 10);
-
-            if (fabs(leftEncoderRollingAverage) <= fabs(minDriveMotorRPM) &&
-                fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
-            {
-                consecutiveAtTarget++;
-                if (consecutiveAtTarget >= REQUIRED_CONSECUTIVE)
-                {
-                    decelCompleted = true;
-                }
-            }
-            else
-            {
-                consecutiveAtTarget = 0;
-            }
-        }
-        // Final Approach Phase
-        else if (decelCompleted == true)
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                motorVoltageLeft[i] = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-            }
-        }
-
-        for (int i = 0; i < 3; i++)
-        {
-            maxLeftVoltageReached = std::max(maxLeftVoltageReached, std::fabs(motorVoltageLeft[i]));
-            maxRightVoltageReached = std::max(maxRightVoltageReached, std::fabs(motorVoltageRight[i]));
-
-            maxLeftMotor[i] = std::max(maxLeftMotor[i], std::fabs(motorVoltageLeft[i]));
-            maxRightMotor[i] = std::max(maxRightMotor[i], std::fabs(motorVoltageRight[i]));
-        }
-
-        double currentAvgLeftVoltage = (std::fabs(motorVoltageLeft[0]) +
-                                        std::fabs(motorVoltageLeft[1]) +
-                                        std::fabs(motorVoltageLeft[2])) /
-                                       3.0;
-
-        double currentAvgRightVoltage = (std::fabs(motorVoltageRight[0]) +
-                                         std::fabs(motorVoltageRight[1]) +
-                                         std::fabs(motorVoltageRight[2])) /
-                                        3.0;
-
-        static double maxAvgLeftVoltage = 0;
-        static double maxAvgRightVoltage = 0;
-        maxAvgLeftVoltage = std::max(maxAvgLeftVoltage, currentAvgLeftVoltage);
-        maxAvgRightVoltage = std::max(maxAvgRightVoltage, currentAvgRightVoltage);
-
-        for (int i = 0; i < 3; i++)
-        {
-            leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
-            rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
-        }
-
-        vex::task::sleep(10);
-    }
-
-    for (int i = 0; i < 3; i++)
-    {
-        leftMotor[i].setBrake(brake);
-        rightMotor[i].setBrake(brake);
-        leftMotor[i].stop();
-        rightMotor[i].stop();
-    }
-}
-
 
 /**
  * straightOdometryV3 - Advanced motion profiling with configurable stopping tolerance
@@ -1040,20 +354,20 @@ void straightOdometryV2(double targetDistance,
  * @param maxSpeed Maximum speed percentage during cruise phase (0-100)
  */
 
- void straightOdometryV3(double targetDistance, 
-                        double breakDistance, 
+void straightOdometryV3(double targetDistance,
+                        double breakDistance,
                         double targetHeading,
                         double minSpeed,
                         double distanceTolerance,
-                        double kp_heading, 
-                        double ki_heading, 
+                        double kp_heading,
+                        double ki_heading,
                         double kd_heading,
-                        double accelHeadingScaling, 
+                        double accelHeadingScaling,
                         double decelHeadingScaling,
-                        double approachHeadingScaling, 
+                        double approachHeadingScaling,
                         double maxSpeed,
-                        vex::brakeType brakeMode,
-                        double timeout) 
+                        pros::motor_brake_mode_e_t brakeMode,
+                        double timeout)
 {
     // ========================================
     // CONFIGURATION CONSTANTS
@@ -1114,12 +428,11 @@ void straightOdometryV2(double targetDistance,
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
 
     // ABS controllers for independent per-side wheel lockup prevention
-    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL); 
+    adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    // Timeout safety timer
-    vex::timer safetyTimer;
-    safetyTimer.reset();
+    // Timeout safety: record entry time, compare each tick
+    uint32_t safetyStart = pros::millis();
     double timeoutMs = timeout * 1000.0;
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1135,17 +448,17 @@ void straightOdometryV2(double targetDistance,
         // ───────────────────────────────────────────────────────────────
         // TIMEOUT SAFETY CHECK
         // ───────────────────────────────────────────────────────────────
-        if (safetyTimer.time(vex::msec) > timeoutMs) {
+        if (pros::millis() - safetyStart > (uint32_t)timeoutMs) {
             break; // Prevent infinite loop on sensor failure or unreachable target
         }
 
         // Read encoder speeds (ground truth) scaled by wheel size ratio
-        double leftEncoderRPM = passiveEncoderLeft.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(vex::velocityUnits::rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        
-        // Read motor speeds from middle motor as representative sample
-        double leftMotorRPM = leftMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM = rightMotor[1].velocity(vex::velocityUnits::rpm) * DRIVE_MOTOR_RPM_ADJ;
+        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+        // Middle motor (index 1) used as representative sample for the drivetrain
+        double leftMotorRPM  = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
 
         // ───────────────────────────────────────────────────────────────
         // PHASE 1: LAUNCH / ACCELERATION
@@ -1219,53 +532,46 @@ void straightOdometryV2(double targetDistance,
             adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
             adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
 
-            // Get independent brake modes for each side
-            vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
-            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+            // Get independent brake modes for each side (coast = locked wheel, brake = normal)
+            pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
             // Scale heading correction for deceleration phase
             double adjustedHeadingCorrection = headingCorrection * decelHeadingScaling * dir;
 
-            // Apply brake modes and selective release steering
-            for (int i = 0; i < 3; i++) 
-            { 
-                leftMotor[i].setBrake(leftBrakeMode);
-                rightMotor[i].setBrake(rightBrakeMode);
+            // Set per-side brake modes; apply selective-release steering voltages
+            leftDrive.set_brake_mode(leftBrakeMode);
+            rightDrive.set_brake_mode(rightBrakeMode);
 
-                // Selective release: only apply positive correction values for steering
-                motorVoltageLeft[i] = std::max(0.0, adjustedHeadingCorrection);
-                motorVoltageRight[i] = std::max(0.0, -adjustedHeadingCorrection);
-            }
+            // Selective release: only apply positive correction values for steering
+            motorVoltageLeft[0]  = std::max(0.0,  adjustedHeadingCorrection);
+            motorVoltageRight[0] = std::max(0.0, -adjustedHeadingCorrection);
 
-            // Update rolling averages to filter sensor noise (averages last 3 readings)
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
+            // Rolling averages filter momentary encoder spikes
+            leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
 
-            // Exit deceleration when both sides slow below minimum threshold
-            // AND logic ensures both sides are slow before transitioning to approach
-            if (std::fabs(leftEncoderRollingAverage) <= std::fabs(minDriveMotorRPM) && 
-                std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM)) 
+            // Both sides must slow below threshold before transitioning to approach
+            if (std::fabs(leftEncoderRollingAverage)  <= std::fabs(minDriveMotorRPM) &&
+                std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM))
             {
                 decelCompleted = true;
             }
         }
-        
+
         // ───────────────────────────────────────────────────────────────
         // PHASE 4: APPROACH / FINAL SETTLING
         // Slow precision crawl to target position
         // ───────────────────────────────────────────────────────────────
-        else if (decelCompleted) 
+        else if (decelCompleted)
         {
-            for (int i = 0; i < 3; i++) 
-            { 
-                // Reset brake mode to standard brake for precision control
-                leftMotor[i].setBrake(brake);
-                rightMotor[i].setBrake(brake);
+            // Reset to standard brake for precision control
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
 
-                // Apply minimum speed with heading correction
-                motorVoltageLeft[i]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling); 
-                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling); 
-            }
+            // Minimum speed with heading correction blended in
+            motorVoltageLeft[0]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+            motorVoltageRight[0] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
         }
 
         // ───────────────────────────────────────────────────────────────
@@ -1283,25 +589,21 @@ void straightOdometryV2(double targetDistance,
             }
         }
 
-        // Apply calculated voltages to all motors
-        for (int i = 0; i < 3; i++) 
-        {
-            leftMotor[i].spin(forward, motorVoltageLeft[i],  volt);
-            rightMotor[i].spin(forward, motorVoltageRight[i], volt);
-        }
-        
+        // Apply calculated voltages to both drive sides
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+
         // 10ms delay for 100Hz control loop
-        vex::task::sleep(10);
+        pros::delay(10);
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CLEANUP - Stop all motors
+    // CLEANUP - Stop all motors with the requested brake mode
     // ═══════════════════════════════════════════════════════════════════
-    for (int i = 0; i < 3; i++) 
-    {
-        leftMotor[i].stop(brakeMode);
-        rightMotor[i].stop(brakeMode);
-    }
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 // ======================================================================
@@ -1318,8 +620,8 @@ void smartStraight(double targetDistance, double breakDistance, double targetHea
                    double accelHeadingScaling, double decelHeadingScaling,
                    double approachHeadingScaling, double maxSpeed)
 {
-    const double WALL_THRESHOLD = 5.0; 
-    vex::timer wallTimer; 
+    const double WALL_THRESHOLD = 5.0;
+    uint32_t wallTimerStart = 0;
     bool wallDetected = false, isStalled = false;
     
     double startDist = getCurrentEncoderDistanceCM();
@@ -1355,44 +657,41 @@ void smartStraight(double targetDistance, double breakDistance, double targetHea
         currentHeading = getContinuousStandardHeading();
         double headingCorrection = headingPID.calculate(targetHeadingStandard, currentHeading);
         
-        double avgRPM = (std::fabs(passiveEncoderLeft.velocity(rpm)) + 
-                         std::fabs(passiveEncoderRight.velocity(rpm))) / 2.0;
+        double avgRPM = (std::fabs(passiveEncoderLeft.get_velocity()) +
+                         std::fabs(passiveEncoderRight.get_velocity())) / 2.0;
 
         // Wall stall detection
-        if (wallStalledTimeMs > 0) 
+        if (wallStalledTimeMs > 0)
         {
-            if (avgRPM < WALL_THRESHOLD) 
-            { 
-                if (!isStalled) { wallTimer.reset(); isStalled = true; } 
-                else if (wallTimer.time(msec) >= wallStalledTimeMs) wallDetected = true; 
+            if (avgRPM < WALL_THRESHOLD)
+            {
+                if (!isStalled) { wallTimerStart = pros::millis(); isStalled = true; }
+                else if (pros::millis() - wallTimerStart >= (uint32_t)wallStalledTimeMs) wallDetected = true;
             }
             else isStalled = false;
         }
 
-        // Apply differential drive
-        // Note: headingCorrection sign logic assumes Standard Cartesian (Left Turn = Positive Error)
-        for (int i = 0; i < 3; i++) 
-        { 
-            // Subtraction on Left / Addition on Right = Turn Left (CCW)
-            motorVoltageLeft[i]  = maxV - headingCorrection; 
-            motorVoltageRight[i] = maxV + headingCorrection; 
-            
-            leftMotor[i].spin(forward, motorVoltageLeft[i], volt); 
-            rightMotor[i].spin(forward, motorVoltageRight[i], volt); 
-        }
-        
-        vex::task::sleep(10);
+        // Apply differential drive — heading correction steers left (sub left, add right)
+        motorVoltageLeft[0]  = maxV - headingCorrection;
+        motorVoltageRight[0] = maxV + headingCorrection;
+
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+
+        pros::delay(10);
     }
-    
-    for (int i = 0; i < 3; i++) 
-    { 
-        leftMotor[i].stop(brake); 
-        rightMotor[i].stop(brake); 
-    }
+
+    // Stop with brake
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 void forwardMP(double targetDistance, double breakDistance, double targetHeading, double minSpeed, double kp_heading, double ki_heading, double kd_heading, double accelHeadingScaling, double decelHeadingScaling, double approachHeadingScaling, double maxSpeed) {
-    straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed, kp_heading, ki_heading, kd_heading, accelHeadingScaling, decelHeadingScaling, approachHeadingScaling, maxSpeed);
+    straightOdometryV3(targetDistance, breakDistance, targetHeading, minSpeed,
+                       2.0, kp_heading, ki_heading, kd_heading,
+                       accelHeadingScaling, decelHeadingScaling, approachHeadingScaling, maxSpeed);
 }
 
 // In backwardMP (wrapper for profiled straight backward)
@@ -1415,79 +714,13 @@ void backwardMP(double targetDistance,
     double negativeDistance = -fabs(targetDistance);
     if (maxSpeed > 0) maxSpeed = -maxSpeed;  // Optional: make maxSpeed negative for reverse
 
-    straightOdometry(negativeDistance,
-                     breakDistance,
-                     targetHeadingStandard,  // <-- NO +180.0
-                     minSpeed,
-                     kp_heading, ki_heading, kd_heading,
-                     accelHeadingScaling, decelHeadingScaling,
-                     approachHeadingScaling, maxSpeed);
-}
-
-void leftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
-    turnOdometry(getContinuousStandardHeading() + turnAmount, breakDistance, minSpeed, maxSpeed);
-}
-
-void rightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
-    turnOdometry(getContinuousStandardHeading() - turnAmount, breakDistance, minSpeed, maxSpeed);
-}
-
-// ======================================================================
-// Pivot turn to absolute target heading (continuous Standard Cartesian)
-// One side brakes/stops, opposite side drives to pivot in place
-// Original simple implementation — only fixed heading system to use continuous
-// No new parameters, no profiling phases added — legacy behavior preserved
-// ======================================================================
-void pivotTurnOdometry(double targetHeading, double breakDistanceInDegrees,
-                       double minSpeed, double maxSpeed)
-{
-    // Initial error calculation (uses continuous heading from the start)
-    double headingError = targetHeading - getContinuousStandardHeading();
-
-    // Calculate initial max/min voltages based on error direction
-    double maxV = std::copysign(maxSpeed * 0.12, headingError);
-    // double minV = std::copysign(minSpeed * 0.12, headingError);  // unused - commented to avoid warning
-
-    // Motor voltage arrays were declared but never really used in original logic
-    // double motorVoltageLeft[3] = {maxV, maxV, maxV};     // unused
-    // double motorVoltageRight[3] = {-maxV, -maxV, -maxV}; // unused
-
-    while (std::abs(headingError) > 9)  // Original exit threshold (9 degrees)
-    {
-        // FIXED: Use continuous standard heading (unbounded, no wrap-around jumps)
-        // This replaces the old getAdjustedRotation() which caused discontinuities
-        double currentHeading = getContinuousStandardHeading();
-        headingError = targetHeading - currentHeading;
-
-        // Recalculate voltage every loop based on current continuous error
-        double volt = std::copysign(maxSpeed * 0.12, headingError);
-
-        // Pivot logic: one side drives forward, opposite side brakes/holds
-        if (volt > 0) {  // Positive voltage → pivot left (left motors forward)
-            leftMotor[0].spin(forward, volt, voltageUnits::volt);
-            rightMotor[0].stop(brake);
-            leftMotor[1].spin(forward, volt, voltageUnits::volt);
-            rightMotor[1].stop(hold);
-            leftMotor[2].spin(forward, volt, voltageUnits::volt);
-            rightMotor[2].stop(brake);
-        }
-        else {           // Negative voltage → pivot right (right motors forward)
-            leftMotor[0].stop(brake);
-            rightMotor[0].spin(forward, std::fabs(volt), voltageUnits::volt);
-            leftMotor[1].stop(hold);
-            rightMotor[1].spin(forward, std::fabs(volt), voltageUnits::volt);
-            leftMotor[2].stop(brake);
-            rightMotor[2].spin(forward, std::fabs(volt), voltageUnits::volt);
-        }
-
-        vex::task::sleep(10);
-    }
-
-    // Final stop with brake (original behavior)
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brake);
-        rightMotor[i].stop(brake);
-    }
+    straightOdometryV3(negativeDistance,
+                       breakDistance,
+                       targetHeadingStandard,  // <-- NO +180.0
+                       minSpeed,
+                       2.0, kp_heading, ki_heading, kd_heading,
+                       accelHeadingScaling, decelHeadingScaling,
+                       approachHeadingScaling, maxSpeed);
 }
 
 // ======================================================================
@@ -1543,8 +776,8 @@ void pivotTurnOdometryV2(double targetHeading, double breakDistanceInDegrees,
             double targetVolt = std::fabs(maxSpeedVoltage);
             
             // Get current highest voltage being applied
-            double currentMax = std::max(std::fabs(motorVoltageLeft[1]), std::fabs(motorVoltageRight[1]));
-            
+            double currentMax = std::max(std::fabs(motorVoltageLeft[0]), std::fabs(motorVoltageRight[0]));
+
             if (currentMax < std::fabs(launchVoltage)) {
                 currentMax = std::fabs(launchVoltage);
             } else {
@@ -1598,7 +831,7 @@ void pivotTurnOdometryV2(double targetHeading, double breakDistanceInDegrees,
         {
             if (!decel) decel = true;
 
-            double currentMax = std::max(std::fabs(motorVoltageLeft[1]), std::fabs(motorVoltageRight[1]));
+            double currentMax = std::max(std::fabs(motorVoltageLeft[0]), std::fabs(motorVoltageRight[0]));
             double syncedDecel = std::max(0.0, currentMax - 0.4);  // adjustable decel step
 
             double pivotVolt = std::copysign(syncedDecel, headingError);
@@ -1640,32 +873,32 @@ void pivotTurnOdometryV2(double targetHeading, double breakDistanceInDegrees,
         }
 
         // ───────────────────────────────────────────────
-        // APPLY MOTOR COMMANDS (true pivot — one side always stopped)
+        // APPLY MOTOR COMMANDS (true pivot — one side braked, one side driven)
         // ───────────────────────────────────────────────
-        for (int i = 0; i < 3; i++) 
-        {
-            if (motorVoltageLeft[i] != 0) {
-                leftMotor[i].spin(forward, motorVoltageLeft[i], voltageUnits::volt);
-            } else {
-                leftMotor[i].stop(brake); // Hard brake on pivot point
-            }
-
-            if (motorVoltageRight[i] != 0) {
-                rightMotor[i].spin(forward, motorVoltageRight[i], voltageUnits::volt);
-            } else {
-                rightMotor[i].stop(brake); // Hard brake on pivot point
-            }
+        if (motorVoltageLeft[0] != 0) {
+            leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
+        } else {
+            // Pivot point: hard brake
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            leftDrive.move(0);
         }
 
-        vex::task::sleep(10);
+        if (motorVoltageRight[0] != 0) {
+            rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+        } else {
+            // Pivot point: hard brake
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.move(0);
+        }
+
+        pros::delay(10);
     }
 
-    // Final stop using brake mode (as requested)
-    for (int i = 0; i < 3; i++) 
-    {
-        leftMotor[i].stop(brake);
-        rightMotor[i].stop(brake);
-    }
+    // Final stop
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 // ======================================================================
@@ -1676,13 +909,13 @@ void pivotTurnOdometryV2(double targetHeading, double breakDistanceInDegrees,
 void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
     double currentHeading = getContinuousStandardHeading();
     double targetRotation = currentHeading + turnAmount;
-    pivotTurnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
+    pivotTurnOdometryV2(targetRotation, breakDistance, minSpeed, maxSpeed);
 }
 
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed) {
     double currentHeading = getContinuousStandardHeading();
     double targetRotation = currentHeading - turnAmount;
-    pivotTurnOdometry(targetRotation, breakDistance, minSpeed, maxSpeed);
+    pivotTurnOdometryV2(targetRotation, breakDistance, minSpeed, maxSpeed);
 }
 
 void driveForward(double targetDistance,
@@ -1725,59 +958,6 @@ void driveBackward(double targetDistance,
                      approachHeadingScaling, maxSpeed);
 }
 
-
-/**
- * Drive forward with precise heading control
- * 
- * Moves the robot forward using motion profiling (acceleration, cruise, deceleration,
- * and final approach phases) while maintaining a target heading. Accepts headings in
- * Modified Cartesian (North=0°) and converts them to Standard Cartesian for internal
- * calculations.
- * 
- * The distanceTolerance parameter allows tuning stopping precision per movement:
- * smaller values (3cm) for precise alignment, larger values (8cm) for speed.
- * 
- * @param targetDistance Distance to travel forward in cm (positive values only)
- * @param breakDistance Distance before target to begin deceleration (cm)
- * @param targetHeading Desired heading in Modified Cartesian (North=0°, 0-360°)
- * @param minSpeed Minimum motor speed during final approach (0-100%)
- * @param distanceTolerance How close to target before stopping (cm, smaller = more precise)
- * @param kp_heading Proportional gain for heading PID correction
- * @param ki_heading Integral gain for heading PID correction
- * @param kd_heading Derivative gain for heading PID correction
- * @param accelHeadingScaling Scales heading correction during acceleration (0-1)
- * @param decelHeadingScaling Scales heading correction during deceleration (0-1)
- * @param approachHeadingScaling Scales heading correction during final approach (0-1)
- * @param maxSpeed Maximum motor speed during cruise phase (0-100%)
- */
-void driveForwardV3(double targetDistance, double breakDistance, double targetHeading, 
-                  double minSpeed, double distanceTolerance,
-                  double kp_heading, double ki_heading, double kd_heading, 
-                  double accelHeadingScaling, double decelHeadingScaling, 
-                  double approachHeadingScaling, double maxSpeed) {
-    // Convert heading from Modified Cartesian (North=0°) to Standard Cartesian (East=0°)
-                straightOdometryV3(targetDistance, breakDistance, targetHeading, 
-                      minSpeed, distanceTolerance, kp_heading, ki_heading, kd_heading, 
-                      accelHeadingScaling, decelHeadingScaling, approachHeadingScaling, maxSpeed);
-}
-
-/**
- * Drive backward with precise heading control
- * 
- * Identical to driveForward() but moves backward - forces distance negative.
- * See driveForward() for detailed parameter documentation.
- */
-void driveBackwardV3(double targetDistance, double breakDistance, double targetHeading_modified, 
-                   double minSpeed, double distanceTolerance,
-                   double kp_heading, double ki_heading, double kd_heading, 
-                   double accelHeadingScaling, double decelHeadingScaling, 
-                   double approachHeadingScaling, double maxSpeed) {
-    // Target heading is already in Standard Cartesian (East=0°, CCW+)
-    // Force distance negative for backward movement
-    straightOdometryV3(-std::fabs(targetDistance), breakDistance, targetHeading_modified,  // ← Use correct parameter name
-                      minSpeed, distanceTolerance, kp_heading, ki_heading, kd_heading, 
-                      accelHeadingScaling, decelHeadingScaling, approachHeadingScaling, maxSpeed);
-}
 
 /**
  * Turn right (clockwise) to an absolute field heading
@@ -1857,10 +1037,10 @@ void driveForwardV1(double targetDistance,
 {
     // No conversion needed - both use Modified Cartesian
 
-    straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed,
-                     kp_heading, ki_heading, kd_heading,
-                     accelHeadingScaling, decelHeadingScaling,
-                     approachHeadingScaling, maxSpeed);
+    straightOdometryV3(targetDistance, breakDistance, targetHeading, minSpeed,
+                       2.0, kp_heading, ki_heading, kd_heading,
+                       accelHeadingScaling, decelHeadingScaling,
+                       approachHeadingScaling, maxSpeed);
 }
 
 void driveBackwardV1(double targetDistance,
@@ -1877,19 +1057,24 @@ void driveBackwardV1(double targetDistance,
 {
     targetDistance = -std::fabs(targetDistance);
 
-    straightOdometry(targetDistance, breakDistance, targetHeading, minSpeed,
-                     kp_heading, ki_heading, kd_heading,
-                     accelHeadingScaling, decelHeadingScaling,
-                     approachHeadingScaling, maxSpeed);
+    straightOdometryV3(targetDistance, breakDistance, targetHeading, minSpeed,
+                       2.0, kp_heading, ki_heading, kd_heading,
+                       accelHeadingScaling, decelHeadingScaling,
+                       approachHeadingScaling, maxSpeed);
 }
 
 void pidlessForward(double timeMs, double speedPct) {
-    vex::timer forwardTime; forwardTime.reset();
-    double voltagePower = (speedPct / 8.34);
-    while (forwardTime.time(timeUnits::msec) < timeMs) {
-        for(int i=0; i<3; i++) { leftMotor[i].spin(forward, voltagePower, volt); rightMotor[i].spin(forward, voltagePower, volt); }
+    uint32_t forwardStart = pros::millis();
+    // Convert pct to millivolts (100% = 12000 mV)
+    int32_t mv = static_cast<int32_t>(speedPct / 100.0 * 12000.0);
+    while (pros::millis() - forwardStart < (uint32_t)timeMs) {
+        leftDrive.move_voltage(mv);
+        rightDrive.move_voltage(mv);
     }
-    for(int i=0; i<3; i++) { leftMotor[i].stop(coast); rightMotor[i].stop(coast); }
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 void driveForwardV2(double targetDistance,
@@ -1907,10 +1092,10 @@ void driveForwardV2(double targetDistance,
 {
     double internalHeading = -targetHeading;
 
-    straightOdometryV2(targetDistance, breakDistance, targetHeading, minSpeed,
-                     distanceTolerance, kp_heading, ki_heading, kd_heading,
-                     accelHeadingScaling, decelHeadingScaling,
-                     approachHeadingScaling, maxSpeed);
+    straightOdometryV3(targetDistance, breakDistance, targetHeading, minSpeed,
+                       distanceTolerance, kp_heading, ki_heading, kd_heading,
+                       accelHeadingScaling, decelHeadingScaling,
+                       approachHeadingScaling, maxSpeed);
 }
 
 void driveBackwardV2(double targetDistance,
@@ -1928,205 +1113,93 @@ void driveBackwardV2(double targetDistance,
 {
     targetDistance = -std::fabs(targetDistance);
 
-    straightOdometryV2(targetDistance, breakDistance, targetHeading, minSpeed,
-                     distanceTolerance, kp_heading, ki_heading, kd_heading,
-                     accelHeadingScaling, decelHeadingScaling,
-                     approachHeadingScaling, maxSpeed);
+    straightOdometryV3(targetDistance, breakDistance, targetHeading, minSpeed,
+                       distanceTolerance, kp_heading, ki_heading, kd_heading,
+                       accelHeadingScaling, decelHeadingScaling,
+                       approachHeadingScaling, maxSpeed);
 }
 
-void visionDrive(vex::aivision::colordesc targetSignature, int targetPixelWidth, double timeoutDistanceCM, double targetHeading, double minSpeedPct, double maxSpeedPct, vex::brakeType brakeMode, double kp_head, double ki_head, double kd_head, double kp_dist, double ki_dist, double kd_dist, int minX, int maxX, int minY, int maxY, int maxObjectsToCheck, int consecutiveRequired) {
-    double startDist = getCurrentEncoderDistanceCM();
-    
-    PID headingPID(kp_head, ki_head, kd_head), distPID(kp_dist, ki_dist, kd_dist);
-    headingPID.pidReset(); distPID.pidReset();
-    int consecutiveStableWidth = 0;
-
-    while (true) {
-        double distanceTravelled = getCurrentEncoderDistanceCM() - startDist;
-        if (fabs(distanceTravelled) >= timeoutDistanceCM) break;
-        
-        AIVision20.takeSnapshot(targetSignature);
-        int bestIdx = -1; double largestWidth = 0;
-        for (int i = 0; i < std::min(maxObjectsToCheck, (int)AIVision20.objectCount); i++) {
-            auto& obj = AIVision20.objects[i];
-            if (obj.width >= 24 && obj.centerX >= minX && obj.centerX <= maxX && obj.centerY >= minY && obj.centerY <= maxY && obj.width > largestWidth) { largestWidth = obj.width; bestIdx = i; }
-        }
-        double turnCorrection = (bestIdx >= 0) ? headingPID.calculate(0.0, AIVision20.objects[bestIdx].centerX - VISION_CENTER_X) : headingPID.calculate(targetHeading, getContinuousStandardHeading());
-        double currentWidth = (bestIdx >= 0) ? AIVision20.objects[bestIdx].width : 0;
-        if (currentWidth >= targetPixelWidth) { if (++consecutiveStableWidth >= consecutiveRequired) break; } else consecutiveStableWidth = 0;
-        double driveV = std::max(minSpeedPct * 0.12, std::min(maxSpeedPct * 0.12, distPID.calculate((double)targetPixelWidth, currentWidth) * 0.12));
-        double turnV = std::max(-4.0, std::min(4.0, turnCorrection * 0.12));
-        for (int i = 0; i < 3; i++) { leftMotor[i].spin(forward, driveV + turnV, volt); rightMotor[i].spin(forward, driveV - turnV, volt); }
-        vex::task::sleep(20);
-    }
-    for (int i = 0; i < 3; i++) { leftMotor[i].stop(brakeMode); rightMotor[i].stop(brakeMode); }
-}
-
-/**
- * visionDriveMinimal - Vision-guided approach function
- *
- * Drives the robot toward a detected object using two PID controllers:
- *   - Heading PID:  Steers left/right to keep the object centered in the camera frame
- *   - Distance PID: Controls forward speed based on the object's apparent pixel width
- *
- * Distance-to-Heading Scaling adjusts steering sensitivity based on distance —
- * stronger corrections when far away, gentler corrections when close to prevent overshooting.
- *
- * Accepts colordesc (single color) or codedesc (color combination) descriptors.
- * Both public overloads share the same internal logic via a static template function.
- *
- * @param targetSignature      AI Vision descriptor — colordesc or codedesc
- * @param targetPixelWidth     Pixel width that means "close enough" (larger = closer)
- * @param targetHeading        Heading to snap to on startup (prevents wrap-around jumps)
- * @param minSpeedPct          Minimum forward speed percentage (0-100)
- * @param maxSpeedPct          Maximum forward speed percentage (0-100)
- * @param brakeMode            How motors stop: brake / coast / hold
- * @param kp_head              Heading PID proportional gain
- * @param ki_head              Heading PID integral gain
- * @param kd_head              Heading PID derivative gain
- * @param kp_distToHeadScaling Scales heading correction strength by distance (P-only)
- * @param kp_dist              Distance PID proportional gain
- * @param ki_dist              Distance PID integral gain
- * @param kd_dist              Distance PID derivative gain
- */
-
-// ─── INTERNAL SHARED IMPLEMENTATION ───────────────────────────────────────
-// Static template — only visible inside navigation.cpp, not callable externally.
-// The template parameter T accepts any descriptor type that takeSnapshot() supports.
-// The two public overloads below forward their descriptor directly into this function.
-template <typename T>
+// ─── SHARED IMPLEMENTATION ────────────────────────────────────────────────
+// T = pros::vision_signature_s_t  →  reads with get_by_sig(0, sig.id)
+// T = pros::vision_color_code_t   →  reads with get_by_code(0, code)
+template<typename T>
 static void visionDriveMinimal_impl(
-    T      targetSignature,
-    int    targetPixelWidth,
-    double targetHeading,
-    double minSpeedPct,
-    double maxSpeedPct,
-    vex::brakeType brakeMode,
+    T targetSignature,
+    int targetPixelWidth, double targetHeading,
+    double minSpeedPct, double maxSpeedPct, pros::motor_brake_mode_e_t brakeMode,
     double kp_head, double ki_head, double kd_head,
     double kp_distToHeadScaling,
     double kp_dist, double ki_dist, double kd_dist)
 {
-    // ========================================
-    // INITIALIZATION
-    // ========================================
-
-    // Maximum steering correction as a percentage of full motor power (0-100)
-    double maxSteeringPct = 25.0;  // SET THIS VALUE HERE
-
-    // Create PID controllers — one centers the object, one controls approach speed
-    PID headingPID(kp_head, ki_head, kd_head);   // Controls left/right steering
-    PID distancePID(kp_dist, ki_dist, kd_dist);  // Controls forward drive speed
-
-    // Reset accumulators so old error doesn't carry into this run
+    PID headingPID(kp_head, ki_head, kd_head);
+    PID distancePID(kp_dist, ki_dist, kd_dist);
     headingPID.pidReset();
     distancePID.pidReset();
 
-    // Convert steering cap from percentage to volts (12V system: 1% = 0.12V)
-    double maxSteeringVoltage = maxSteeringPct * 0.12;
-
-    // Snap target heading to the nearest continuous equivalent
-    // Prevents the heading from jumping across the 0/360 boundary mid-run
-    double currentHeadingInitial = getContinuousStandardHeading();
-    double rotationsDiff = std::round((currentHeadingInitial - targetHeading) / 360.0);
-    targetHeading += rotationsDiff * 360.0;
-
-    // ========================================
-    // MAIN VISION TRACKING LOOP
-    // ========================================
+    const int MAX_LOST_FRAMES = 15;
+    int  lostFrameCounter     = 0;
+    bool hasDetectedBefore    = false;
+    double lastNormOffset     = 0.0;
+    int    lastWidth          = 0;
 
     while (true) {
-        // Pass the full descriptor object — takeSnapshot is overloaded for each type
-        AIVision20.takeSnapshot(targetSignature);
-
-        // If the target disappears, stop immediately rather than driving blind
-        if (AIVision20.objectCount == 0) {
-            break;
+        pros::vision_object_s_t obj;
+        if constexpr (std::is_same_v<T, pros::vision_signature_s_t>) {
+            obj = aiVision.get_by_sig(0, targetSignature.id);
+        } else {
+            obj = aiVision.get_by_code(0, targetSignature);
         }
 
-        // Use the highest-confidence detected object (index 0)
-        auto& detectedObject = AIVision20.objects[0];
+        bool detected = (obj.signature != VISION_OBJECT_ERR_SIG && obj.width > 0);
 
-        // ========================================
-        // CALCULATE DISTANCE-BASED HEADING SCALING
-        // ========================================
+        double normOffset;
+        int    width;
 
-        // How many pixels short of the target width are we? (larger value = farther away)
-        double distanceErrorPixels = (double)targetPixelWidth - (double)detectedObject.width;
-
-        // Scale steering strength by distance — farther away gets stronger corrections
-        double headingScalingFactor = 1.0 + (kp_distToHeadScaling * distanceErrorPixels);
-
-        // Clamp to a safe range: never negative, never more than 3x base correction
-        headingScalingFactor = std::max(0.1, std::min(3.0, headingScalingFactor));
-
-        // ========================================
-        // CALCULATE STEERING CORRECTION
-        // ========================================
-
-        // Pixel offset from frame center — positive = object is right of center
-        double pixelOffsetFromCenter = detectedObject.centerX - VISION_CENTER_X;
-
-        // PID output converted from percentage to volts
-        double baseHeadingCorrectionVoltage = headingPID.calculate(0.0, pixelOffsetFromCenter) * 0.12;
-
-        // Apply distance scaling so far objects get steered toward more aggressively
-        double steeringCorrectionVoltage = baseHeadingCorrectionVoltage * headingScalingFactor;
-
-        // Clamp steering so it never overwhelms forward drive power
-        steeringCorrectionVoltage = std::max(-maxSteeringVoltage, std::min(maxSteeringVoltage, steeringCorrectionVoltage));
-
-        // ========================================
-        // CALCULATE FORWARD DRIVE SPEED
-        // ========================================
-
-        // PID error = target width minus current width; larger gap = faster approach
-        double baseDriveVoltage = distancePID.calculate((double)targetPixelWidth, (double)detectedObject.width) * 0.12;
-
-        // Convert speed limits from percentage to volts and clamp drive output
-        double minDriveVoltage     = minSpeedPct * 0.12;
-        double maxDriveVoltage     = maxSpeedPct * 0.12;
-        double clampedDriveVoltage = std::max(minDriveVoltage, std::min(maxDriveVoltage, baseDriveVoltage));
-
-        // ========================================
-        // APPLY MOTOR COMMANDS
-        // ========================================
-
-        // Differential drive: adding/subtracting steering from each side turns the robot
-        // Left side slower = turn left; right side slower = turn right
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward,  clampedDriveVoltage - steeringCorrectionVoltage, volt);
-            rightMotor[i].spin(forward, clampedDriveVoltage + steeringCorrectionVoltage, volt);
+        if (!detected) {
+            if (++lostFrameCounter > MAX_LOST_FRAMES) break;
+            if (!hasDetectedBefore) { pros::delay(20); continue; }
+            normOffset = lastNormOffset;
+            width      = lastWidth;
+        } else {
+            lostFrameCounter   = 0;
+            normOffset         = (obj.x_middle_coord - VISION_CENTER_X) / VISION_CENTER_X;
+            width              = obj.width;
+            lastNormOffset     = normOffset;
+            lastWidth          = width;
+            hasDetectedBefore  = true;
+            if (width >= targetPixelWidth) break;
         }
 
-        // ========================================
-        // EXIT CONDITION
-        // ========================================
+        double distError     = (double)targetPixelWidth - (double)width;
+        double headScale     = std::max(0.2, std::min(3.0, 0.2 + kp_distToHeadScaling * distError));
+        double steer         = headingPID.calculate(0.0, normOffset) * 12.0 * headScale;
+        steer                = std::max(-3.0, std::min(3.0, steer));
 
-        // Object has reached target width — robot is close enough, stop the loop
-        if (detectedObject.width >= targetPixelWidth) {
-            break;
-        }
+        double drive         = distancePID.calculate((double)targetPixelWidth, (double)width) * 0.12;
+        drive                = std::max(minSpeedPct * 0.12, std::min(maxSpeedPct * 0.12, drive));
 
-        // 20ms delay = 50Hz control loop, matches the AI Vision sensor update rate
-        vex::task::sleep(20);
+        double leftV  = drive - steer;
+        double rightV = drive + steer;
+        double maxV   = std::max(std::fabs(leftV), std::fabs(rightV));
+        if (maxV > 12.0) { leftV *= 12.0 / maxV; rightV *= 12.0 / maxV; }
+
+        leftDrive.move_voltage(static_cast<int32_t>(leftV  * 1000.0));
+        rightDrive.move_voltage(static_cast<int32_t>(rightV * 1000.0));
+        pros::delay(20);
     }
 
-    // ========================================
-    // CLEANUP — STOP ALL MOTORS
-    // ========================================
-
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brakeMode);
-        rightMotor[i].stop(brakeMode);
-    }
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
-// ─── PUBLIC OVERLOAD: colordesc (single color object) ─────────────────────
+// ─── PUBLIC OVERLOAD: vision_signature_s_t (single color object) ──────────
 // Forwards the descriptor directly to the shared template implementation above.
 void visionDriveMinimal(
-    vex::aivision::colordesc targetSignature,
+    pros::vision_signature_s_t targetSignature,
     int targetPixelWidth, double targetHeading,
-    double minSpeedPct, double maxSpeedPct, vex::brakeType brakeMode,
+    double minSpeedPct, double maxSpeedPct, pros::motor_brake_mode_e_t brakeMode,
     double kp_head, double ki_head, double kd_head,
     double kp_distToHeadScaling,
     double kp_dist, double ki_dist, double kd_dist)
@@ -2137,12 +1210,12 @@ void visionDriveMinimal(
         kp_dist, ki_dist, kd_dist);
 }
 
-// ─── PUBLIC OVERLOAD: codedesc (color combination object) ─────────────────
+// ─── PUBLIC OVERLOAD: vision_code_s_t (color combination object) ──────────
 // Forwards the descriptor directly to the shared template implementation above.
 void visionDriveMinimal(
-    vex::aivision::codedesc targetSignature,
+    pros::vision_color_code_t targetSignature,
     int targetPixelWidth, double targetHeading,
-    double minSpeedPct, double maxSpeedPct, vex::brakeType brakeMode,
+    double minSpeedPct, double maxSpeedPct, pros::motor_brake_mode_e_t brakeMode,
     double kp_head, double ki_head, double kd_head,
     double kp_distToHeadScaling,
     double kp_dist, double ki_dist, double kd_dist)
@@ -2160,10 +1233,10 @@ void visionDriveMinimal(
  * and a grace period to handle momentary sensor drops.
  */
 void visionDriveV2(
-    vex::aivision::colordesc targetSignature,
+    pros::vision_signature_s_t targetSignature,
     int targetPixelWidth,
     double targetHeading,
-    vex::brakeType brakeMode,
+    pros::motor_brake_mode_e_t brakeMode,
     double maxSpeedPct,
     double kp_head,
     double ki_head,
@@ -2204,21 +1277,22 @@ void visionDriveV2(
     // MAIN VISION TRACKING LOOP
     // ========================================
     while (true) {
-        AIVision20.takeSnapshot(targetSignature);
-        
+        // PROS Vision: no snapshot needed — get_by_sig() reads live
         int bestObjectIndex = -1;
         int largestWidth = 0;
-        int objectsToCheck = std::min((int)AIVision20.objectCount, MAX_OBJECTS_TO_CHECK);
-        
+
         // --- SECTION 1: FILTERING ---
-        for (int i = 0; i < objectsToCheck; i++) {
-            auto& obj = AIVision20.objects[i];
-            int bottomY = obj.centerY + (obj.height / 2);
-            
+        // Iterate up to MAX_OBJECTS_TO_CHECK largest objects matching the signature
+        for (int i = 0; i < MAX_OBJECTS_TO_CHECK; i++) {
+            pros::vision_object_s_t obj = aiVision.get_by_sig(i, targetSignature.id);
+            if (obj.signature == VISION_OBJECT_ERR_SIG) break;  // no more objects
+
+            int bottomY = obj.y_middle_coord + (obj.height / 2);
+
             if (obj.width < minObjectWidth) continue;
             if (bottomY < minY || bottomY > maxY) continue;
-            if (obj.centerX < minX || obj.centerX > maxX) continue;
-            
+            if (obj.x_middle_coord < minX || obj.x_middle_coord > maxX) continue;
+
             if (obj.width > largestWidth) {
                 largestWidth = obj.width;
                 bestObjectIndex = i;
@@ -2241,15 +1315,15 @@ void visionDriveV2(
                 currentWidth = lastDetectedWidth;
             } else {
                 // No detection yet and no memory — wait for next frame
-                vex::task::sleep(20);
+                pros::delay(20);
                 continue;
             }
         } else {
             lostFrameCounter = 0;  // Reset counter when we see the target
-            auto& detectedObject = AIVision20.objects[bestObjectIndex];
-            
+            pros::vision_object_s_t detectedObject = aiVision.get_by_sig(bestObjectIndex, targetSignature.id);
+
             // Normalize offset: -1.0 (left edge) to 1.0 (right edge)
-            currentNormalizedOffset = (detectedObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
+            currentNormalizedOffset = (detectedObject.x_middle_coord - VISION_CENTER_X) / VISION_CENTER_X;
             currentWidth = detectedObject.width;
             
             // Update fallback memory
@@ -2291,19 +1365,18 @@ void visionDriveV2(
         }
         
         // --- SECTION 5: MOTOR OUTPUT ---
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward, leftRequest, volt);
-            rightMotor[i].spin(forward, rightRequest, volt);
-        }
-        
-        vex::task::sleep(20);
+        // leftRequest/rightRequest are in volts; convert to millivolts for move_voltage
+        leftDrive.move_voltage(static_cast<int32_t>(leftRequest * 1000.0));
+        rightDrive.move_voltage(static_cast<int32_t>(rightRequest * 1000.0));
+
+        pros::delay(20);
     }
-    
+
     // --- CLEANUP ---
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brakeMode);
-        rightMotor[i].stop(brakeMode);
-    }
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 
@@ -2356,12 +1429,12 @@ void visionDriveV2(
  *                               only active before vision acquires
  * @param timeout                Maximum run time in seconds
  */
-void moveVisionOdometry(vex::aivision::colordesc targetSignature,
+void moveVisionOdometry(pros::vision_signature_s_t targetSignature,
                         int targetPixelWidth,
                         double targetX,
                         double targetY,
                         double breakDistance,
-                        vex::brakeType brakeMode,
+                        pros::motor_brake_mode_e_t brakeMode,
                         double maxSpeed,
                         double kp_head,
                         double ki_head,
@@ -2445,8 +1518,7 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    vex::timer safetyTimer;
-    safetyTimer.reset();
+    uint32_t safetyStart = pros::millis();
     double timeoutMs = timeout * 1000.0;
 
     // ═══════════════════════════════════════════════════════════════════
@@ -2466,7 +1538,7 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         // ───────────────────────────────────────────────────────────────
         // 2. TIMEOUT
         // ───────────────────────────────────────────────────────────────
-        if (safetyTimer.time(vex::msec) > timeoutMs) break;
+        if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
 
         // ───────────────────────────────────────────────────────────────
         // 3. ODOMETRY EXIT — fallback if vision never acquires or is lost
@@ -2490,39 +1562,47 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
 
         // ───────────────────────────────────────────────────────────────
         // 4. VISION SNAPSHOT
+        // PROS Vision: no takeSnapshot needed — get_by_sig() reads live
         // ───────────────────────────────────────────────────────────────
         visionCurrentlyTracked = false;
-        AIVision20.takeSnapshot(targetSignature);
+        int objCount = aiVision.get_object_count();
 
-        Brain.Screen.clearScreen();
-        Brain.Screen.printAt(10, 20,  "objCount: %d  dist: %.1f", AIVision20.objectCount, currentDistanceToTarget);
-        if (AIVision20.objectCount > 0) {
-            auto& dbgObj = AIVision20.objects[0];
-            Brain.Screen.printAt(10, 40,  "w:%d  cx:%d  cy:%d", dbgObj.width, dbgObj.centerX, dbgObj.centerY);
-            Brain.Screen.printAt(10, 60,  "minW:%d  X:%d-%d  Y:%d-%d", minObjectWidth, minX, maxX, minY, maxY);
-            Brain.Screen.printAt(10, 80,  "wPass:%d  xyPass:%d",
-                (int)(dbgObj.width >= minObjectWidth),
-                (int)(dbgObj.centerX >= minX && dbgObj.centerX <= maxX &&
-                      dbgObj.centerY >= minY && dbgObj.centerY <= maxY));
-            Brain.Screen.printAt(10, 100, "gate: cx%d==%d  w%d==%d",
-                dbgObj.centerX, lastSnapshotCenterX, dbgObj.width, lastSnapshotWidth);
+        pros::screen::erase();
+        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "objCount: %d  dist: %.1f", objCount, currentDistanceToTarget);
+
+        pros::vision_object_s_t primaryObject = aiVision.get_by_sig(0, targetSignature.id);
+        bool primaryValid = (primaryObject.signature != VISION_OBJECT_ERR_SIG);
+
+        if (primaryValid) {
+            pros::screen::print(pros::E_TEXT_MEDIUM, 2, "w:%d  cx:%d  cy:%d",
+                primaryObject.width, primaryObject.x_middle_coord, primaryObject.y_middle_coord);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 3, "minW:%d  X:%d-%d  Y:%d-%d",
+                minObjectWidth, minX, maxX, minY, maxY);
+            int bottomY = primaryObject.y_middle_coord + (primaryObject.height / 2);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 4, "wPass:%d  xyPass:%d",
+                (int)(primaryObject.width >= minObjectWidth),
+                (int)(primaryObject.x_middle_coord >= minX && primaryObject.x_middle_coord <= maxX &&
+                      bottomY >= minY && bottomY <= maxY));
+            pros::screen::print(pros::E_TEXT_MEDIUM, 5, "gate: cx%d==%d  w%d==%d",
+                primaryObject.x_middle_coord, lastSnapshotCenterX, primaryObject.width, lastSnapshotWidth);
         }
-        Brain.Screen.printAt(10, 120, "everTracked:%d  currTracked:%d", (int)visionEverTracked, (int)visionCurrentlyTracked);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 6, "everTracked:%d  currTracked:%d",
+            (int)visionEverTracked, (int)visionCurrentlyTracked);
 
-        if (AIVision20.objectCount > 0) {
-            auto& primaryObject = AIVision20.objects[0];
+        if (primaryValid) {
+            int bottomY = primaryObject.y_middle_coord + (primaryObject.height / 2);
             if (primaryObject.width >= minObjectWidth &&
-                primaryObject.centerX >= minX && primaryObject.centerX <= maxX &&
-                primaryObject.centerY >= minY && primaryObject.centerY <= maxY)
+                primaryObject.x_middle_coord >= minX && primaryObject.x_middle_coord <= maxX &&
+                bottomY >= minY && bottomY <= maxY)
             {
                 visionCurrentlyTracked = true;
 
                 // Only process new frames — gate prevents duplicate sensor readings
                 // from inflating the consecutive width counter
-                if (primaryObject.centerX != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth)
+                if (primaryObject.x_middle_coord != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth)
                 {
-                    lastVisionHorizontalOffset = (primaryObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
-                    lastSnapshotCenterX = primaryObject.centerX;
+                    lastVisionHorizontalOffset = (primaryObject.x_middle_coord - VISION_CENTER_X) / VISION_CENTER_X;
+                    lastSnapshotCenterX = primaryObject.x_middle_coord;
                     lastSnapshotWidth   = primaryObject.width;
                     visionEverTracked   = true;
 
@@ -2599,16 +1679,16 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         }
 
         double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
-        Brain.Screen.printAt(10, 140, "odomH:%.1f fusedH:%.1f", odometryTargetHeading, fusedTargetHeading);
-        Brain.Screen.printAt(10, 160, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 7, "odomH:%.1f fusedH:%.1f", odometryTargetHeading, fusedTargetHeading);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 8, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
 
         // ───────────────────────────────────────────────────────────────
         // 6. SENSOR READINGS
         // ───────────────────────────────────────────────────────────────
-        double leftMotorRPM   = leftMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM  = rightMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM  = passiveEncoderLeft.velocity(rpm)  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftMotorRPM   = leftDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM  = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
         // ───────────────────────────────────────────────────────────────
         // 7. MOTION PHASE CONTROL
@@ -2618,17 +1698,15 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel)
         {
             double leftTractionVoltage  = tractionControlLeft.tractionControlSpeed(
-                motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
+                motorVoltageLeft[0], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
             double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
-                motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+                motorVoltageRight[0], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
 
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
-                motorVoltageRight[i] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
-            }
+            motorVoltageLeft[0]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
+            motorVoltageRight[0] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
 
-            if (std::fabs(motorVoltageLeft[1]) >= std::fabs(maxSpeedVoltage) &&
-                std::fabs(motorVoltageRight[1]) >= std::fabs(maxSpeedVoltage))
+            if (std::fabs(motorVoltageLeft[0]) >= std::fabs(maxSpeedVoltage) &&
+                std::fabs(motorVoltageRight[0]) >= std::fabs(maxSpeedVoltage))
             {
                 accelCompleted = true;
             }
@@ -2637,10 +1715,8 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         // PHASE 2: CRUISE
         else if (currentDistanceToTarget > breakDistance && accelCompleted)
         {
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  = maxSpeedVoltage - headingCorrection;
-                motorVoltageRight[i] = maxSpeedVoltage + headingCorrection;
-            }
+            motorVoltageLeft[0]  = maxSpeedVoltage - headingCorrection;
+            motorVoltageRight[0] = maxSpeedVoltage + headingCorrection;
         }
 
         // PHASE 3: DECELERATION
@@ -2648,24 +1724,22 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         {
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[1]));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[1]));
+                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[0]));
+                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[0]));
             }
 
             adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
             adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
 
-            vex::brakeType leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
-            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+            pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
             double adjustedHeadingCorrection = headingCorrection * decelHeadingScaling * dir;
 
-            for (int i = 0; i < 3; i++) {
-                leftMotor[i].setBrake(leftBrakeMode);
-                rightMotor[i].setBrake(rightBrakeMode);
-                motorVoltageLeft[i]  = std::max(0.0,  adjustedHeadingCorrection);
-                motorVoltageRight[i] = std::max(0.0, -adjustedHeadingCorrection);
-            }
+            leftDrive.set_brake_mode(leftBrakeMode);
+            rightDrive.set_brake_mode(rightBrakeMode);
+            motorVoltageLeft[0]  = std::max(0.0,  adjustedHeadingCorrection);
+            motorVoltageRight[0] = std::max(0.0, -adjustedHeadingCorrection);
 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -2680,12 +1754,10 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
         // PHASE 4: APPROACH
         else if (decelCompleted)
         {
-            for (int i = 0; i < 3; i++) {
-                leftMotor[i].setBrake(brake);
-                rightMotor[i].setBrake(brake);
-                motorVoltageLeft[i]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-            }
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            motorVoltageLeft[0]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+            motorVoltageRight[0] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
         }
 
         // ───────────────────────────────────────────────────────────────
@@ -2695,30 +1767,26 @@ void moveVisionOdometry(vex::aivision::colordesc targetSignature,
                                                    std::fabs(motorVoltageRight[0]));
         if (maximumRequestedVoltage > absoluteMaxVoltage) {
             double voltageScaleFactor = absoluteMaxVoltage / maximumRequestedVoltage;
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  *= voltageScaleFactor;
-                motorVoltageRight[i] *= voltageScaleFactor;
-            }
+            motorVoltageLeft[0]  *= voltageScaleFactor;
+            motorVoltageRight[0] *= voltageScaleFactor;
         }
 
         // ───────────────────────────────────────────────────────────────
         // 9. MOTOR OUTPUT
         // ───────────────────────────────────────────────────────────────
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward, motorVoltageLeft[i],  volt);
-            rightMotor[i].spin(forward, motorVoltageRight[i], volt);
-        }
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
 
-        vex::task::sleep(10);
+        pros::delay(10);
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // CLEANUP
     // ═══════════════════════════════════════════════════════════════════
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brakeMode);
-        rightMotor[i].stop(brakeMode);
-    }
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 void moveOdometry(double targetX,
@@ -2726,11 +1794,11 @@ void moveOdometry(double targetX,
                   double breakDistance, 
                   double minSpeed,
                   double distanceTolerance,
-                  double kp_heading, 
-                  double ki_heading, 
+                  double kp_heading,
+                  double ki_heading,
                   double kd_heading,
-                  vex::brakeType brakeMode,
-                  double accelHeadingScaling, 
+                  pros::motor_brake_mode_e_t brakeMode,
+                  double accelHeadingScaling,
                   double decelHeadingScaling,
                   double approachHeadingScaling, 
                   double maxSpeed,
@@ -2801,9 +1869,7 @@ void moveOdometry(double targetX,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    // Timeout safety timer
-    vex::timer safetyTimer;
-    safetyTimer.reset();
+    uint32_t safetyStart = pros::millis();
     double timeoutMs = timeout * 1000.0;
 
     // ═══════════════════════════════════════════════════════════════════
@@ -2823,7 +1889,7 @@ void moveOdometry(double targetX,
         // ───────────────────────────────────────────────────────────────
         // 2. TIMEOUT SAFETY CHECK
         // ───────────────────────────────────────────────────────────────
-        if (safetyTimer.time(vex::msec) > timeoutMs) {
+        if (pros::millis() - safetyStart > (uint32_t)timeoutMs) {
             break; // Prevent infinite loop on sensor failure or unreachable target
         }
 
@@ -2877,61 +1943,52 @@ void moveOdometry(double targetX,
         // ───────────────────────────────────────────────────────────────
         // 5. SENSOR READINGS
         // ───────────────────────────────────────────────────────────────
-        double leftMotorRPM = leftMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM = rightMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM = passiveEncoderLeft.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftMotorRPM   = leftDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM  = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
         // ───────────────────────────────────────────────────────────────
         // 6. MOTION PHASE CONTROL
         // ───────────────────────────────────────────────────────────────
-        
+
         // PHASE 1: LAUNCH - Traction-controlled acceleration
-        if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel) 
+        if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel)
         {
             // Independent traction control per side (prevents wheel slip)
             double leftTractionVoltage = tractionControlLeft.tractionControlSpeed(
-                motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH
-            );
-            
-            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
-                motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH
-            );
+                motorVoltageLeft[0], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
 
-            // Apply voltages with heading correction
-            for (int i = 0; i < 3; i++) 
-            { 
-                motorVoltageLeft[i]  = leftTractionVoltage - (headingCorrection * accelHeadingScaling); 
-                motorVoltageRight[i] = rightTractionVoltage + (headingCorrection * accelHeadingScaling); 
-            }
-            
+            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
+                motorVoltageRight[0], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+
+            motorVoltageLeft[0]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
+            motorVoltageRight[0] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
+
             // Exit when both sides reach max voltage
-            if (std::fabs(motorVoltageLeft[1]) >= std::fabs(maxSpeedVoltage) && 
-                std::fabs(motorVoltageRight[1]) >= std::fabs(maxSpeedVoltage)) 
+            if (std::fabs(motorVoltageLeft[0]) >= std::fabs(maxSpeedVoltage) &&
+                std::fabs(motorVoltageRight[0]) >= std::fabs(maxSpeedVoltage))
             {
                 accelCompleted = true;
             }
         }
-        
+
         // PHASE 2: CRUISE - Maintain max speed
-        else if (currentDistanceToTarget > breakDistance && accelCompleted) 
+        else if (currentDistanceToTarget > breakDistance && accelCompleted)
         {
-            for (int i = 0; i < 3; i++) 
-            {
-                motorVoltageLeft[i]  = maxSpeedVoltage - headingCorrection;
-                motorVoltageRight[i] = maxSpeedVoltage + headingCorrection;
-            }
+            motorVoltageLeft[0]  = maxSpeedVoltage - headingCorrection;
+            motorVoltageRight[0] = maxSpeedVoltage + headingCorrection;
         }
-        
+
         // PHASE 3: DECELERATION - Adaptive ABS braking
-        else if (currentDistanceToTarget <= breakDistance && !decelCompleted) 
+        else if (currentDistanceToTarget <= breakDistance && !decelCompleted)
         {
             // Initialize ABS on first entry
-            if (!decel) 
+            if (!decel)
             {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[1]));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[1]));
+                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[0]));
+                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[0]));
             }
 
             // Update ABS state (monitors for wheel lockup)
@@ -2939,81 +1996,63 @@ void moveOdometry(double targetX,
             adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
 
             // Get brake mode per side (coast if locked, brake otherwise)
-            vex::brakeType leftBrakeMode = adaptiveABSLeft.getBrakeMode();
-            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+            pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
-            // Scale heading correction for deceleration
             double adjustedHeadingCorrection = headingCorrection * decelHeadingScaling * dir;
 
-            // Apply selective release steering (only release locked wheels for turning)
-            for (int i = 0; i < 3; i++) 
-            { 
-                leftMotor[i].setBrake(leftBrakeMode);
-                rightMotor[i].setBrake(rightBrakeMode);
+            leftDrive.set_brake_mode(leftBrakeMode);
+            rightDrive.set_brake_mode(rightBrakeMode);
+            // Only apply positive voltages (selective release for steering)
+            motorVoltageLeft[0]  = std::max(0.0,  adjustedHeadingCorrection);
+            motorVoltageRight[0] = std::max(0.0, -adjustedHeadingCorrection);
 
-                // Only apply positive voltages (release, not drive)
-                motorVoltageLeft[i] = std::max(0.0, adjustedHeadingCorrection);
-                motorVoltageRight[i] = std::max(0.0, -adjustedHeadingCorrection);
-            }
-
-            // Update rolling averages for stable exit detection
-            leftEncoderRollingAverage = rollingAverage(leftEncoderRPM, leftEncoderRollingAverage, 3);
+            leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
 
-            // Exit when both sides slow below threshold
-            if (std::fabs(leftEncoderRollingAverage) <= std::fabs(minDriveMotorRPM) && 
-                std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM)) 
+            if (std::fabs(leftEncoderRollingAverage) <= std::fabs(minDriveMotorRPM) &&
+                std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM))
             {
                 decelCompleted = true;
             }
         }
-        
-        // PHASE 4: APPROACH - Slow precision movement to target
-        else if (decelCompleted) 
-        {
-            for (int i = 0; i < 3; i++) 
-            { 
-                leftMotor[i].setBrake(brake);
-                rightMotor[i].setBrake(brake);
 
-                motorVoltageLeft[i]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling); 
-                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling); 
-            }
+        // PHASE 4: APPROACH - Slow precision movement to target
+        else if (decelCompleted)
+        {
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            motorVoltageLeft[0]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+            motorVoltageRight[0] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
         }
 
         // ───────────────────────────────────────────────────────────────
         // 7. VOLTAGE SATURATION LIMITER
         // ───────────────────────────────────────────────────────────────
-        // Scale voltages proportionally if either side exceeds max
-        // Preserves steering differential while staying within battery limits
-        double maximumRequestedVoltage = std::max(std::fabs(motorVoltageLeft[0]), 
+        double maximumRequestedVoltage = std::max(std::fabs(motorVoltageLeft[0]),
                                                    std::fabs(motorVoltageRight[0]));
         if (maximumRequestedVoltage > absoluteMaxVoltage) {
             double voltageScaleFactor = absoluteMaxVoltage / maximumRequestedVoltage;
-            for (int i = 0; i < 3; i++) { 
-                motorVoltageLeft[i] *= voltageScaleFactor;
-                motorVoltageRight[i] *= voltageScaleFactor;
-            }
+            motorVoltageLeft[0]  *= voltageScaleFactor;
+            motorVoltageRight[0] *= voltageScaleFactor;
         }
 
         // ───────────────────────────────────────────────────────────────
         // 8. MOTOR OUTPUT
         // ───────────────────────────────────────────────────────────────
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward, motorVoltageLeft[i], volt);
-            rightMotor[i].spin(forward, motorVoltageRight[i], volt);
-        }
-        
-        vex::task::sleep(10);  // 100Hz control loop
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+
+        pros::delay(10);  // 100Hz control loop
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // CLEANUP - Stop all motors
     // ═══════════════════════════════════════════════════════════════════
-    for (int i = 0; i < 3; i++) { 
-        leftMotor[i].stop(brakeMode);
-        rightMotor[i].stop(brakeMode);
-    }
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 // ======================================================================
@@ -3061,7 +2100,7 @@ void driveToWall(double targetDistance,
                  double minSpeed,
                  double wallStalledTimeMs,
                  double stalledSidePower,
-                 vex::brakeType brakeMode,
+                 pros::motor_brake_mode_e_t brakeMode,
                  double timeoutMs,
                  double maxSpeed)
 {
@@ -3087,10 +2126,8 @@ void driveToWall(double targetDistance,
     // Brake mode is declared here before the loop so that the moment any
     // motor is commanded to 0V, the correct behavior (coast/brake/hold)
     // engages instantly without needing extra logic inside the loop.
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].setBrake(brakeMode);
-        rightMotor[i].setBrake(brakeMode);
-    }
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
 
     // ── HEADING SNAP ──────────────────────────────────────────────────
     // Aligns the target heading to the robot's current continuous rotation
@@ -3112,9 +2149,9 @@ void driveToWall(double targetDistance,
     bool rightStalled      = false;
     bool rightWallDetected = false;
 
-    vex::timer leftWallTimer;  // Tracks how long the left side has been stalled
-    vex::timer rightWallTimer; // Tracks how long the right side has been stalled
-    vex::timer timeoutTimer;   // Tracks total elapsed time — starts on entry
+    uint32_t leftWallTimerStart  = 0;  // Tracks how long the left side has been stalled
+    uint32_t rightWallTimerStart = 0;  // Tracks how long the right side has been stalled
+    uint32_t timeoutStart        = pros::millis();  // Tracks total elapsed time
 
     // ── MAIN DRIVE LOOP ───────────────────────────────────────────────
     // Three exit conditions (whichever comes first):
@@ -3123,14 +2160,14 @@ void driveToWall(double targetDistance,
     //   3. Timeout expired — something went wrong, don't run forever
     while (!(leftWallDetected && rightWallDetected) &&
            std::fabs(distanceTravelled) <= std::fabs(targetDistance) &&
-           timeoutTimer.time(msec) < timeoutMs)
+           pros::millis() - timeoutStart < (uint32_t)timeoutMs)
     {
         // Update distance travelled from the starting encoder position
         distanceTravelled = getCurrentEncoderDistanceCM() - startDist;
 
         // Read each side's encoder speed independently (RPM)
-        double leftRPM  = std::fabs(passiveEncoderLeft.velocity(rpm));
-        double rightRPM = std::fabs(passiveEncoderRight.velocity(rpm));
+        double leftRPM  = std::fabs(passiveEncoderLeft.get_velocity());
+        double rightRPM = std::fabs(passiveEncoderRight.get_velocity());
 
         // ── LEFT SIDE STALL DETECTION ─────────────────────────────────
         // A side must stay below WALL_THRESHOLD for the full wallStalledTimeMs
@@ -3139,9 +2176,9 @@ void driveToWall(double targetDistance,
         if (leftRPM < WALL_THRESHOLD) {
             if (!leftStalled) {
                 // Just dropped below threshold — start the stall timer
-                leftWallTimer.reset();
+                leftWallTimerStart = pros::millis();
                 leftStalled = true;
-            } else if (leftWallTimer.time(msec) >= wallStalledTimeMs) {
+            } else if (pros::millis() - leftWallTimerStart >= (uint32_t)wallStalledTimeMs) {
                 // Stayed stalled long enough — confirmed wall contact
                 leftWallDetected = true;
             }
@@ -3153,9 +2190,9 @@ void driveToWall(double targetDistance,
         // ── RIGHT SIDE STALL DETECTION ────────────────────────────────
         if (rightRPM < WALL_THRESHOLD) {
             if (!rightStalled) {
-                rightWallTimer.reset();
+                rightWallTimerStart = pros::millis();
                 rightStalled = true;
-            } else if (rightWallTimer.time(msec) >= wallStalledTimeMs) {
+            } else if (pros::millis() - rightWallTimerStart >= (uint32_t)wallStalledTimeMs) {
                 rightWallDetected = true;
             }
         } else {
@@ -3166,34 +2203,19 @@ void driveToWall(double targetDistance,
         // Once a side confirms wall contact, switch it to stalledSideVoltage.
         // The other side stays at maxSpeedVoltage and keeps pushing,
         // rotating the robot flush against the wall.
-        double leftOutput;
-        if (leftWallDetected) {
-            leftOutput = stalledSideVoltage;
-        } else {
-            leftOutput = maxSpeedVoltage;
-        }
+        double leftOutput  = leftWallDetected  ? stalledSideVoltage : maxSpeedVoltage;
+        double rightOutput = rightWallDetected ? stalledSideVoltage : maxSpeedVoltage;
 
-        double rightOutput;
-        if (rightWallDetected) {
-            rightOutput = stalledSideVoltage;
-        } else {
-            rightOutput = maxSpeedVoltage;
-        }
+        leftDrive.move_voltage(static_cast<int32_t>(leftOutput));
+        rightDrive.move_voltage(static_cast<int32_t>(rightOutput));
 
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward,  leftOutput,  volt);
-            rightMotor[i].spin(forward, rightOutput, volt);
-        }
-
-        vex::task::sleep(10); // 100Hz control loop
+        pros::delay(10); // 100Hz control loop
     }
 
     // ── FINAL STOP ────────────────────────────────────────────────────
-    // Stop all motors. brakeMode was set upfront so stop() uses it cleanly.
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop();
-        rightMotor[i].stop();
-    }
+    // brakeMode was set upfront; move(0) lets it engage cleanly.
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 /**
@@ -3250,12 +2272,12 @@ void driveToWall(double targetDistance,
  *                               only active before vision acquires
  * @param timeout                Maximum run time in seconds
  */
-void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
+void moveVisionOdometryOpen(pros::vision_signature_s_t targetSignature,
                             int targetPixelWidth,
                             double targetX,
                             double targetY,
                             double breakDistance,
-                            vex::brakeType brakeMode,
+                            pros::motor_brake_mode_e_t brakeMode,
                             double maxSpeed,
                             double kp_head,
                             double ki_head,
@@ -3389,9 +2411,7 @@ void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    // Safety timer — hard ceiling on total function run time
-    vex::timer safetyTimer;
-    safetyTimer.reset();
+    uint32_t safetyStart = pros::millis();
     double timeoutMs = timeout * 1000.0;
 
     // ═══════════════════════════════════════════════════════════════════
@@ -3427,7 +2447,7 @@ void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
         // ───────────────────────────────────────────────────────────────
         // 2. TIMEOUT
         // ───────────────────────────────────────────────────────────────
-        if (safetyTimer.time(vex::msec) > timeoutMs) break;
+        if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
 
         // ───────────────────────────────────────────────────────────────
         // 3. ENCODER OVERSHOOT GUARD
@@ -3446,54 +2466,60 @@ void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
         // 4. VISION SNAPSHOT
         // ───────────────────────────────────────────────────────────────
 
-        // Reset tracking flag each tick — re-set to true below if a valid
-        // object is found this frame
+        // Reset tracking flag each tick — re-set to true below if a valid object is found
         visionCurrentlyTracked = false;
-        AIVision20.takeSnapshot(targetSignature);
+        // PROS Vision: no takeSnapshot needed — get_by_sig() reads live
+        int objCount = aiVision.get_object_count();
 
         // Debug display — shows live object data and bounding box filter results
-        Brain.Screen.clearScreen();
-        Brain.Screen.printAt(10, 20,  "objCount: %d  dist: %.1f", AIVision20.objectCount, currentDistanceToTarget);
-        if (AIVision20.objectCount > 0) {
-            auto& dbgObj = AIVision20.objects[0];
-            Brain.Screen.printAt(10, 40,  "w:%d  cx:%d  cy:%d", dbgObj.width, dbgObj.centerX, dbgObj.centerY);
-            Brain.Screen.printAt(10, 60,  "minW:%d  X:%d-%d  Y:%d-%d", minObjectWidth, minX, maxX, minY, maxY);
-            Brain.Screen.printAt(10, 80,  "wPass:%d  xyPass:%d",
-                (int)(dbgObj.width >= minObjectWidth),
-                (int)(dbgObj.centerX >= minX && dbgObj.centerX <= maxX &&
-                      dbgObj.centerY >= minY && dbgObj.centerY <= maxY));
-            Brain.Screen.printAt(10, 100, "gate: cx%d==%d  w%d==%d",
-                dbgObj.centerX, lastSnapshotCenterX, dbgObj.width, lastSnapshotWidth);
-        }
-        Brain.Screen.printAt(10, 120, "everTracked:%d  currTracked:%d", (int)visionEverTracked, (int)visionCurrentlyTracked);
+        pros::screen::erase();
+        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "objCount: %d  dist: %.1f", objCount, currentDistanceToTarget);
 
-        if (AIVision20.objectCount > 0) {
-            auto& primaryObject = AIVision20.objects[0];
+        pros::vision_object_s_t primaryObject = aiVision.get_by_sig(0, targetSignature.id);
+        bool primaryValid = (primaryObject.signature != VISION_OBJECT_ERR_SIG);
+
+        if (primaryValid) {
+            int bottomY = primaryObject.y_middle_coord + (primaryObject.height / 2);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 2, "w:%d  cx:%d  cy:%d",
+                primaryObject.width, primaryObject.x_middle_coord, primaryObject.y_middle_coord);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 3, "minW:%d  X:%d-%d  Y:%d-%d",
+                minObjectWidth, minX, maxX, minY, maxY);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 4, "wPass:%d  xyPass:%d",
+                (int)(primaryObject.width >= minObjectWidth),
+                (int)(primaryObject.x_middle_coord >= minX && primaryObject.x_middle_coord <= maxX &&
+                      bottomY >= minY && bottomY <= maxY));
+            pros::screen::print(pros::E_TEXT_MEDIUM, 5, "gate: cx%d==%d  w%d==%d",
+                primaryObject.x_middle_coord, lastSnapshotCenterX, primaryObject.width, lastSnapshotWidth);
+        }
+        pros::screen::print(pros::E_TEXT_MEDIUM, 6, "everTracked:%d  currTracked:%d",
+            (int)visionEverTracked, (int)visionCurrentlyTracked);
+
+        if (primaryValid) {
+            int bottomY = primaryObject.y_middle_coord + (primaryObject.height / 2);
 
             // Bounding box filter — ignores objects outside the expected screen region
             // and objects too small to be the real target
             if (primaryObject.width >= minObjectWidth &&
-                primaryObject.centerX >= minX && primaryObject.centerX <= maxX &&
-                primaryObject.centerY >= minY && primaryObject.centerY <= maxY)
+                primaryObject.x_middle_coord >= minX && primaryObject.x_middle_coord <= maxX &&
+                bottomY >= minY && bottomY <= maxY)
             {
                 visionCurrentlyTracked = true;
 
                 // Frame dedup gate — only process genuinely new sensor frames.
                 // Prevents a frozen reading from incrementing the exit counter
                 // multiple times on the same physical frame.
-                if (primaryObject.centerX != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth)
+                if (primaryObject.x_middle_coord != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth)
                 {
                     // Normalize horizontal position: 0.0 = centered, ±1.0 = screen edge.
                     // Held in lastVisionHorizontalOffset so heading continues during dropout.
-                    lastVisionHorizontalOffset = (primaryObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
-                    lastSnapshotCenterX        = primaryObject.centerX;
+                    lastVisionHorizontalOffset = (primaryObject.x_middle_coord - VISION_CENTER_X) / VISION_CENTER_X;
+                    lastSnapshotCenterX        = primaryObject.x_middle_coord;
                     lastSnapshotWidth          = primaryObject.width;
                     visionEverTracked          = true;
 
                     // Vision exit — requires REQUIRED_CONSECUTIVE_WIDTH unique frames
                     // at or above the pixel width threshold before stopping.
-                    // Counter resets on any frame below threshold to prevent false exits
-                    // from momentary close-approach readings.
+                    // Counter resets on any frame below threshold to prevent false exits.
                     if (primaryObject.width >= targetPixelWidth) {
                         consecutiveWidthCount++;
                         if (consecutiveWidthCount >= REQUIRED_CONSECUTIVE_WIDTH) break;
@@ -3577,21 +2603,16 @@ void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
         // Run the heading PID to get a voltage correction value.
         // Positive correction steers left (reduce left, add right).
         double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
-        Brain.Screen.printAt(10, 140, "odomH:%.1f fusedH:%.1f", odometryTargetHeading, fusedTargetHeading);
-        Brain.Screen.printAt(10, 160, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 7, "odomH:%.1f fusedH:%.1f", odometryTargetHeading, fusedTargetHeading);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 8, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
 
         // ───────────────────────────────────────────────────────────────
         // 6. SENSOR READINGS
-        // Read motor and encoder RPMs for traction control and ABS.
-        // Middle motor (index 1) is used as the representative sample for
-        // the drivetrain — avoids outliers from end motors.
-        // Encoder RPM is scaled by the wheel circumference ratio to express
-        // ground speed in the same units as motor RPM.
         // ───────────────────────────────────────────────────────────────
-        double leftMotorRPM    = leftMotor[1].velocity(rpm)  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM   = rightMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM  = passiveEncoderLeft.velocity(rpm)  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftMotorRPM    = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM   = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
         // ───────────────────────────────────────────────────────────────
         // 7. MOTION PHASE CONTROL
@@ -3607,73 +2628,53 @@ void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
         if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel)
         {
             double leftTractionVoltage  = tractionControlLeft.tractionControlSpeed(
-                motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
+                motorVoltageLeft[0], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
             double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
-                motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+                motorVoltageRight[0], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
 
-            // Apply traction-controlled voltage plus heading correction to all 3 motors per side
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
-                motorVoltageRight[i] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
-            }
+            motorVoltageLeft[0]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
+            motorVoltageRight[0] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
 
             // Transition to CRUISE once both sides reach maxSpeedVoltage
-            if (std::fabs(motorVoltageLeft[1]) >= std::fabs(maxSpeedVoltage) &&
-                std::fabs(motorVoltageRight[1]) >= std::fabs(maxSpeedVoltage))
+            if (std::fabs(motorVoltageLeft[0]) >= std::fabs(maxSpeedVoltage) &&
+                std::fabs(motorVoltageRight[0]) >= std::fabs(maxSpeedVoltage))
             {
                 accelCompleted = true;
             }
         }
 
         // PHASE 2: CRUISE — hold maxSpeedVoltage with heading correction only.
-        // No traction control needed here since voltage is already capped.
         else if (currentDistanceToTarget > breakDistance && accelCompleted)
         {
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  = maxSpeedVoltage - headingCorrection;
-                motorVoltageRight[i] = maxSpeedVoltage + headingCorrection;
-            }
+            motorVoltageLeft[0]  = maxSpeedVoltage - headingCorrection;
+            motorVoltageRight[0] = maxSpeedVoltage + headingCorrection;
         }
 
-        // PHASE 3: DECELERATION — adaptive ABS manages graduated voltage reduction
-        // per side to prevent wheel lockup. Decel starts once within breakDistance.
-        // Phase exits when both encoder rolling averages drop below minDriveMotorRPM.
+        // PHASE 3: DECELERATION — adaptive ABS manages graduated voltage reduction.
         else if (currentDistanceToTarget <= breakDistance && !decelCompleted)
         {
-            // Initialize ABS with the voltage currently on each side — only fires once
-            // on the first tick of this phase
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[1]));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[1]));
+                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[0]));
+                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[0]));
             }
 
-            // ABS step — reduces voltage if encoder RPM indicates lockup
             adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
             adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
 
-            // Read the brake mode ABS has selected for each side (brake or coast)
-            vex::brakeType leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
-            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+            pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
-            // Scale heading correction during decel to avoid overcorrecting
-            // while ABS is already limiting voltage
             double adjustedHeadingCorrection = headingCorrection * decelHeadingScaling * dir;
 
-            for (int i = 0; i < 3; i++) {
-                leftMotor[i].setBrake(leftBrakeMode);
-                rightMotor[i].setBrake(rightBrakeMode);
-                motorVoltageLeft[i]  = std::max(0.0,  adjustedHeadingCorrection);
-                motorVoltageRight[i] = std::max(0.0, -adjustedHeadingCorrection);
-            }
+            leftDrive.set_brake_mode(leftBrakeMode);
+            rightDrive.set_brake_mode(rightBrakeMode);
+            motorVoltageLeft[0]  = std::max(0.0,  adjustedHeadingCorrection);
+            motorVoltageRight[0] = std::max(0.0, -adjustedHeadingCorrection);
 
-            // Rolling average filters momentary encoder spikes before checking
-            // whether the robot has slowed enough to enter approach
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
 
-            // Both sides must be below threshold — AND logic prevents transitioning
-            // if one side is still spinning
             if (std::fabs(leftEncoderRollingAverage)  <= std::fabs(minDriveMotorRPM) &&
                 std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM))
             {
@@ -3681,68 +2682,53 @@ void moveVisionOdometryOpen(vex::aivision::colordesc targetSignature,
             }
         }
 
-        // PHASE 4: APPROACH — slow precision crawl at minSpeed toward the target.
-        // Vision is expected to be active by this phase and will exit the loop
-        // via consecutiveWidthCount before the approach runs long.
+        // PHASE 4: APPROACH — slow precision crawl at minSpeed.
         else if (decelCompleted)
         {
-            for (int i = 0; i < 3; i++) {
-                leftMotor[i].setBrake(brake);
-                rightMotor[i].setBrake(brake);
-                motorVoltageLeft[i]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-            }
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            motorVoltageLeft[0]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+            motorVoltageRight[0] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
         }
 
         // ───────────────────────────────────────────────────────────────
         // 8. VOLTAGE SATURATION LIMITER
-        // When heading correction pushes one side above absoluteMaxVoltage,
-        // scale both sides down proportionally. This preserves the steering
-        // differential while keeping within the motor's safe voltage range.
         // ───────────────────────────────────────────────────────────────
         double maximumRequestedVoltage = std::max(std::fabs(motorVoltageLeft[0]),
                                                    std::fabs(motorVoltageRight[0]));
         if (maximumRequestedVoltage > absoluteMaxVoltage) {
             double voltageScaleFactor = absoluteMaxVoltage / maximumRequestedVoltage;
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  *= voltageScaleFactor;
-                motorVoltageRight[i] *= voltageScaleFactor;
-            }
+            motorVoltageLeft[0]  *= voltageScaleFactor;
+            motorVoltageRight[0] *= voltageScaleFactor;
         }
 
         // ───────────────────────────────────────────────────────────────
         // 9. MOTOR OUTPUT
-        // Apply the final computed voltages to all drive motors.
-        // forward direction is used for both forward and backward moves —
-        // sign of the voltage handles direction.
         // ───────────────────────────────────────────────────────────────
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward, motorVoltageLeft[i],  volt);
-            rightMotor[i].spin(forward, motorVoltageRight[i], volt);
-        }
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
 
-        // 10ms sleep = 100Hz control loop, matching the AI Vision sensor update rate
-        vex::task::sleep(10);
+        pros::delay(10);  // 100Hz control loop
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // CLEANUP — stop all motors using the caller-specified brake mode
     // ═══════════════════════════════════════════════════════════════════
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brakeMode);
-        rightMotor[i].stop(brakeMode);
-    }
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }
 
 // visionOnly — Vision-guided move, no odometry. Derived from moveVisionOdometry.
 // Pre-acquisition: holds entry gyro heading until vision locks on.
 // Post-acquisition: pure vision heading via screen offset. Dropout: holds last known heading.
 // Exits: vision pixel width (primary), encoder distance limit, or timeout. Sec.7 <VAIG2>/<VAIG3>.
-void visionOnly(vex::aivision::colordesc targetSignature,
+void visionOnly(pros::vision_signature_s_t targetSignature,
                 int targetPixelWidth,
                 double targetDistance,
                 double breakDistance,
-                vex::brakeType brakeMode,
+                pros::motor_brake_mode_e_t brakeMode,
                 double maxSpeed,
                 double kp_head,
                 double ki_head,
@@ -3811,8 +2797,7 @@ void visionOnly(vex::aivision::colordesc targetSignature,
     adaptiveABS adaptiveABSLeft(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
     adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
 
-    vex::timer safetyTimer;
-    safetyTimer.reset();
+    uint32_t safetyStart = pros::millis();
     double timeoutMs = timeout * 1000.0;
 
     while (true)
@@ -3822,43 +2807,51 @@ void visionOnly(vex::aivision::colordesc targetSignature,
         double currentDistanceToTarget = targetDistance - fabs(currentDistance);
         double currentGyroHeading      = getContinuousStandardHeading();
 
-        if (safetyTimer.time(vex::msec) > timeoutMs) break;
+        if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
 
         // Safety exit if vision never acquires
         if (fabs(currentDistance) >= targetDistance) break;
 
         // --- VISION SNAPSHOT ---
+        // PROS Vision: no takeSnapshot needed — get_by_sig() reads live
         visionCurrentlyTracked = false;
-        AIVision20.takeSnapshot(targetSignature);
+        int objCount = aiVision.get_object_count();
 
-        Brain.Screen.clearScreen();
-        Brain.Screen.printAt(10, 20,  "objCount: %d  dist: %.1f", AIVision20.objectCount, currentDistanceToTarget);
-        if (AIVision20.objectCount > 0) {
-            auto& dbgObj = AIVision20.objects[0];
-            Brain.Screen.printAt(10, 40,  "w:%d  cx:%d  cy:%d", dbgObj.width, dbgObj.centerX, dbgObj.centerY);
-            Brain.Screen.printAt(10, 60,  "minW:%d  X:%d-%d  Y:%d-%d", minObjectWidth, minX, maxX, minY, maxY);
-            Brain.Screen.printAt(10, 80,  "wPass:%d  xyPass:%d",
-                (int)(dbgObj.width >= minObjectWidth),
-                (int)(dbgObj.centerX >= minX && dbgObj.centerX <= maxX &&
-                      dbgObj.centerY >= minY && dbgObj.centerY <= maxY));
-            Brain.Screen.printAt(10, 100, "gate: cx%d==%d  w%d==%d",
-                dbgObj.centerX, lastSnapshotCenterX, dbgObj.width, lastSnapshotWidth);
+        pros::screen::erase();
+        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "objCount: %d  dist: %.1f", objCount, currentDistanceToTarget);
+
+        pros::vision_object_s_t primaryObject = aiVision.get_by_sig(0, targetSignature.id);
+        bool primaryValid = (primaryObject.signature != VISION_OBJECT_ERR_SIG);
+
+        if (primaryValid) {
+            int bottomY = primaryObject.y_middle_coord + (primaryObject.height / 2);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 2, "w:%d  cx:%d  cy:%d",
+                primaryObject.width, primaryObject.x_middle_coord, primaryObject.y_middle_coord);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 3, "minW:%d  X:%d-%d  Y:%d-%d",
+                minObjectWidth, minX, maxX, minY, maxY);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 4, "wPass:%d  xyPass:%d",
+                (int)(primaryObject.width >= minObjectWidth),
+                (int)(primaryObject.x_middle_coord >= minX && primaryObject.x_middle_coord <= maxX &&
+                      bottomY >= minY && bottomY <= maxY));
+            pros::screen::print(pros::E_TEXT_MEDIUM, 5, "gate: cx%d==%d  w%d==%d",
+                primaryObject.x_middle_coord, lastSnapshotCenterX, primaryObject.width, lastSnapshotWidth);
         }
-        Brain.Screen.printAt(10, 120, "everTracked:%d  currTracked:%d", (int)visionEverTracked, (int)visionCurrentlyTracked);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 6, "everTracked:%d  currTracked:%d",
+            (int)visionEverTracked, (int)visionCurrentlyTracked);
 
-        if (AIVision20.objectCount > 0) {
-            auto& primaryObject = AIVision20.objects[0];
+        if (primaryValid) {
+            int bottomY = primaryObject.y_middle_coord + (primaryObject.height / 2);
 
             if (primaryObject.width >= minObjectWidth &&
-                primaryObject.centerX >= minX && primaryObject.centerX <= maxX &&
-                primaryObject.centerY >= minY && primaryObject.centerY <= maxY)
+                primaryObject.x_middle_coord >= minX && primaryObject.x_middle_coord <= maxX &&
+                bottomY >= minY && bottomY <= maxY)
             {
                 visionCurrentlyTracked = true;
 
-                if (primaryObject.centerX != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth)
+                if (primaryObject.x_middle_coord != lastSnapshotCenterX || primaryObject.width != lastSnapshotWidth)
                 {
-                    lastVisionHorizontalOffset = (primaryObject.centerX - VISION_CENTER_X) / VISION_CENTER_X;
-                    lastSnapshotCenterX        = primaryObject.centerX;
+                    lastVisionHorizontalOffset = (primaryObject.x_middle_coord - VISION_CENTER_X) / VISION_CENTER_X;
+                    lastSnapshotCenterX        = primaryObject.x_middle_coord;
                     lastSnapshotWidth          = primaryObject.width;
                     visionEverTracked          = true;
 
@@ -3901,14 +2894,14 @@ void visionOnly(vex::aivision::colordesc targetSignature,
         }
 
         double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
-        Brain.Screen.printAt(10, 140, "initH:%.1f fusedH:%.1f", initialGyroHeading, fusedTargetHeading);
-        Brain.Screen.printAt(10, 160, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 7, "initH:%.1f fusedH:%.1f", initialGyroHeading, fusedTargetHeading);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 8, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
 
         // --- MOTOR RPM READINGS ---
-        double leftMotorRPM    = leftMotor[1].velocity(rpm)  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM   = rightMotor[1].velocity(rpm) * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM  = passiveEncoderLeft.velocity(rpm)  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.velocity(rpm) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftMotorRPM    = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM   = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
 
         // --- MOTION PHASES ---
 
@@ -3916,17 +2909,15 @@ void visionOnly(vex::aivision::colordesc targetSignature,
         if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel)
         {
             double leftTractionVoltage  = tractionControlLeft.tractionControlSpeed(
-                motorVoltageLeft[1], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
+                motorVoltageLeft[0], leftMotorRPM, leftEncoderRPM, ACCEL_FACTOR_LAUNCH);
             double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
-                motorVoltageRight[1], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+                motorVoltageRight[0], rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
 
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
-                motorVoltageRight[i] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
-            }
+            motorVoltageLeft[0]  = leftTractionVoltage  - (headingCorrection * accelHeadingScaling);
+            motorVoltageRight[0] = rightTractionVoltage + (headingCorrection * accelHeadingScaling);
 
-            if (std::fabs(motorVoltageLeft[1]) >= std::fabs(maxSpeedVoltage) &&
-                std::fabs(motorVoltageRight[1]) >= std::fabs(maxSpeedVoltage))
+            if (std::fabs(motorVoltageLeft[0]) >= std::fabs(maxSpeedVoltage) &&
+                std::fabs(motorVoltageRight[0]) >= std::fabs(maxSpeedVoltage))
             {
                 accelCompleted = true;
             }
@@ -3935,10 +2926,8 @@ void visionOnly(vex::aivision::colordesc targetSignature,
         // PHASE 2: CRUISE
         else if (currentDistanceToTarget > breakDistance && accelCompleted)
         {
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  = maxSpeedVoltage - headingCorrection;
-                motorVoltageRight[i] = maxSpeedVoltage + headingCorrection;
-            }
+            motorVoltageLeft[0]  = maxSpeedVoltage - headingCorrection;
+            motorVoltageRight[0] = maxSpeedVoltage + headingCorrection;
         }
 
         // PHASE 3: DECELERATION
@@ -3946,24 +2935,22 @@ void visionOnly(vex::aivision::colordesc targetSignature,
         {
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[1]));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[1]));
+                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft[0]));
+                adaptiveABSRight.initialize(std::fabs(motorVoltageRight[0]));
             }
 
             adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
             adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
 
-            vex::brakeType leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
-            vex::brakeType rightBrakeMode = adaptiveABSRight.getBrakeMode();
+            pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
             double adjustedHeadingCorrection = headingCorrection * decelHeadingScaling * dir;
 
-            for (int i = 0; i < 3; i++) {
-                leftMotor[i].setBrake(leftBrakeMode);
-                rightMotor[i].setBrake(rightBrakeMode);
-                motorVoltageLeft[i]  = std::max(0.0,  adjustedHeadingCorrection);
-                motorVoltageRight[i] = std::max(0.0, -adjustedHeadingCorrection);
-            }
+            leftDrive.set_brake_mode(leftBrakeMode);
+            rightDrive.set_brake_mode(rightBrakeMode);
+            motorVoltageLeft[0]  = std::max(0.0,  adjustedHeadingCorrection);
+            motorVoltageRight[0] = std::max(0.0, -adjustedHeadingCorrection);
 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -3978,12 +2965,10 @@ void visionOnly(vex::aivision::colordesc targetSignature,
         // PHASE 4: APPROACH
         else if (decelCompleted)
         {
-            for (int i = 0; i < 3; i++) {
-                leftMotor[i].setBrake(brake);
-                rightMotor[i].setBrake(brake);
-                motorVoltageLeft[i]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
-                motorVoltageRight[i] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
-            }
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            motorVoltageLeft[0]  = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+            motorVoltageRight[0] = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
         }
 
         // Proportional scale-down if either side exceeds absoluteMaxVoltage
@@ -3991,29 +2976,18 @@ void visionOnly(vex::aivision::colordesc targetSignature,
                                                    std::fabs(motorVoltageRight[0]));
         if (maximumRequestedVoltage > absoluteMaxVoltage) {
             double voltageScaleFactor = absoluteMaxVoltage / maximumRequestedVoltage;
-            for (int i = 0; i < 3; i++) {
-                motorVoltageLeft[i]  *= voltageScaleFactor;
-                motorVoltageRight[i] *= voltageScaleFactor;
-            }
+            motorVoltageLeft[0]  *= voltageScaleFactor;
+            motorVoltageRight[0] *= voltageScaleFactor;
         }
 
-        for (int i = 0; i < 3; i++) {
-            leftMotor[i].spin(forward, motorVoltageLeft[i],  volt);
-            rightMotor[i].spin(forward, motorVoltageRight[i], volt);
-        }
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
 
-        // 10ms sleep = 100Hz control loop, matching the AI Vision sensor update rate
-        vex::task::sleep(10);
+        pros::delay(10);  // 100Hz control loop
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // ═══════════════════════════════════════════════════════════════════
-    for (int i = 0; i < 3; i++) {
-        leftMotor[i].stop(brakeMode);
-        rightMotor[i].stop(brakeMode);
-    }
-}
-
-void colourDemo(){
-
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
+    leftDrive.move(0);
+    rightDrive.move(0);
 }

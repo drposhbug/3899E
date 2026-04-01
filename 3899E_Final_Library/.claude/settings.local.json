@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(arm-none-eabi-gcc --version)",
+      "Bash(echo \"TEMP=$TEMP\")",
+      "Bash(echo \"TMP=$TMP\")"
+    ]
+  }
+}
