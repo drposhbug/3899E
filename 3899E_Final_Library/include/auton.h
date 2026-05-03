@@ -26,5 +26,6 @@ void systemTest();
 void provsAuto();
 void provsAutoLeft();
 void visionDemo();
+void test();
 
 #endif // AUTON_H

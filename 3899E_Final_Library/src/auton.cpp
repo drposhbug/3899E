@@ -15,6 +15,36 @@ extern const pros::vision_signature_s_t* currentVisionSignature;
 extern int currentMinObjectWidth;
 extern std::atomic<bool> visionTaskShouldRun;
 
+void test() {
+// ======================================================================
+// TEST: straightOdometryV3 — mostly defaults
+// Drives forward 60cm, holding heading 0° (north), all PID/scaling defaults
+// ======================================================================
+    updateOdometry(); // Sync position before move
+
+    // Required params only; all others use header defaults:
+    //   minSpeed=16, distanceTolerance=2.0
+    //   kp=0.4, ki=0.01, kd=0.05
+    //   accelScaling=0.2, decelScaling=0.2, approachScaling=0.2
+    //   maxSpeed=100, brakeMode=brake, timeout=3.0s
+    straightOdometryV3(
+        61,   // targetDistance (cm) — forward
+        15,   // breakDistance (cm) — start decel 15cm out
+        0     // targetHeading — standard Cartesian (east=0°, north=90°)
+    );
+
+    pros::delay(500);
+
+    // Drive back to origin
+    straightOdometryV3(
+        -60,  // negative = reverse
+        15,
+        0
+    );
+
+    updateOdometry();
+}    
+
 void visionSensorTest() {
     pros::screen::erase();
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "VISION TEST MODE");

@@ -8,10 +8,10 @@
 
 // Called once when the robot powers on (before competition starts)
 void initialize() {
-    wingPneumatics.set_value(false);
     passiveEncoderLeft.set_reversed(true);
     passiveEncoderRight.set_reversed(false);
     passiveEncoderX.set_reversed(true);
+    robotInit();  // calibrates IMU, registers vision sigs, zeros encoders
 }
 
 // Called when the robot is disabled by the field controller
@@ -24,7 +24,7 @@ void competition_initialize() {}
 void autonomous() {
     pros::screen::erase();
     wingPneumatics.set_value(false);
-    provsAuto();
+    test();
 }
 
 // Called when the driver control period begins
