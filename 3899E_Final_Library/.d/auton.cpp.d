@@ -668,8 +668,8 @@ bin/auton.cpp.o: src/auton.cpp include/main.h include/api.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
  include/pros/vision.h include/pid.h include/utils.h include/main.h \
  include/robot_config.h include/robot_config.h include/vision_follow.h \
- include/odometry.h include/navigation.h include/utils.h \
- include/autontasks.h
+ include/navigation.h include/utils.h include/odometry.h \
+ include/navigation.h include/autontasks.h
 include/main.h:
 include/api.h:
 include/pros/adi.h:
@@ -1417,7 +1417,8 @@ include/main.h:
 include/robot_config.h:
 include/robot_config.h:
 include/vision_follow.h:
-include/odometry.h:
 include/navigation.h:
 include/utils.h:
+include/odometry.h:
+include/navigation.h:
 include/autontasks.h:

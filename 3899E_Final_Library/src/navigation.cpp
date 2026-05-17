@@ -589,9 +589,9 @@ void straightOdometryV3(double targetDistance,
             }
         }
 
-        // Apply calculated voltages to both drive sides
-        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
-        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+        // Apply calculated voltages to both drive sides (convert V → mV)
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0] * 1000));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0] * 1000));
 
         // 10ms delay for 100Hz control loop
         pros::delay(10);
@@ -675,8 +675,8 @@ void smartStraight(double targetDistance, double breakDistance, double targetHea
         motorVoltageLeft[0]  = maxV - headingCorrection;
         motorVoltageRight[0] = maxV + headingCorrection;
 
-        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
-        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0] * 1000));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0] * 1000));
 
         pros::delay(10);
     }
@@ -876,17 +876,15 @@ void pivotTurnOdometryV2(double targetHeading, double breakDistanceInDegrees,
         // APPLY MOTOR COMMANDS (true pivot — one side braked, one side driven)
         // ───────────────────────────────────────────────
         if (motorVoltageLeft[0] != 0) {
-            leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
+            leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0] * 1000));
         } else {
-            // Pivot point: hard brake
             leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
             leftDrive.move(0);
         }
 
         if (motorVoltageRight[0] != 0) {
-            rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+            rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0] * 1000));
         } else {
-            // Pivot point: hard brake
             rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
             rightDrive.move(0);
         }
@@ -1774,8 +1772,8 @@ void moveVisionOdometry(pros::vision_signature_s_t targetSignature,
         // ───────────────────────────────────────────────────────────────
         // 9. MOTOR OUTPUT
         // ───────────────────────────────────────────────────────────────
-        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
-        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0] * 1000));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0] * 1000));
 
         pros::delay(10);
     }
@@ -2040,8 +2038,8 @@ void moveOdometry(double targetX,
         // ───────────────────────────────────────────────────────────────
         // 8. MOTOR OUTPUT
         // ───────────────────────────────────────────────────────────────
-        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
-        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0] * 1000));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0] * 1000));
 
         pros::delay(10);  // 100Hz control loop
     }
@@ -2206,8 +2204,8 @@ void driveToWall(double targetDistance,
         double leftOutput  = leftWallDetected  ? stalledSideVoltage : maxSpeedVoltage;
         double rightOutput = rightWallDetected ? stalledSideVoltage : maxSpeedVoltage;
 
-        leftDrive.move_voltage(static_cast<int32_t>(leftOutput));
-        rightDrive.move_voltage(static_cast<int32_t>(rightOutput));
+        leftDrive.move_voltage(static_cast<int32_t>(leftOutput * 1000));
+        rightDrive.move_voltage(static_cast<int32_t>(rightOutput * 1000));
 
         pros::delay(10); // 100Hz control loop
     }
@@ -2705,8 +2703,8 @@ void moveVisionOdometryOpen(pros::vision_signature_s_t targetSignature,
         // ───────────────────────────────────────────────────────────────
         // 9. MOTOR OUTPUT
         // ───────────────────────────────────────────────────────────────
-        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
-        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0] * 1000));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0] * 1000));
 
         pros::delay(10);  // 100Hz control loop
     }
@@ -2980,9 +2978,8 @@ void visionOnly(pros::vision_signature_s_t targetSignature,
             motorVoltageRight[0] *= voltageScaleFactor;
         }
 
-        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0]));
-        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0]));
-
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft[0] * 1000));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight[0] * 1000));
         pros::delay(10);  // 100Hz control loop
     }
 
