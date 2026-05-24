@@ -31,19 +31,17 @@ extern pros::MotorGroup rightDrive;  // RightMotor1-3
 // MECHANISM MOTORS
 // ══════════════════════════════════════════════════════════════════════════════
 extern pros::Motor intakeMotor1;
-extern pros::Motor intakeMotor2;
+extern pros::Motor lever;
+extern pros::Motor colorSortMotor;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PNEUMATICS
 // ══════════════════════════════════════════════════════════════════════════════
 // set_value(true) = solenoid extended, set_value(false) = retracted.
-extern pros::adi::DigitalOut frontHoodPneumatics;  // ADI port G — front hood
-extern pros::adi::DigitalOut matchLoadPneumatics;  // ADI port E — match loader / auton bumper
-extern pros::adi::DigitalOut ptoPneumatics;        // ADI port H — PTO engagement
-extern pros::adi::DigitalOut wingPneumatics;       // ADI port C — wing extension
-extern pros::adi::DigitalOut leftGatePneumatics;   // ADI port A — left scoring gate
-extern pros::adi::DigitalOut rightGatePneumatics;  // ADI port F — right scoring gate
-extern pros::adi::DigitalOut rudderPneumatics;     // ADI port D — intake rudder
+extern pros::adi::DigitalOut matchloader;  
+extern pros::adi::DigitalOut scoreFlap;  
+extern pros::adi::DigitalOut colorSortFlap;        
+extern pros::adi::DigitalOut scorePiston;      
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SENSORS
@@ -60,8 +58,6 @@ extern pros::Rotation passiveEncoderX;   // lateral (strafing) encoder
 
 // Optical sensors — ring/ball color detection and lane tracking.
 extern pros::Optical opticalSensor;
-extern pros::Optical leftLaneOptical;
-extern pros::Optical rightLaneOptical;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // AI VISION SENSOR
