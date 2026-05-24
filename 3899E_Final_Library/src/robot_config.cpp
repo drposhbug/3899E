@@ -50,7 +50,7 @@ std::int8_t colorSortMotorPort = 3;
 std::int8_t horizontalEncoderPort = 2;
 std::int8_t verticalEncoderPort = 4; // nothing in port
 std::int8_t imuPort = 15; // nothing in port
-std::int8_t colorSensorPort = 14;
+std::int8_t colorSensorPort = 15;
 std::int8_t aiVisionPort = 21;
 
 std::int8_t receiverPort = 1;
@@ -61,8 +61,8 @@ std::string LINK_ID = "theThingThatMustBeTheSameAcrossBothBigBotAndSmallBot2055A
 
 char matchloaderPort = 'H';
 char scoreFlapPort = 'A';
-char colorSortFlap = 'B';
-char scorePiston = 'B';
+char colorSortFlapPort = 'B';
+char scorePistonPort = 'B';
 
 // ── Controller ────────────────────────────────────────────────────────────────
 pros::Controller Controller(pros::E_CONTROLLER_MASTER);
@@ -178,7 +178,7 @@ const double encoderWheelCircumferenceCM = 15.96;  // tracking wheel circumferen
 
 // Half-track distances used in turning-radius calculations.
 static const double DISTANCE_TO_WHEEL   = 12.70;  // half-track of drive wheels (cm)
-static const double DISTANCE_TO_ENCODER =  8.30;  // half-track of tracking wheels (cm) ??????????????
+static const double DISTANCE_TO_ENCODER =  0.00;  // half-track of tracking wheels (cm) ??????????????
 
 // Derived ratio — drive half-track to encoder half-track.
 const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
@@ -201,10 +201,7 @@ static void resetMotorPositions()
 // ROBOT INITIALIZATION
 // ══════════════════════════════════════════════════════════════════════════════
 // Call once from PROS initialize() before any competition mode begins.
-void robotInit()
-{
-    // Retract wings so they don't interfere during IMU calibration.
-    wingPneumatics.set_value(false);
+void robotInit() {
 
     // Calibrate the IMU — reset(true) blocks until finished (~2 s).
     pros::lcd::set_text(1, "Calibrating IMU...");

@@ -42,8 +42,8 @@ void competition_initialize() {}
 void autonomous()
 {
     pros::screen::erase();
-    wingPneumatics.set_value(false);  // ensure wings are retracted at auton start
-    test();
+    // wingPneumatics.set_value(false);  // ensure wings are retracted at auton start
+    // test();
 }
 
 // ── opcontrol ─────────────────────────────────────────────────────────────────

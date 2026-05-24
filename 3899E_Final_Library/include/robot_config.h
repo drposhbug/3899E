@@ -30,7 +30,7 @@ extern pros::MotorGroup rightDrive;  // RightMotor1-3
 // ══════════════════════════════════════════════════════════════════════════════
 // MECHANISM MOTORS
 // ══════════════════════════════════════════════════════════════════════════════
-extern pros::Motor intakeMotor1;
+extern pros::Motor intakeMotor;
 extern pros::Motor lever;
 extern pros::Motor colorSortMotor;
 

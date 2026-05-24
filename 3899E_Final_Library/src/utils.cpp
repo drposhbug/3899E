@@ -238,15 +238,15 @@ void colorDetectionTask(void* params) {
         if (redSeen  && p->targetColor == Color::RED) {
             pros::lcd::set_text(0, "DETECT: RED");
             pros::delay(p->delayMs);
-            intakeMotor1.move(0);         // stop
+            intakeMotor.move(0);         // stop
             pros::delay(50);
-            intakeMotor1.move(-100);      // reverse to eject (negative = reverse in PROS)
+            intakeMotor.move(-100);      // reverse to eject (negative = reverse in PROS)
         } else if (blueSeen && p->targetColor == Color::BLUE) {
             pros::lcd::set_text(0, "DETECT: BLUE");
             pros::delay(p->delayMs);
-            intakeMotor1.move(0);
+            intakeMotor.move(0);
             pros::delay(50);
-            intakeMotor1.move(-100);
+            intakeMotor.move(-100);
         }
 
         pros::delay(10);  // ~100 Hz loop
@@ -293,23 +293,23 @@ void intakeStallTask(void* params) {
 
     while (p->isRunning) {
         // Measure absolute velocity as a percentage of maximum.
-        double velPct = std::fabs(intakeMotor1.get_actual_velocity())
+        double velPct = std::fabs(intakeMotor.get_actual_velocity())
                         / absoluteMaxRPM * 100.0;
 
         if (velPct < p->stallThreshold) {
             stallCounter++;
             if (stallCounter >= REQUIRED_CONSECUTIVE_STALLS) {
                 // Reverse the intake to clear the jam.
-                intakeMotor1.move_relative(p->reverseRotation,
+                intakeMotor.move_relative(p->reverseRotation,
                                            p->reverseSpeed * absoluteMaxRPM / 100.0);
 
                 // Wait for the move to complete (poll velocity ≈ 0).
-                while (std::fabs(intakeMotor1.get_actual_velocity()) > 5.0)
+                while (std::fabs(intakeMotor.get_actual_velocity()) > 5.0)
                     pros::delay(10);
 
                 // Coast to a stop.
-                intakeMotor1.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-                intakeMotor1.move(0);
+                intakeMotor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                intakeMotor.move(0);
 
                 p->isRunning = false;
                 break;
@@ -329,7 +329,7 @@ void startIntakeStallDetection() {
     intakeStallParams.reverseRotation = 210;   // degrees to reverse to clear jam
     intakeStallParams.reverseSpeed    = 60;    // % speed for the reversal
 
-    intakeMotor1.move(-100);  // run intake in intake direction (negative = forward intake)
+    intakeMotor.move(-100);  // run intake in intake direction (negative = forward intake)
     pros::Task stall_task(intakeStallTask, &intakeStallParams, "IntakeStall");
 }
 
