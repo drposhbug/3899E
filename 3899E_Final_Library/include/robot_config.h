@@ -41,7 +41,7 @@ extern pros::Motor colorSortMotor;
 extern pros::adi::DigitalOut matchloader;  
 extern pros::adi::DigitalOut scoreFlap;  
 extern pros::adi::DigitalOut colorSortFlap;        
-extern pros::adi::DigitalOut scorePiston;      
+extern pros::adi::DigitalOut scorePiston;    
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SENSORS
@@ -58,6 +58,13 @@ extern pros::Rotation passiveEncoderX;   // lateral (strafing) encoder
 
 // Optical sensors — ring/ball color detection and lane tracking.
 extern pros::Optical opticalSensor;
+
+// Radio - for communication
+extern std::int8_t receiverPort;
+extern pros::Link* receiver;
+extern float messageReceived[5];
+extern float messageToSend[5];
+extern std::string LINK_ID;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // AI VISION SENSOR

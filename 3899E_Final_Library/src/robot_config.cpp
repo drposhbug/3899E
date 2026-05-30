@@ -49,18 +49,18 @@ std::int8_t colorSortMotorPort = 3;
 
 std::int8_t horizontalEncoderPort = 2;
 std::int8_t verticalEncoderPort = 4; // nothing in port
-std::int8_t imuPort = 15; // nothing in port
+std::int8_t imuPort = 8; // nothing in port
 std::int8_t colorSensorPort = 15;
 std::int8_t aiVisionPort = 21;
 
-std::int8_t receiverPort = 1;
+std::int8_t receiverPort = 6;
 pros::Link* receiver;
 float messageReceived[5] = {0,0,0,0,0};
 float messageToSend[5] = {0,0,0,0,0};
-std::string LINK_ID = "theThingThatMustBeTheSameAcrossBothBigBotAndSmallBot2055A";
+std::string LINK_ID = "theThingThatMustBeTheSameAcrossBothBigBotAndSmallBot2055A"; // don't change this
 
-char matchloaderPort = 'H';
-char scoreFlapPort = 'A';
+char matchloaderPort = 'A';
+char scoreFlapPort = 'H';
 char colorSortFlapPort = 'B';
 char scorePistonPort = 'B';
 
@@ -197,6 +197,18 @@ static void resetMotorPositions()
     rightDrive.tare_position();
 }
 
+// Radio function
+void runRadio(void* param) {
+    while (true) {
+        if (receiver != nullptr) {
+			receiver->receive(&messageReceived, sizeof(messageReceived));
+			receiver->clear_receive_buf();
+			receiver->transmit(&messageToSend, sizeof(messageToSend));
+		}
+        pros::delay(50);
+    }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // ROBOT INITIALIZATION
 // ══════════════════════════════════════════════════════════════════════════════
@@ -221,4 +233,8 @@ void robotInit() {
 
     // Zero all drive motor encoders after calibration.
     resetMotorPositions();
+
+    // start radio link
+    receiver = new pros::Link(receiverPort, LINK_ID, pros::E_LINK_RECIEVER, true);
+    pros::Task radioTask(runRadio);
 }

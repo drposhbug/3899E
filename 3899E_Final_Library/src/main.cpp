@@ -50,7 +50,7 @@ void autonomous()
 // Called when the driver control period begins.
 void opcontrol()
 {
-    pros::screen::erase();
+    // pros::screen::erase();
     Controller.clear();  // clear any residual controller display from init
     driverControl();
 }

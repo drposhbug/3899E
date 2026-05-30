@@ -169,13 +169,13 @@ bin/ai_jetson.cpp.o: src/ai_jetson.cpp include/ai_jetson.h include/main.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_obj_event.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../misc/lv_event.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/lv_indev.h \
- C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/core/lv_group.h \
- C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h \
- C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h \
- C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h \
- C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_area.h \
- C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_timer.h \
- C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_event.h \
+ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/lv_group.h \
+ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/../lv_conf_internal.h \
+ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/../misc/lv_types.h \
+ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/../misc/lv_ll.h \
+ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_area.h \
+ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_timer.h \
+ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_event.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_group.h \
  include/liblvgl/core/../stdlib/builtin/lv_tlsf.h \
  include/liblvgl/core/../stdlib/builtin/../../lv_conf_internal.h \
@@ -851,13 +851,13 @@ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_obj_pr
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_obj_event.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../misc/lv_event.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/lv_indev.h:
-C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/core/lv_group.h:
-C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h:
-C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h:
-C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h:
-C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_area.h:
-C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_timer.h:
-C:/Users/siwen/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_event.h:
+include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/lv_group.h:
+include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/../lv_conf_internal.h:
+include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/../misc/lv_types.h:
+include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/../misc/lv_ll.h:
+include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_area.h:
+include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_timer.h:
+include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_event.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_group.h:
 include/liblvgl/core/../stdlib/builtin/lv_tlsf.h:
 include/liblvgl/core/../stdlib/builtin/../../lv_conf_internal.h:

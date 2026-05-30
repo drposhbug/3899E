@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "navigation.h"
 #include "autontasks.h"
+#include "odometry.h"
 #include <cmath>
 
 // Joystick deadzone threshold — inputs below this magnitude are treated as zero
@@ -119,6 +120,10 @@ void driverControl() {
         motorPowerRight[0] = targetSpeedRight;
         motorPowerRight[1] = targetSpeedRight;
         motorPowerRight[2] = targetSpeedRight;
+
+        pros::lcd::set_text(1, std::to_string(globalX));
+        pros::lcd::set_text(2, std::to_string(globalY));
+        pros::lcd::set_text(3, std::to_string(globalRotation));
 
         // ─────────────────────────────────────────────────────────────────────
         // BUTTON R1  —  normal intake with colour-sort
