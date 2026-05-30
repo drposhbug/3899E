@@ -10,9 +10,11 @@
 // These atomics are written by the vision background task and read by motion
 // functions, allowing lock-free data sharing between tasks.
 // ══════════════════════════════════════════════════════════════════════════════
-extern std::atomic<double> visionHorizontalNormalizedOffset; // −1.0 (left) … +1.0 (right)
-extern std::atomic<int>    visionCurrentObjectWidth;         // pixels; 0 = not detected
-extern std::atomic<bool>   visionTargetTracked;              // true while object is in frame
+extern std::atomic<double> visionHorizontalNormalizedOffset;  // -1 to +1, left to right
+extern std::atomic<int>    visionCurrentObjectWidth;         // pixels, 0 if not detected
+extern std::atomic<bool>   visionTargetTracked;              // true if object in frame
+
+double getCurrentEncoderDistanceCM();
 
 // Background task that grabs AI Vision snapshots at ~50 Hz and updates the
 // above atomics. Start with pros::Task before calling any visionDrive* function.
@@ -238,50 +240,10 @@ void pivotLeftMP(double turnAmount, double breakDistance, double minSpeed, doubl
 void pivotRightMP(double turnAmount, double breakDistance, double minSpeed, double maxSpeed);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// driveForward / driveBackward — odometry-closed-loop straight drive
-// V1: basic version.  V2: adds distanceTolerance + integral.  V3: zero integral.
+// driveForwardV2 / driveBackwardV2 — odometry-closed-loop straight drive
+// Wraps straightOdometryV3 with an explicit distanceTolerance parameter.
+// targetHeading uses VEX Coordinates (North = 0°, CW+).
 // ══════════════════════════════════════════════════════════════════════════════
-void driveForward(double targetDistance,
-                  double breakDistance          = 10.0,
-                  double targetHeading          = 0.0,
-                  double minSpeed               = 24.0,
-                  double kp_heading             = 1.1,
-                  double ki_heading             = 0.0,
-                  double kd_heading             = 0.0,
-                  double accelHeadingScaling    = 0.1,
-                  double decelHeadingScaling    = 0.2,
-                  double approachHeadingScaling = 0.3,
-                  double maxSpeed               = 100.0);
-
-void driveBackward(double targetDistance,
-                   double breakDistance          = 10.0,
-                   double targetHeading          = 0.0,
-                   double minSpeed               = 24.0,
-                   double kp_heading             = 1.1,
-                   double ki_heading             = 0.0,
-                   double kd_heading             = 0.0,
-                   double accelHeadingScaling    = 0.1,
-                   double decelHeadingScaling    = 0.2,
-                   double approachHeadingScaling = 0.3,
-                   double maxSpeed               = 100.0);
-
-// Absolute-heading turn wrappers (targetHeading is a field-frame heading, not relative).
-void turnRight(double absoluteTargetHeading,
-               double breakDistance,
-               double minSpeed      = 25.0,
-               double maxSpeed      = 100.0,
-               double exitTolerance = 2.0);
-
-void turnLeft(double absoluteTargetHeading,
-              double breakDistance,
-              double minSpeed      = 25.0,
-              double maxSpeed      = 100.0,
-              double exitTolerance = 2.0);
-
-// Open-loop forward drive for a fixed duration (no sensors — use sparingly).
-void pidlessForward(double timeMs, double speedPct);
-
-// ── V2 ────────────────────────────────────────────────────────────────────────
 void driveForwardV2(double targetDistance,
                     double breakDistance          = 10.0,
                     double targetHeading          = 0.0,

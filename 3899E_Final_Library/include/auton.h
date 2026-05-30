@@ -1,31 +1,17 @@
 #ifndef AUTON_H
 #define AUTON_H
 
-void autonLeft();
-void autonRight();
-void autonTest();
-void SpeedwayAutonLeft();
-void SevenBallRight();
-void odomTest();
-void soloAWP();
-void SevenBallLeft();
-void rightMiddleAuto();
-void leftSideLong();
-void leftSidemiddle();
-void soloAWPMiddle();
-void visionSensorTest();
-void skillsAuton();
-void skillsAuton2();
-void CoordinateFinderTask();
-void nothing();
-void soloAwp2();
-void runEverything();
-void skillsAutonGateway();
-void soloAwpOdom();
-void systemTest();
-void provsAuto();
-void provsAutoLeft();
-void visionDemo();
-void test();
+// ── VAIRC match routes ────────────────────────────────────────────────────────
+void runAIMatchRoute();    // full VAIRC match via Jetson + ai.cpp
+
+// ── Field test / diagnostic routes ───────────────────────────────────────────
+void routeTest();          // plan and drive a route manually
+void routeGridTest();      // print obstacle grid to brain screen
+void systemTest();         // spin each motor to verify hardware
+void coordinateFinder();   // live GPS/odometry coordinate display
+void navTest();            // test odometry-based straight drive
+
+// ── Selector — called from autonomous() in main.cpp ──────────────────────────
+void autonSelector();
 
 #endif // AUTON_H

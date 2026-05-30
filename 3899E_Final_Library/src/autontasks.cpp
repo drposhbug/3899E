@@ -600,8 +600,7 @@ static std::atomic<bool> g_matchloadPistonTaskRunning(false);
 static double g_matchloadPistonTimeMs  = 0;
 static double g_matchloadPistonDelayMs = 0;
 
-// Internal task function — renamed from matchloadPistonStart to avoid conflict
-// with the public API overload that takes (double, double)
+// Internal PROS task function for matchloadPistonStart — timed piston extend/retract.
 void matchloadPistonTaskFn(void*) {
     uint32_t startTime = pros::millis();
     while (g_matchloadPistonTaskRunning.load() &&

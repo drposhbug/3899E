@@ -8,12 +8,6 @@
 // HEADING CONVERSION
 // ══════════════════════════════════════════════════════════════════════════════
 
-// VEX IMU reports CW+ (clockwise positive); Standard Cartesian is CCW+.
-// Flip the sign and offset by 90° to convert between the two systems.
-double vexToStandardCartesian(double vexAngle) {
-    return -vexAngle + 90.0;
-}
-
 // ── Gyro scalar ───────────────────────────────────────────────────────────────
 // Corrects for accumulated sensor error over full rotations.
 // Calibration method: spin the robot exactly 10 full turns; measure the
@@ -22,21 +16,22 @@ double vexToStandardCartesian(double vexAngle) {
 // If you get -328° after 10 turns → increase GYRO_SCALE (> 1.0).
 static const double GYRO_SCALE = 1.009017;
 
-// Returns continuous (unbounded) Standard Cartesian heading in degrees.
-// Does NOT wrap — can return 720°, -450°, etc.  Use this for PID and odometry.
-// Convention: East = 0°, North = +90°, CCW positive.
+// Returns continuous (unbounded) heading in degrees.
+// Does NOT wrap — can return 720°, -450°, etc. Use this for PID and odometry.
+// Convention: North = 0°, CW positive (same as VEX inertial sensor output).
 double getContinuousStandardHeading() {
-    // PROS get_rotation() returns unbounded degrees (CW positive for VEX IMU).
+    // PROS get_rotation() returns unbounded degrees, CW positive for VEX IMU.
     double currentSensorRotation = InertialSensor.get_rotation();
 
-    // Delta from the recorded start value, then scaled for sensor error.
+    // Compute delta from the snapshot taken at setStartPosition, then apply
+    // the gyro scale correction for accumulated sensor error.
     double scaledDelta = (currentSensorRotation - gyroReadingAtStart) * GYRO_SCALE;
 
-    // Subtract because VEX rotation is CW+ and we want CCW+.
-    return robotStartingHeading - scaledDelta;
+    // Add delta to starting heading — CW+ convention is preserved throughout.
+    return robotStartingHeading + scaledDelta;
 }
 
-// Returns heading normalized to −180…+180° Standard Cartesian.
+// Returns heading normalized to −180…+180° (VEX Coordinates, North = 0°, CW+).
 double getNormalizedStandardHeading() {
     return fmod(getContinuousStandardHeading() + 540.0, 360.0) - 180.0;
 }

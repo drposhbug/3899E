@@ -3,8 +3,8 @@
 #include "utils.h"
 #include "main.h"
 
-// Global position (cm) and heading (degrees, continuous Standard Cartesian)
-// 0° = East, positive counterclockwise
+// Global position (cm) and heading (degrees, continuous VEX Coordinates)
+// 0° = North, positive clockwise
 double globalX = 0.0;
 double globalY = 0.0;
 double globalRotation = 0.0;
@@ -23,30 +23,29 @@ enum RobotState { STATIONARY, TURNING, STRAIGHT };
 RobotState currentState = STATIONARY;
 
 // ======================================================================
-// Set starting position and heading
-// Input heading is Modified Cartesian (North = 0°)
-// Converted once to Standard Cartesian for internal calculations
-// Tares gyro and resets encoders
+// setStartPosition — Initialize field position and heading
+//
+// Sets globalX/globalY to the robot's starting field coordinates (cm).
+// startHeading is in VEX Coordinates (North = 0°, CW positive).
+// Snapshots the IMU reading and resets encoders so all subsequent odometry
+// updates are delta-based from this reference point.
 // ======================================================================
 void setStartPosition(double startX, double startY, double startHeading) {
-    // 1. Set Global Coordinates - Standard Cartesian (X=East/West, Y=North/South)
+    // 1. Set global field coordinates (X = East/West, Y = North/South, in cm)
     globalX = startX;  
     globalY = startY;
 
-    // 2. Save Display Heading (The "North" heading for the screen)
-    // FIX: Don't do math with uninitialized variables. Just save the input.
+    // 2. Store starting heading for display and continuous heading calculation
     robotStartingHeading = startHeading; 
     
-    // 3. Set Internal Math Heading (The "East" heading for Odometry)
-    // FIX: This calls the function (adds 90). We do NOT add extra offsets here.
+    // 3. Store for heading math reference (VEX Coordinates, North = 0°, CW+)
     robotStartingHeadingStandard = startHeading;
     
     // 4. Reset Sensors
     // Snapshot current IMU rotation — odometry treats this as the zero reference
     gyroReadingAtStart = InertialSensor.get_rotation();
 
-    // 5. Reset Encoders to 0 (Clean Slate)
-    // It is much safer to track "Change from Start" than "Absolute Wheel Rotations"
+    // 5. Reset encoders — all subsequent distance tracking is relative to this snapshot
     passiveEncoderLeft.reset();
     passiveEncoderRight.reset();
     passiveEncoderX.reset();
@@ -119,8 +118,8 @@ void updateOdometry() {
         
         // 6. Rotate Local Movements to Global Coordinate System
         // Standard rotation matrix to convert local forward/strafe to global X/Y
-        deltaXPos = forwardDistance * cos(headingRad) - lateralMovement * sin(headingRad);
-        deltaYPos = forwardDistance * sin(headingRad) + lateralMovement * cos(headingRad);
+        deltaXPos = forwardDistance * sin(headingRad) + lateralMovement * cos(headingRad);
+        deltaYPos = forwardDistance * cos(headingRad) - lateralMovement * sin(headingRad);
     }
 
     // 7. Accumulate Global Position
@@ -134,15 +133,15 @@ void updateOdometry() {
 }
 
 // ======================================================================
-// Compute straight-line distance and heading to target point
-// Heading is in Standard Cartesian from atan2
+// calculatePathToTarget — Straight-line distance and heading to a field point
+// Heading is returned in VEX Coordinates (North = 0°, CW+) from atan2
 // ======================================================================
 void calculatePathToTarget(double currentX, double currentY, double targetX, double targetY,
                            double &distance, double &heading) {
     double deltaX = targetX - currentX;
     double deltaY = targetY - currentY;
     distance = sqrt(deltaX * deltaX + deltaY * deltaY);
-    heading = atan2(deltaY, deltaX) * 180.0 / M_PI;
+    heading = atan2(deltaX, deltaY) * 180.0 / M_PI;
 }
 
 // ======================================================================
@@ -157,7 +156,7 @@ void turnToPoint(double targetX, double targetY, double breakDistanceInDegrees,
     double deltaX = targetX - globalX;
     double deltaY = targetY - globalY;
     
-    double targetStandardHeading = atan2(deltaY, deltaX) * 180.0 / M_PI;
+    double targetStandardHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
     double currentStandardHeading = getContinuousStandardHeading();
     
     double headingError = targetStandardHeading - currentStandardHeading;
@@ -178,11 +177,11 @@ void turnLeftToPoint(double targetX, double targetY, double breakDistanceInDegre
     double deltaX = targetX - globalX;
     double deltaY = targetY - globalY;
     
-    double targetAbsoluteHeading = atan2(deltaY, deltaX) * 180.0 / M_PI;
+    double targetAbsoluteHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
     double currentHeading = getContinuousStandardHeading();
     
     double targetHeading = targetAbsoluteHeading;
-    while (targetHeading <= currentHeading - 0.5) targetHeading += 360.0;
+    while (targetHeading >= currentHeading + 0.5) targetHeading -= 360.0;
     
     turnOdometry(targetHeading, breakDistanceInDegrees, minSpeed, maxSpeed, exitTolerance);
     updateOdometry();
@@ -197,11 +196,11 @@ void turnRightToPoint(double targetX, double targetY, double breakDistanceInDegr
     double deltaX = targetX - globalX;
     double deltaY = targetY - globalY;
     
-    double targetStandardHeading = atan2(deltaY, deltaX) * 180.0 / M_PI;
+    double targetStandardHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
     double currentStandardHeading = getContinuousStandardHeading();
     
     double targetHeading = targetStandardHeading;
-    while (targetHeading >= currentStandardHeading + 0.5) targetHeading -= 360.0;
+    while (targetHeading <= currentStandardHeading - 0.5) targetHeading += 360.0;
     
     turnOdometry(targetHeading, breakDistanceInDegrees, minSpeed, maxSpeed, exitTolerance);
     updateOdometry();

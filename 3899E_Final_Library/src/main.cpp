@@ -5,52 +5,75 @@
 #include "utils.h"
 #include "navigation.h"
 #include "autontasks.h"
+#include "odometry.h"
+#include "ai.h"
 
-// ── initialize ────────────────────────────────────────────────────────────────
-// Runs once on power-on, before any competition mode begins.
-// Sets encoder directions, calibrates the IMU, and registers vision signatures.
 void initialize()
 {
-    // Tracking wheel direction — left and X encoders are physically reversed.
     passiveEncoderLeft.set_reversed(true);
     passiveEncoderRight.set_reversed(false);
     passiveEncoderX.set_reversed(true);
 
-    // Full hardware init: IMU calibration, vision sig registration, encoder zero.
     robotInit();
 
-    // If no field controller is connected (practice / home use), go straight to
-    // driver control. At competition the field controller takes over automatically
-    // and calls autonomous() or opcontrol() at the correct time — no code change needed.
-    if (!pros::competition::is_connected()) {
-        opcontrol();
-    }
+    pros::lcd::initialize();
+
+    // GPS live display — disabled for now
+    // pros::screen::erase();
+    // while (!Controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
+    //     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "GPS err:%.3fm", gpsSensor.get_error());
+    //     pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Raw X:%.3f Y:%.3fm",
+    //         gpsSensor.get_position().x, gpsSensor.get_position().y);
+    //     bool gpsOk = gpsReset();
+    //     pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Reset: %s", gpsOk ? "OK" : "FAIL");
+    //     pros::screen::print(pros::E_TEXT_MEDIUM, 4, "Odom X:%.1f Y:%.1fcm", globalX, globalY);
+    //     pros::delay(100);
+    // }
+
+    // Jetson diagnostic display — live packet stats on LCD at 10Hz
+    pros::Task([]{
+        while (true) {
+            pros::lcd::print(0, "pkts:%d err:%d tmo:%d",
+                g_jetson.get_packets(),
+                g_jetson.get_errors(),
+                g_jetson.get_timeouts());
+            int32_t strat = getStrategy();
+            JetsonDetection det;
+            if (getLatestDetection(CLASS_FWD_RED_BLOCK, 0.4f, &det)) {
+                pros::lcd::print(1, "strat:%d hOff:%.2f dist:%.1fcm",
+                    strat, det.hOffset, det.distanceCm);
+            } else {
+                pros::lcd::print(1, "strat:%d  no target", strat);
+            }
+            pros::delay(100);
+        }
+    }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "JetsonDisplay");
 }
 
-// ── disabled ──────────────────────────────────────────────────────────────────
-// Called whenever the robot is disabled by the field controller.
-// Motors are cut automatically by PROS; add any safe-state logic here if needed.
 void disabled() {}
 
-// ── competition_initialize ────────────────────────────────────────────────────
-// Called after initialize() during the pre-autonomous phase of a competition.
-// Use for auton selector UI or any last-minute pre-match setup.
-void competition_initialize() {}
+void competition_initialize() {
+    autonSelector();
+}
 
-// ── autonomous ────────────────────────────────────────────────────────────────
-// Called when the autonomous period begins (field controller signal).
 void autonomous()
 {
     pros::screen::erase();
-    wingPneumatics.set_value(false);  // ensure wings are retracted at auton start
-    test();
+
+    // ── Uncomment one to test at home ─────────────────────────────────────────
+    navTest();
+    //runAIMatchRoute();
+    //routeTest();
+    //routeGridTest();
+    //systemTest();
+    //coordinateFinder();
+    // ─────────────────────────────────────────────────────────────────────────
+    
 }
 
-// ── opcontrol ─────────────────────────────────────────────────────────────────
-// Called when the driver control period begins.
 void opcontrol()
 {
     pros::screen::erase();
-    Controller.clear();  // clear any residual controller display from init
+    Controller.clear();
     driverControl();
 }

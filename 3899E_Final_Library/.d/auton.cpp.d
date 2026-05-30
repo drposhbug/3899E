@@ -666,10 +666,12 @@ bin/auton.cpp.o: src/auton.cpp include/main.h include/api.h \
  include/pros/optical.h include/pros/rotation.hpp include/pros/rotation.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
- include/pros/vision.h include/pid.h include/utils.h include/main.h \
- include/robot_config.h include/robot_config.h include/vision_follow.h \
- include/navigation.h include/utils.h include/odometry.h \
- include/navigation.h include/autontasks.h
+ include/pros/vision.h include/robot_config.h include/main.h \
+ include/navigation.h include/utils.h include/robot_config.h \
+ include/odometry.h include/navigation.h include/autontasks.h \
+ include/ai.h include/jetson_comms.h include/route_planner.h \
+ include/robot_geometry.h include/route_planner.h \
+ include/robot_geometry.h
 include/main.h:
 include/api.h:
 include/pros/adi.h:
@@ -1411,14 +1413,17 @@ include/pros/serial.hpp:
 include/pros/serial.h:
 include/pros/vision.hpp:
 include/pros/vision.h:
-include/pid.h:
-include/utils.h:
+include/robot_config.h:
 include/main.h:
-include/robot_config.h:
-include/robot_config.h:
-include/vision_follow.h:
 include/navigation.h:
 include/utils.h:
+include/robot_config.h:
 include/odometry.h:
 include/navigation.h:
 include/autontasks.h:
+include/ai.h:
+include/jetson_comms.h:
+include/route_planner.h:
+include/robot_geometry.h:
+include/route_planner.h:
+include/robot_geometry.h:

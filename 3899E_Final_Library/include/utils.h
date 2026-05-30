@@ -6,19 +6,15 @@
 
 // ══════════════════════════════════════════════════════════════════════════════
 // HEADING UTILITIES
-// All heading functions return Standard Cartesian convention:
-//   East = 0°, Counter-Clockwise positive.
-// The IMU natively reports VEX convention (CW+); these functions convert it.
+// All heading functions return VEX Coordinates convention:
+//   North = 0degrees, Clockwise positive.
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Convert a VEX heading (CW+, North=0°) to Standard Cartesian (CCW+, East=0°).
-double vexToStandardCartesian(double vexAngle);
-
-// Continuous (unbounded) Standard Cartesian heading — best for PID math and
+// Continuous (unbounded) VEX heading — best for PID math and
 // odometry because it doesn't wrap, so deltas are always meaningful.
 double getContinuousStandardHeading();
 
-// Normalized Standard Cartesian heading wrapped to –180..+180°.
+// Normalized VEX heading wrapped to –180..+180degrees.
 double getNormalizedStandardHeading();
 
 // Alias for getNormalizedStandardHeading() — used for UI display and printing.
@@ -62,7 +58,7 @@ void initializeOpticalSensor();
 void ringEjection();   // immediately reverses intake to eject a detected wrong color
 
 // Hue thresholds — tuned for the optical sensor's lighting conditions.
-// Two red ranges are needed because red wraps across 0°/360° on the hue wheel.
+// Two red ranges are needed because red wraps across 0degrees/360degrees on the hue wheel.
 extern const double RED_HUE_MIN_1;
 extern const double RED_HUE_MAX_1;
 extern const double RED_HUE_MIN_2;

@@ -668,7 +668,9 @@ bin/main.cpp.o: src/main.cpp include/main.h include/api.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
  include/pros/vision.h include/robot_config.h include/main.h \
  include/driver.h include/auton.h include/utils.h include/robot_config.h \
- include/navigation.h include/utils.h include/autontasks.h
+ include/navigation.h include/utils.h include/autontasks.h \
+ include/odometry.h include/navigation.h include/ai.h \
+ include/jetson_comms.h include/route_planner.h include/robot_geometry.h
 include/main.h:
 include/api.h:
 include/pros/adi.h:
@@ -1419,3 +1421,9 @@ include/robot_config.h:
 include/navigation.h:
 include/utils.h:
 include/autontasks.h:
+include/odometry.h:
+include/navigation.h:
+include/ai.h:
+include/jetson_comms.h:
+include/route_planner.h:
+include/robot_geometry.h:

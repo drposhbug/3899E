@@ -10,13 +10,16 @@
 //     1   Right Motor 1     (600 RPM, forward)
 //     5   Right Motor 2     (600 RPM, reversed)
 //     2   Right Motor 3     (600 RPM, forward)
-//    10   Intake Motor 1    (600 RPM, reversed)
-//     9   Intake Motor 2    (600 RPM, forward)
+//    10   Intake Motor 1    (600 RPM, 11W, reversed)
+//     9   Intake Motor 2    (600 RPM, 11W, forward)
+//    11   Hood Motor        (200 RPM, 5.5W — fixed speed, no cartridge, forward)
+//    15   Upper Indexer     (200 RPM, 5.5W — fixed speed, no cartridge, reversed)
+//     3   GPS Sensor        (left side mount)
 //    17   IMU
 //    20   Left  Encoder     (reversed)
 //    13   Right Encoder     (not reversed)
 //    12   X-axis Encoder    (reversed)
-//    15   Optical Sensor    (sorting)
+//     4   Optical Sensor    (sorting)
 //    16   Left  Lane Optical
 //    11   Right Lane Optical
 //    14   AI Vision Sensor
@@ -51,9 +54,23 @@ pros::Motor RightMotor3( 2,  pros::MotorGears::blue);
 pros::MotorGroup leftDrive ({-7, 19, -6}, pros::MotorGears::blue);
 pros::MotorGroup rightDrive({ 1, -5,  2}, pros::MotorGears::blue);
 
-// ── Mechanism motors (600 RPM blue cartridge) ─────────────────────────────────
-pros::Motor intakeMotor1(-10, pros::MotorGears::blue);  // reversed
-pros::Motor intakeMotor2( 9,  pros::MotorGears::blue);  // forward
+// ── Mechanism motors ──────────────────────────────────────────────────────────
+// intakeMotor1/2: 11W V5 Smart Motor, blue cartridge (600 RPM).
+pros::Motor intakeMotor1(-10, pros::MotorGears::blue);  // port 10, reversed
+pros::Motor intakeMotor2( 9,  pros::MotorGears::blue);  // port  9, forward
+
+// hoodMotor: 5.5W V5 Smart Motor (port 11).
+// This motor has NO swappable cartridge — speed is fixed at 200 RPM by hardware.
+// pros::MotorGears::green (18:1 enum) matches the motor's internal fixed ratio so
+// that velocity-based API calls scale correctly.  move_voltage() is unaffected by
+// gearset and drives the motor at full power regardless.
+pros::Motor hoodMotor(11, pros::MotorGears::green);      // port 11, forward (negate to reverse)
+
+// upperIndexerMotor: 5.5W V5 Smart Motor (port 15).
+// Same hardware config as hoodMotor — fixed 200 RPM, pros::MotorGears::green.
+// Runs in the OPPOSITE direction to hoodMotor (port negated) so both motors
+// pull game objects through the indexer path together.
+pros::Motor upperIndexerMotor(-15, pros::MotorGears::green); // port 15, reversed
 
 // ── Pneumatics ────────────────────────────────────────────────────────────────
 // set_value(true) = solenoid extended, set_value(false) = retracted.
@@ -69,6 +86,11 @@ pros::adi::DigitalOut rudderPneumatics    ('D');
 
 // IMU — reset(true) blocks until calibration completes (~2 s).
 pros::Imu InertialSensor(17);
+
+// GPS Sensor — port 3
+// x_offset: -0.1524m = 6 inches left of tracking center
+// y_offset:  0.0m    = centered lengthwise
+pros::Gps gpsSensor(3, -0.1524, 0.0);
 
 // Passive odometry tracking wheels.
 // Reversal is applied via set_reversed() in initialize() — the pros::Rotation
@@ -118,7 +140,7 @@ double robotStartingHeadingStandard = 0.0;
 double gyroReadingAtStart           = 0.0;
 
 // Set in each auton to the alliance-relative starting angle.
-// e.g. 240° for a red-side auto that starts 240° from field east.
+// e.g. 90° for a red-side auto starting with the robot facing East (90° from North).
 double headingOffset = 0.0;
 
 double targetDriverSpeedLeft  = 0.0;

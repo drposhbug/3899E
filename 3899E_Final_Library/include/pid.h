@@ -1,7 +1,7 @@
 #ifndef PID_H
 #define PID_H
 
-// Generic PID controller — no hardware dependencies, works in both VEXcode and PROS.
+// Generic PID controller — platform-independent, no hardware dependencies.
 // One instance per control loop (heading, distance, vision, etc.).
 class PID {
 public:

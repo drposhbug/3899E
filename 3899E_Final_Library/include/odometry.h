@@ -9,20 +9,21 @@
 // GLOBAL POSITION STATE
 // Updated continuously by the odometry background task.
 // Read from motion functions and auton routines; write only from updateOdometry().
-// Units: centimeters for X/Y, degrees for rotation.
+// Convention: VEX Coordinates (North=0degrees, Clockwise positive, origin at field center)
+// Units: centimeters for X/Y, degrees for continuous rotation.
 // ══════════════════════════════════════════════════════════════════════════════
-extern double globalX;         // robot X position on the field (cm)
-extern double globalY;         // robot Y position on the field (cm)
-extern double globalRotation;  // cumulative (unbounded) rotation in degrees
+extern double globalX;         // robot X position (cm)
+extern double globalY;         // robot Y position (cm)
+extern double globalRotation;  // continuous rotation (degrees)
 
 // ── Previous encoder snapshots (used to compute deltas each iteration) ────────
-extern double prevLeftEncoder;   // left tracking wheel position, previous cycle (degrees)
-extern double prevRightEncoder;  // right tracking wheel position, previous cycle (degrees)
-extern double prevXEncoder;      // lateral encoder position, previous cycle (degrees)
-extern double prevRotation;      // gyro/encoder heading, previous cycle (degrees)
+extern double prevLeftEncoder;   // previous left encoder reading (degrees)
+extern double prevRightEncoder;  // previous right encoder reading (degrees)
+extern double prevXEncoder;      // previous lateral encoder reading (degrees)
+extern double prevRotation;      // previous heading (degrees)
 
 // ── Encoder configuration ─────────────────────────────────────────────────────
-extern bool xEncoderEnabled;  // false = skip the lateral encoder in the odometry update
+extern bool xEncoderEnabled;  // enable/disable lateral encoder
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CORE ODOMETRY UPDATE
@@ -34,9 +35,16 @@ void updateOdometry();
 // ══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
 // Set the robot's known position and heading before autonomous starts.
-// Defaults to the field origin (0, 0) facing East (0°).
+// Defaults to the field origin (0, 0) facing North (0degrees).
 // ══════════════════════════════════════════════════════════════════════════════
 void setStartPosition(double startX = 0.0, double startY = 0.0, double startHeading = 0.0);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Snaps globalX/globalY to GPS-reported field position when robot is stationary.
+// Returns true  — reset accepted, GPS error within GPS_MAX_ERROR_M.
+// Returns false — GPS signal too weak or sensor not connected; odometry unchanged.
+// ══════════════════════════════════════════════════════════════════════════════
+bool gpsReset();
 
 // ══════════════════════════════════════════════════════════════════════════════
 // NAVIGATION HELPERS
@@ -44,7 +52,7 @@ void setStartPosition(double startX = 0.0, double startY = 0.0, double startHead
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Given current position and a target, compute straight-line distance (cm)
-// and the absolute heading required to reach it (Standard Cartesian degrees).
+// and the absolute heading required to reach it (VEX degrees, North=0degrees, CW+).
 void calculatePathToTarget(double currentX, double currentY,
                            double targetX,  double targetY,
                            double& distance, double& heading);
@@ -53,10 +61,11 @@ void calculatePathToTarget(double currentX, double currentY,
 // POINT-TO-POINT TURN HELPERS
 // Turn the robot to face a field coordinate rather than an absolute heading.
 // All three functions use the same motion profile (MotionDefaults::TurningLeft).
+// In VEX Coordinates: Left = decreasing heading (CCW), Right = increasing heading (CW).
 //
-// turnToPoint   – chooses the shorter direction automatically.
-// turnLeftToPoint  – forces a counter-clockwise turn.
-// turnRightToPoint – forces a clockwise turn.
+// turnToPoint      – chooses the shorter direction automatically.
+// turnLeftToPoint  – forces a left (counterclockwise) turn.
+// turnRightToPoint – forces a right (clockwise) turn.
 // ══════════════════════════════════════════════════════════════════════════════
 void turnToPoint(double targetX, double targetY,
                  double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,

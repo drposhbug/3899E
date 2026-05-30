@@ -1,4 +1,4 @@
-bin/ai.cpp.o: src/ai.cpp include/ai.h include/jetson_comms.h \
+bin/route_planner.cpp.o: src/route_planner.cpp include/route_planner.h \
  include/main.h include/api.h include/pros/adi.h include/pros/ai_vision.h \
  include/pros/colors.h include/pros/device.h include/pros/distance.h \
  include/pros/error.h include/pros/ext_adi.h include/pros/adi.h \
@@ -666,13 +666,9 @@ bin/ai.cpp.o: src/ai.cpp include/ai.h include/jetson_comms.h \
  include/pros/optical.h include/pros/rotation.hpp include/pros/rotation.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
- include/pros/vision.h include/route_planner.h include/robot_geometry.h \
- include/robot_config.h include/robot_geometry.h include/route_planner.h \
- include/odometry.h include/navigation.h include/utils.h \
- include/robot_config.h include/navigation.h include/autontasks.h \
- include/pid.h include/utils.h
-include/ai.h:
-include/jetson_comms.h:
+ include/pros/vision.h include/robot_geometry.h include/navigation.h \
+ include/utils.h include/robot_config.h
+include/route_planner.h:
 include/main.h:
 include/api.h:
 include/pros/adi.h:
@@ -1414,16 +1410,7 @@ include/pros/serial.hpp:
 include/pros/serial.h:
 include/pros/vision.hpp:
 include/pros/vision.h:
-include/route_planner.h:
 include/robot_geometry.h:
-include/robot_config.h:
-include/robot_geometry.h:
-include/route_planner.h:
-include/odometry.h:
 include/navigation.h:
 include/utils.h:
 include/robot_config.h:
-include/navigation.h:
-include/autontasks.h:
-include/pid.h:
-include/utils.h:

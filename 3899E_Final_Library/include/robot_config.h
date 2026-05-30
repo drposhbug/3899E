@@ -30,8 +30,21 @@ extern pros::MotorGroup rightDrive;  // RightMotor1-3
 // ══════════════════════════════════════════════════════════════════════════════
 // MECHANISM MOTORS
 // ══════════════════════════════════════════════════════════════════════════════
-extern pros::Motor intakeMotor1;
-extern pros::Motor intakeMotor2;
+// intakeMotor1/2: 11W V5 Smart Motor, blue cartridge (600 RPM).
+extern pros::Motor intakeMotor1;  // port 10, reversed
+extern pros::Motor intakeMotor2;  // port  9, forward
+
+// hoodMotor: 5.5W V5 Smart Motor (port 8).
+// Fixed at 200 RPM — no swappable cartridge.  Declared with pros::MotorGears::green
+// (18:1 enum) so velocity-API scaling matches the hardware's fixed internal ratio.
+// Always commanded in lock-step with intakeMotor1/2 via move_voltage(±12000).
+extern pros::Motor hoodMotor;     // port  8, forward
+
+// upperIndexerMotor: 5.5W V5 Smart Motor (port 4).
+// Same hardware config as hoodMotor — fixed 200 RPM, pros::MotorGears::green.
+// Runs opposite direction to hoodMotor so both 5.5W motors pull together through
+// the indexer path.  Always commanded in lock-step with the other intake motors.
+extern pros::Motor upperIndexerMotor;  // port  4, reversed
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PNEUMATICS
@@ -63,6 +76,16 @@ extern pros::Optical opticalSensor;
 extern pros::Optical leftLaneOptical;
 extern pros::Optical rightLaneOptical;
 
+// GPS Sensor — port 3, left side mount
+// Offset from tracking center: x = -0.1524m (6" left), y = 0.0m (centered)
+// Mount optical window at 9.5" (24.1cm) height — same as field GPS strips.
+extern pros::Gps gpsSensor;
+
+// Maximum GPS position error (meters) to accept a reset.
+// get_error() returns estimated RMS error — lower = higher confidence.
+// 0.10m = 10cm; tighten after field calibration.
+#define GPS_MAX_ERROR_M  0.10
+
 // ══════════════════════════════════════════════════════════════════════════════
 // AI VISION SENSOR
 // ══════════════════════════════════════════════════════════════════════════════
@@ -89,11 +112,11 @@ extern pros::Vision aiVision;
 // GLOBAL ROBOT STATE
 // ══════════════════════════════════════════════════════════════════════════════
 extern double robotStartingHeading;          // heading at match start (degrees)
-extern double robotStartingHeadingStandard;  // same heading in Standard Cartesian convention
+extern double robotStartingHeadingStandard;  // heading at match start — VEX Coordinates (name kept for compatibility)
 extern double gyroReadingAtStart;            // IMU value recorded at init (tare reference)
 
 // Applied to IMU readings to set alliance-relative reference.
-// e.g. 240° for a red-side auto that starts 240° from field east.
+// e.g. 90° for a red-side auto starting with the robot facing East (90° from North).
 extern double headingOffset;
 
 extern double targetDriverSpeedLeft;   // current left drive speed setpoint (driver loop)

@@ -1,6 +1,11 @@
+/*----------------------------------------------------------------------------
+ * pid.cpp — Generic PID controller implementation (Team 3899E)
+ *
+ * Platform-independent: no PROS or hardware calls. All state is per-instance.
+ * Call pidReset() before reusing an instance for a new movement segment.
+ *----------------------------------------------------------------------------*/
+
 #include "pid.h"
-#include "main.h"          // PROS entry point (replaces vex.h)
-#include "robot_config.h"
 
 // ── Constructor ───────────────────────────────────────────────────────────────
 PID::PID(double kp, double ki, double kd)
