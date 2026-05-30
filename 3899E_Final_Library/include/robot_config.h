@@ -62,9 +62,12 @@ extern pros::Optical opticalSensor;
 // Radio - for communication
 extern std::int8_t receiverPort;
 extern pros::Link* receiver;
-extern float messageReceived[5];
-extern float messageToSend[5];
+void getMessageReceived(float out[5]);
+void setMessageToSend(float newMessage[5]);
 extern std::string LINK_ID;
+extern bool matchloaderState;
+extern bool scoreFlapState;
+extern bool scorePistonState;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // AI VISION SENSOR

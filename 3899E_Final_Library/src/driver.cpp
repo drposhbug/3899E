@@ -24,6 +24,21 @@ int applyCustomCurve(int input, double exponent) {
     return sign * (int)(pow(abs(input) / 100.0, exponent) * 100);
 }
 
+void toggleMatchloader() { // pneumatic helper functions
+    matchloaderState = !matchloaderState;
+    matchloader.set_value(matchloaderState);
+}
+
+void toggleScoreFlap() {
+    scoreFlapState = !scoreFlapState;
+    scoreFlap.set_value(scoreFlapState);
+}
+
+void toggleScorePiston() {
+    scorePistonState = !scorePistonState;
+    scorePiston.set_value(scorePistonState);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN DRIVER CONTROL
 // Split-arcade steering; R1/R2/L2 = intake/score; L1 = match-load piston;
@@ -160,6 +175,16 @@ void driverControl() {
 
         lever.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
         lever.move(0);
+    }
+
+    if (Controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+        toggleMatchloader();
+    }
+    if (Controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)) {
+        toggleScoreFlap();
+    }
+    if (Controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)) {
+        toggleScorePiston();
     }
 
         // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {

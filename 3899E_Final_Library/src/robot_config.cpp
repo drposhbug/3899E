@@ -1,4 +1,5 @@
 #include "robot_config.h"
+#include <cstring>
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PORT MAP  (update whenever hardware changes)
@@ -58,6 +59,8 @@ pros::Link* receiver;
 float messageReceived[5] = {0,0,0,0,0};
 float messageToSend[5] = {0,0,0,0,0};
 std::string LINK_ID = "theThingThatMustBeTheSameAcrossBothBigBotAndSmallBot2055A"; // don't change this
+pros::Mutex radioMutex;
+bool matchloaderState = false, scoreFlapState = false, scorePistonState = false;
 
 char matchloaderPort = 'A';
 char scoreFlapPort = 'H';
@@ -201,12 +204,26 @@ static void resetMotorPositions()
 void runRadio(void* param) {
     while (true) {
         if (receiver != nullptr) {
+            radioMutex.take(TIMEOUT_MAX);
 			receiver->receive(&messageReceived, sizeof(messageReceived));
 			receiver->clear_receive_buf();
 			receiver->transmit(&messageToSend, sizeof(messageToSend));
+            radioMutex.give();
 		}
         pros::delay(50);
     }
+}
+
+void getReceivedMessage(float out[5]) { // mutexes
+    radioMutex.take(TIMEOUT_MAX);
+    memcpy(out, messageReceived, sizeof(messageReceived));
+    radioMutex.give();
+}
+
+void setMessageToSend(float newMessage[5]) {
+    radioMutex.take(TIMEOUT_MAX);
+    memcpy(messageToSend, newMessage, sizeof(newMessage));
+    radioMutex.give();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
