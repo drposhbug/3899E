@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "navigation.h"
 #include "autontasks.h"
+#include "odometry.h"
 #include <cmath>
 
 // Joystick deadzone threshold — inputs below this magnitude are treated as zero
@@ -23,6 +24,21 @@ int applyCustomCurve(int input, double exponent) {
     return sign * (int)(pow(abs(input) / 100.0, exponent) * 100);
 }
 
+void toggleMatchloader() { // pneumatic helper functions
+    matchloaderState = !matchloaderState;
+    matchloader.set_value(matchloaderState);
+}
+
+void toggleScoreFlap() {
+    scoreFlapState = !scoreFlapState;
+    scoreFlap.set_value(scoreFlapState);
+}
+
+void toggleScorePiston() {
+    scorePistonState = !scorePistonState;
+    scorePiston.set_value(scorePistonState);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN DRIVER CONTROL
 // Split-arcade steering; R1/R2 = intake with colour-sort (2× 11W intake + 2× 5.5W hood/
@@ -39,11 +55,6 @@ int applyCustomCurve(int input, double exponent) {
 // ══════════════════════════════════════════════════════════════════════════════
 void driverControl() {
     initializeOpticalSensor();
-
-    // Ensure rudder is in default position and optical LEDs are on at full brightness
-    rudderPneumatics.set_value(true);
-    leftLaneOptical.set_led_pwm(100);   // turn LED on at 100% power
-    rightLaneOptical.set_led_pwm(100);
 
     // Motor power arrays (one entry per motor per side)
     double motorPowerLeft[3]  = {0};
@@ -81,10 +92,6 @@ void driverControl() {
     // Consecutive reads required before the rudder fires (~20 ms at 20 ms loop rate).
     // Tune up to 3 if false triggers occur, down to 1 if detections are missed.
     const int REQUIRED_CONSECUTIVE = 1;
-
-    // Close both lane gates at start (all balls travel through the full path)
-    leftGatePneumatics.set_value(true);
-    rightGatePneumatics.set_value(true);
 
     int maxSpeed = 100;
 
@@ -128,161 +135,209 @@ void driverControl() {
         motorPowerRight[1] = targetSpeedRight;
         motorPowerRight[2] = targetSpeedRight;
 
-        // ─────────────────────────────────────────────────────────────────────
-        // BUTTON R1  —  normal intake with colour-sort
-        // ─────────────────────────────────────────────────────────────────────
-        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-            // Octoball is 8-sided — a single hue read can land on a facet edge and
-            // return noise. Requiring consecutive reads before firing the rudder
-            // filters edge-reads without adding meaningful delay.
-            // Counters reset only when the lane is confirmed empty so stale counts
-            // don't carry over between balls.
-            double leftHue  = leftLaneOptical.get_hue();
-            double rightHue = rightLaneOptical.get_hue();
+        pros::lcd::set_text(1, std::to_string(globalX));
+        pros::lcd::set_text(2, std::to_string(globalY));
+        pros::lcd::set_text(3, std::to_string(globalRotation));
 
-            // Red wraps near 0°/360° — needs two detection bands
-            bool redThisCycle =
-                ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
-                 (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
-                ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
-                 (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
-
-            // Blue sits mid-wheel (~215–225°) — one band only
-            bool blueThisCycle =
-                (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
-                (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
-
-            // Increment matching colour counter; reset the opposite
-            if (redThisCycle) {
-                redConsecutive++;
-                blueConsecutive = 0;
-            } else if (blueThisCycle) {
-                blueConsecutive++;
-                redConsecutive = 0;
-            } else {
-                // Reset counters only when the lane is confirmed empty
-                bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
-                bool nearRight = rightLaneOptical.get_proximity() > 50;
-                if (!nearLeft && !nearRight) {
-                    redConsecutive  = 0;
-                    blueConsecutive = 0;
-                }
-            }
-
-            // Debug: show live hue readings on the Brain screen
-            pros::screen::print(pros::E_TEXT_SMALL, 1, "L:%.0f R:%.0f          ", leftHue, rightHue);
-
-            // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
-            if (redConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(true);   // route to right lane
-                redConsecutive = 0;
-                pros::screen::print(pros::E_TEXT_SMALL, 2, "RED  L:%.0f R:%.0f          ", leftHue, rightHue);
-            } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(false);  // route to left lane
-                blueConsecutive = 0;
-                pros::screen::print(pros::E_TEXT_SMALL, 2, "BLUE L:%.0f R:%.0f          ", leftHue, rightHue);
-            }
-
-            // Configure pneumatics only once on the initial press (not every frame)
-            if (!wasR1Pressed) {
-                frontHoodPneumatics.set_value(false);  // close front hood for intake
-                ptoPneumatics.set_value(false);
-                wasR1Pressed = true;
-            }
-
-            spinForInProgress = false;
-            intakeMotor1.move_voltage(-12000);   // full forward voltage
-            intakeMotor2.move_voltage(-12000);
-            hoodMotor.move_voltage(-12000);      // 5.5W hood motor — same direction, capped at 200 RPM by hardware
-            upperIndexerMotor.move_voltage(-12000); // 5.5W upper indexer — physically reversed, pulls opposite to hood
-        } else {
-            // Button released — stop all three intake/hood motors
-            if (wasR1Pressed) {
-                intakeMotor1.move(0);
-                intakeMotor2.move(0);
-                hoodMotor.move(0);
-                upperIndexerMotor.move(0);
-                wasR1Pressed = false;
-            }
-        }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // BUTTON R2  —  match-loader scoring (mirrors R1 with colour-sort)
-        // ─────────────────────────────────────────────────────────────────────
         if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-            // Octoball is 8-sided — a single hue read can land on a facet edge and
-            // return noise. Requiring consecutive reads before firing the rudder
-            // filters edge-reads without adding meaningful delay.
-            // Counters reset only when the lane is confirmed empty so stale counts
-            // don't carry over between balls.
-            double leftHue  = leftLaneOptical.get_hue();
-            double rightHue = rightLaneOptical.get_hue();
-
-            // Red wraps near 0°/360° — needs two detection bands
-            bool redThisCycle =
-                ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
-                 (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
-                ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
-                 (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
-
-            // Blue sits mid-wheel (~215–225°) — one band only
-            bool blueThisCycle =
-                (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
-                (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
-
-            // Increment matching colour counter; reset the opposite
-            if (redThisCycle) {
-                redConsecutive++;
-                blueConsecutive = 0;
-            } else if (blueThisCycle) {
-                blueConsecutive++;
-                redConsecutive = 0;
-            } else {
-                // Reset counters only when the lane is confirmed empty
-                bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
-                bool nearRight = rightLaneOptical.get_proximity() > 50;
-                if (!nearLeft && !nearRight) {
-                    redConsecutive  = 0;
-                    blueConsecutive = 0;
-                }
-            }
-
-            // Debug: show live hue readings on the Brain screen
-            pros::screen::print(pros::E_TEXT_SMALL, 1, "L:%.0f R:%.0f          ", leftHue, rightHue);
-
-            // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
-            if (redConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(true);   // route to right lane
-                redConsecutive = 0;
-                pros::screen::print(pros::E_TEXT_SMALL, 2, "RED  L:%.0f R:%.0f          ", leftHue, rightHue);
-            } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(false);  // route to left lane
-                blueConsecutive = 0;
-                pros::screen::print(pros::E_TEXT_SMALL, 2, "BLUE L:%.0f R:%.0f          ", leftHue, rightHue);
-            }
-
-            // Configure pneumatics only once on the initial press (not every frame)
-            if (!wasR2Pressed) {
-                frontHoodPneumatics.set_value(false);  // close front hood for intake
-                ptoPneumatics.set_value(false);
-                wasR2Pressed = true;
-            }
-
-            spinForInProgress = false;
-            intakeMotor1.move_voltage(-12000);  // reversed — same as R1
-            intakeMotor2.move_voltage(-12000);
-            hoodMotor.move_voltage(-12000);      // 5.5W hood motor — same direction, capped at 200 RPM by hardware
-            upperIndexerMotor.move_voltage(12000); // 5.5W upper indexer — physically reversed, pulls opposite to hood
-        } else {
-            // Button released — stop all motors
-            if (wasR2Pressed) {
-                intakeMotor1.move(0);
-                intakeMotor2.move(0);
-                hoodMotor.move(0);
-                upperIndexerMotor.move(0);
-                wasR2Pressed = false;
-            }
+            intakeMotor.move(127);
+            colorSortMotor.move(127);
+    
+            lever.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+            lever.move(127);
         }
+        else if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+            intakeMotor.move(127);
+            colorSortMotor.move(127);
+    
+            lever.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            lever.move(0);
+        }
+        else if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+        // reverse intake
+            intakeMotor.move(-127);
+            colorSortMotor.move(-127);
+    
+            lever.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            lever.move(0);
+        }
+        else if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
+            lever.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            lever.move(-90);
+        }
+        else {
+            intakeMotor.move(0);
+            colorSortMotor.move(0);
+    
+            lever.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            lever.move(0);
+        }
+    
+        if (Controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            toggleMatchloader();
+        }
+        if (Controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)) {
+            toggleScoreFlap();
+        }
+        if (Controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)) {
+            toggleScorePiston();
+        }
+
+        // // ─────────────────────────────────────────────────────────────────────
+        // // BUTTON R1  —  normal intake with colour-sort
+        // // ─────────────────────────────────────────────────────────────────────
+        // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+        //     // Octoball is 8-sided — a single hue read can land on a facet edge and
+        //     // return noise. Requiring consecutive reads before firing the rudder
+        //     // filters edge-reads without adding meaningful delay.
+        //     // Counters reset only when the lane is confirmed empty so stale counts
+        //     // don't carry over between balls.
+        //     double leftHue  = leftLaneOptical.get_hue();
+        //     double rightHue = rightLaneOptical.get_hue();
+
+        //     // Red wraps near 0°/360° — needs two detection bands
+        //     bool redThisCycle =
+        //         ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
+        //          (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
+        //         ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
+        //          (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
+
+        //     // Blue sits mid-wheel (~215–225°) — one band only
+        //     bool blueThisCycle =
+        //         (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
+        //         (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
+
+        //     // Increment matching colour counter; reset the opposite
+        //     if (redThisCycle) {
+        //         redConsecutive++;
+        //         blueConsecutive = 0;
+        //     } else if (blueThisCycle) {
+        //         blueConsecutive++;
+        //         redConsecutive = 0;
+        //     } else {
+        //         // Reset counters only when the lane is confirmed empty
+        //         bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
+        //         bool nearRight = rightLaneOptical.get_proximity() > 50;
+        //         if (!nearLeft && !nearRight) {
+        //             redConsecutive  = 0;
+        //             blueConsecutive = 0;
+        //         }
+        //     }
+
+        //     // Debug: show live hue readings on the Brain screen
+        //     pros::screen::print(pros::E_TEXT_SMALL, 1, "L:%.0f R:%.0f          ", leftHue, rightHue);
+
+        //     // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
+        //     if (redConsecutive >= REQUIRED_CONSECUTIVE) {
+        //         rudderPneumatics.set_value(true);   // route to right lane
+        //         redConsecutive = 0;
+        //         pros::screen::print(pros::E_TEXT_SMALL, 2, "RED  L:%.0f R:%.0f          ", leftHue, rightHue);
+        //     } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
+        //         rudderPneumatics.set_value(false);  // route to left lane
+        //         blueConsecutive = 0;
+        //         pros::screen::print(pros::E_TEXT_SMALL, 2, "BLUE L:%.0f R:%.0f          ", leftHue, rightHue);
+        //     }
+
+        //     // Configure pneumatics only once on the initial press (not every frame)
+        //     if (!wasR1Pressed) {
+        //         frontHoodPneumatics.set_value(false);  // close front hood for intake
+        //         ptoPneumatics.set_value(false);
+        //         wasR1Pressed = true;
+        //     }
+
+        //     spinForInProgress = false;
+        //     intakeMotor1.move_voltage(-12000);   // full forward voltage
+        //     intakeMotor2.move_voltage(-12000);
+        //     hoodMotor.move_voltage(-12000);      // 5.5W hood motor — same direction, capped at 200 RPM by hardware
+        //     upperIndexerMotor.move_voltage(-12000); // 5.5W upper indexer — physically reversed, pulls opposite to hood
+        // } else {
+        //     // Button released — stop all three intake/hood motors
+        //     if (wasR1Pressed) {
+        //         intakeMotor1.move(0);
+        //         intakeMotor2.move(0);
+        //         hoodMotor.move(0);
+        //         upperIndexerMotor.move(0);
+        //         wasR1Pressed = false;
+        //     }
+        // }
+
+        // // ─────────────────────────────────────────────────────────────────────
+        // // BUTTON R2  —  match-loader scoring (mirrors R1 with colour-sort)
+        // // ─────────────────────────────────────────────────────────────────────
+        // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
+        //     // Octoball is 8-sided — a single hue read can land on a facet edge and
+        //     // return noise. Requiring consecutive reads before firing the rudder
+        //     // filters edge-reads without adding meaningful delay.
+        //     // Counters reset only when the lane is confirmed empty so stale counts
+        //     // don't carry over between balls.
+        //     double leftHue  = leftLaneOptical.get_hue();
+        //     double rightHue = rightLaneOptical.get_hue();
+
+        //     // Red wraps near 0°/360° — needs two detection bands
+        //     bool redThisCycle =
+        //         ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
+        //          (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
+        //         ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
+        //          (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
+
+        //     // Blue sits mid-wheel (~215–225°) — one band only
+        //     bool blueThisCycle =
+        //         (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
+        //         (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
+
+        //     // Increment matching colour counter; reset the opposite
+        //     if (redThisCycle) {
+        //         redConsecutive++;
+        //         blueConsecutive = 0;
+        //     } else if (blueThisCycle) {
+        //         blueConsecutive++;
+        //         redConsecutive = 0;
+        //     } else {
+        //         // Reset counters only when the lane is confirmed empty
+        //         bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
+        //         bool nearRight = rightLaneOptical.get_proximity() > 50;
+        //         if (!nearLeft && !nearRight) {
+        //             redConsecutive  = 0;
+        //             blueConsecutive = 0;
+        //         }
+        //     }
+
+        //     // Debug: show live hue readings on the Brain screen
+        //     pros::screen::print(pros::E_TEXT_SMALL, 1, "L:%.0f R:%.0f          ", leftHue, rightHue);
+
+        //     // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
+        //     if (redConsecutive >= REQUIRED_CONSECUTIVE) {
+        //         rudderPneumatics.set_value(true);   // route to right lane
+        //         redConsecutive = 0;
+        //         pros::screen::print(pros::E_TEXT_SMALL, 2, "RED  L:%.0f R:%.0f          ", leftHue, rightHue);
+        //     } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
+        //         rudderPneumatics.set_value(false);  // route to left lane
+        //         blueConsecutive = 0;
+        //         pros::screen::print(pros::E_TEXT_SMALL, 2, "BLUE L:%.0f R:%.0f          ", leftHue, rightHue);
+        //     }
+
+        //     // Configure pneumatics only once on the initial press (not every frame)
+        //     if (!wasR2Pressed) {
+        //         frontHoodPneumatics.set_value(false);  // close front hood for intake
+        //         ptoPneumatics.set_value(false);
+        //         wasR2Pressed = true;
+        //     }
+
+        //     spinForInProgress = false;
+        //     intakeMotor1.move_voltage(-12000);  // reversed — same as R1
+        //     intakeMotor2.move_voltage(-12000);
+        //     hoodMotor.move_voltage(-12000);      // 5.5W hood motor — same direction, capped at 200 RPM by hardware
+        //     upperIndexerMotor.move_voltage(12000); // 5.5W upper indexer — physically reversed, pulls opposite to hood
+        // } else {
+        //     // Button released — stop all motors
+        //     if (wasR2Pressed) {
+        //         intakeMotor1.move(0);
+        //         intakeMotor2.move(0);
+        //         hoodMotor.move(0);
+        //         upperIndexerMotor.move(0);
+        //         wasR2Pressed = false;
+        //     }
+        // }
 
         // ─────────────────────────────────────────────────────────────────────
         // BUTTON R2  —  right-lane score  [DISABLED — replaced by match-loader scoring above]
@@ -317,113 +372,113 @@ void driverControl() {
         // ─────────────────────────────────────────────────────────────────────
         // BUTTON RIGHT  —  outtake with alternating lane selection
         // ─────────────────────────────────────────────────────────────────────
-        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
-            if (!wasRightPressed) {
-                frontHoodPneumatics.set_value(false);  // close front hood for outtake
-                ptoPneumatics.set_value(true);
-                wasRightPressed = true;
+        // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
+        //     if (!wasRightPressed) {
+        //         frontHoodPneumatics.set_value(false);  // close front hood for outtake
+        //         ptoPneumatics.set_value(true);
+        //         wasRightPressed = true;
 
-                // Toggle the active lane each time the button is pressed
-                static enum { LANE_LEFT, LANE_RIGHT } currentLane = LANE_LEFT;
-                if (currentLane == LANE_LEFT) {
-                    currentLane = LANE_RIGHT;
-                } else {
-                    currentLane = LANE_LEFT;
-                }
+        //         // Toggle the active lane each time the button is pressed
+        //         static enum { LANE_LEFT, LANE_RIGHT } currentLane = LANE_LEFT;
+        //         if (currentLane == LANE_LEFT) {
+        //             currentLane = LANE_RIGHT;
+        //         } else {
+        //             currentLane = LANE_LEFT;
+        //         }
 
-                if (currentLane == LANE_LEFT) {
-                    leftGatePneumatics.set_value(false);
-                    rightGatePneumatics.set_value(true);
-                } else {
-                    leftGatePneumatics.set_value(true);
-                    rightGatePneumatics.set_value(false);
-                }
-            }
+        //         if (currentLane == LANE_LEFT) {
+        //             leftGatePneumatics.set_value(false);
+        //             rightGatePneumatics.set_value(true);
+        //         } else {
+        //             leftGatePneumatics.set_value(true);
+        //             rightGatePneumatics.set_value(false);
+        //         }
+        //     }
 
-            spinForInProgress = false;
-            intakeMotor1.move_voltage(-12000);  // full reverse voltage
-            intakeMotor2.move_voltage(-12000);
-            hoodMotor.move_voltage(-12000);     // 5.5W hood motor reverse — ejects, capped at 200 RPM by hardware
-            upperIndexerMotor.move_voltage(-12000); // 5.5W upper indexer reverse — ejects opposite to hood
-        } else {
-            if (wasRightPressed) {
-                intakeMotor1.move(0);
-                intakeMotor2.move(0);
-                hoodMotor.move(0);
-                upperIndexerMotor.move(0);
-                wasRightPressed = false;
-            }
-        }
+        //     spinForInProgress = false;
+        //     intakeMotor1.move_voltage(-12000);  // full reverse voltage
+        //     intakeMotor2.move_voltage(-12000);
+        //     hoodMotor.move_voltage(-12000);     // 5.5W hood motor reverse — ejects, capped at 200 RPM by hardware
+        //     upperIndexerMotor.move_voltage(-12000); // 5.5W upper indexer reverse — ejects opposite to hood
+        // } else {
+        //     if (wasRightPressed) {
+        //         intakeMotor1.move(0);
+        //         intakeMotor2.move(0);
+        //         hoodMotor.move(0);
+        //         upperIndexerMotor.move(0);
+        //         wasRightPressed = false;
+        //     }
+        // }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // BUTTON L2  —  left-lane score
-        // ─────────────────────────────────────────────────────────────────────
-        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
-            if (!wasL2Pressed) {
-                frontHoodPneumatics.set_value(true);  // open front hood for scoring
-                ptoPneumatics.set_value(true);        // engage PTO
-                isLeftGateOpen = false;
-                leftGatePneumatics.set_value(isLeftGateOpen);
-                rightGatePneumatics.set_value(!isLeftGateOpen);
-                rudderPneumatics.set_value(true);
-                wasL2Pressed = true;
-            }
+        // // ─────────────────────────────────────────────────────────────────────
+        // // BUTTON L2  —  left-lane score
+        // // ─────────────────────────────────────────────────────────────────────
+        // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+        //     if (!wasL2Pressed) {
+        //         frontHoodPneumatics.set_value(true);  // open front hood for scoring
+        //         ptoPneumatics.set_value(true);        // engage PTO
+        //         isLeftGateOpen = false;
+        //         leftGatePneumatics.set_value(isLeftGateOpen);
+        //         rightGatePneumatics.set_value(!isLeftGateOpen);
+        //         rudderPneumatics.set_value(true);
+        //         wasL2Pressed = true;
+        //     }
 
-            // While held, keep intake running
-            spinForInProgress = false;
-            intakeMotor1.move_voltage(-12000);
-            intakeMotor2.move_voltage(-12000);
-            hoodMotor.move_voltage(12000);      // 5.5W hood motor — same direction, capped at 200 RPM by hardware
-            upperIndexerMotor.move_voltage(12000); // 5.5W upper indexer — physically reversed, pulls opposite to hood
-        } else {
-            if (wasL2Pressed) {
-                spinForInProgress = true;
-                intakeMotor1.move(0);
-                intakeMotor2.move(0);
-                hoodMotor.move(0);
-                upperIndexerMotor.move(0);
-                wasL2Pressed = false;
-            }
-        }
+        //     // While held, keep intake running
+        //     spinForInProgress = false;
+        //     intakeMotor1.move_voltage(-12000);
+        //     intakeMotor2.move_voltage(-12000);
+        //     hoodMotor.move_voltage(12000);      // 5.5W hood motor — same direction, capped at 200 RPM by hardware
+        //     upperIndexerMotor.move_voltage(12000); // 5.5W upper indexer — physically reversed, pulls opposite to hood
+        // } else {
+        //     if (wasL2Pressed) {
+        //         spinForInProgress = true;
+        //         intakeMotor1.move(0);
+        //         intakeMotor2.move(0);
+        //         hoodMotor.move(0);
+        //         upperIndexerMotor.move(0);
+        //         wasL2Pressed = false;
+        //     }
+        // }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // BUTTON L1  —  match-load piston toggle
-        // ─────────────────────────────────────────────────────────────────────
-        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
-            if (!wasL1Pressed) {
-                isMatchLoadPneumaticsActive = !isMatchLoadPneumaticsActive;
-                matchLoadPneumatics.set_value(isMatchLoadPneumaticsActive);
-                wasL1Pressed = true;
-            }
-        } else {
-            wasL1Pressed = false;
-        }
+        // // ─────────────────────────────────────────────────────────────────────
+        // // BUTTON L1  —  match-load piston toggle
+        // // ─────────────────────────────────────────────────────────────────────
+        // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
+        //     if (!wasL1Pressed) {
+        //         isMatchLoadPneumaticsActive = !isMatchLoadPneumaticsActive;
+        //         matchLoadPneumatics.set_value(isMatchLoadPneumaticsActive);
+        //         wasL1Pressed = true;
+        //     }
+        // } else {
+        //     wasL1Pressed = false;
+        // }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // BUTTON Y  —  wing toggle
-        // ─────────────────────────────────────────────────────────────────────
-        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
-            if (!wasYPressed) {
-                wingState = !wingState;
-                wingPneumatics.set_value(wingState);  // toggle
-                wasYPressed = true;
-            }
-        } else {
-            wasYPressed = false;
-        }
+        // // ─────────────────────────────────────────────────────────────────────
+        // // BUTTON Y  —  wing toggle
+        // // ─────────────────────────────────────────────────────────────────────
+        // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
+        //     if (!wasYPressed) {
+        //         wingState = !wingState;
+        //         wingPneumatics.set_value(wingState);  // toggle
+        //         wasYPressed = true;
+        //     }
+        // } else {
+        //     wasYPressed = false;
+        // }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // BUTTON A  —  rudder toggle
-        // ─────────────────────────────────────────────────────────────────────
-        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
-            if (!wasAPressed) {
-                rudderState = !rudderState;
-                rudderPneumatics.set_value(rudderState);  // toggle
-                wasAPressed = true;
-            }
-        } else {
-            wasAPressed = false;
-        }
+        // // ─────────────────────────────────────────────────────────────────────
+        // // BUTTON A  —  rudder toggle
+        // // ─────────────────────────────────────────────────────────────────────
+        // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
+        //     if (!wasAPressed) {
+        //         rudderState = !rudderState;
+        //         rudderPneumatics.set_value(rudderState);  // toggle
+        //         wasAPressed = true;
+        //     }
+        // } else {
+        //     wasAPressed = false;
+        // }
 
         // ─────────────────────────────────────────────────────────────────────
         // APPLY DRIVE MOTOR POWERS

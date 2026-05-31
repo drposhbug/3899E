@@ -2497,68 +2497,68 @@ void driveToWall(double targetDistance, double targetHeading, double minSpeed,
 //
 // Call only when the robot is stationary. Motion during sampling corrupts readings.
 // ======================================================================
-bool gpsReset() {
-    const int SAMPLE_COUNT    = 20;  // Total samples over 500ms
-    const int SAMPLE_INTERVAL = 25;  // ms between samples (20 × 25 = 500ms)
+// bool gpsReset() {
+//     const int SAMPLE_COUNT    = 20;  // Total samples over 500ms
+//     const int SAMPLE_INTERVAL = 25;  // ms between samples (20 × 25 = 500ms)
 
-    double weightedSumX = 0.0;
-    double weightedSumY = 0.0;
-    double totalWeight  = 0.0;
-    int    accepted     = 0;
+//     double weightedSumX = 0.0;
+//     double weightedSumY = 0.0;
+//     double totalWeight  = 0.0;
+//     int    accepted     = 0;
 
-    double lowX  =  1e9, highX = -1e9;
-    double lowY  =  1e9, highY = -1e9;
+//     double lowX  =  1e9, highX = -1e9;
+//     double lowY  =  1e9, highY = -1e9;
 
-    for (int i = 0; i < SAMPLE_COUNT; i++) {
-        double posError = gpsSensor.get_error();
+//     for (int i = 0; i < SAMPLE_COUNT; i++) {
+//         double posError = gpsSensor.get_error();
 
-        if (posError == PROS_ERR_F || posError > GPS_MAX_ERROR_M) {
-            pros::delay(SAMPLE_INTERVAL);
-            continue;
-        }
+//         if (posError == PROS_ERR_F || posError > GPS_MAX_ERROR_M) {
+//             pros::delay(SAMPLE_INTERVAL);
+//             continue;
+//         }
 
-        pros::gps_position_s_t pos = gpsSensor.get_position();
+//         pros::gps_position_s_t pos = gpsSensor.get_position();
 
-        if (pos.x == PROS_ERR_F || pos.y == PROS_ERR_F) {
-            pros::delay(SAMPLE_INTERVAL);
-            continue;
-        }
+//         if (pos.x == PROS_ERR_F || pos.y == PROS_ERR_F) {
+//             pros::delay(SAMPLE_INTERVAL);
+//             continue;
+//         }
 
-        // Weight = 1/error — lower error = higher confidence = higher weight
-        double weight = 1.0 / posError;
-        weightedSumX += pos.x * weight;
-        weightedSumY += pos.y * weight;
-        totalWeight  += weight;
-        accepted++;
+//         // Weight = 1/error — lower error = higher confidence = higher weight
+//         double weight = 1.0 / posError;
+//         weightedSumX += pos.x * weight;
+//         weightedSumY += pos.y * weight;
+//         totalWeight  += weight;
+//         accepted++;
 
-        if (pos.x < lowX)  lowX  = pos.x;
-        if (pos.x > highX) highX = pos.x;
-        if (pos.y < lowY)  lowY  = pos.y;
-        if (pos.y > highY) highY = pos.y;
+//         if (pos.x < lowX)  lowX  = pos.x;
+//         if (pos.x > highX) highX = pos.x;
+//         if (pos.y < lowY)  lowY  = pos.y;
+//         if (pos.y > highY) highY = pos.y;
 
-        pros::delay(SAMPLE_INTERVAL);
-    }
+//         pros::delay(SAMPLE_INTERVAL);
+//     }
 
-    if (accepted == 0 || totalWeight == 0.0) {
-        pros::screen::print(pros::E_TEXT_MEDIUM, 5, "GPS FAIL — 0/%d accepted", SAMPLE_COUNT);
-        return false;
-    }
+//     if (accepted == 0 || totalWeight == 0.0) {
+//         pros::screen::print(pros::E_TEXT_MEDIUM, 5, "GPS FAIL — 0/%d accepted", SAMPLE_COUNT);
+//         return false;
+//     }
 
-    double resultX_m = weightedSumX / totalWeight;
-    double resultY_m = weightedSumY / totalWeight;
+//     double resultX_m = weightedSumX / totalWeight;
+//     double resultY_m = weightedSumY / totalWeight;
 
-    double varX_cm = (highX - lowX) * 100.0;
-    double varY_cm = (highY - lowY) * 100.0;
+//     double varX_cm = (highX - lowX) * 100.0;
+//     double varY_cm = (highY - lowY) * 100.0;
 
-    pros::screen::print(pros::E_TEXT_MEDIUM, 5, "accepted:%d/%d  varX:%.1f varY:%.1fcm",
-        accepted, SAMPLE_COUNT, varX_cm, varY_cm);
-    pros::screen::print(pros::E_TEXT_MEDIUM, 6, "X low:%.1f high:%.1fcm", lowX * 100.0, highX * 100.0);
-    pros::screen::print(pros::E_TEXT_MEDIUM, 7, "Y low:%.1f high:%.1fcm", lowY * 100.0, highY * 100.0);
-    pros::screen::print(pros::E_TEXT_MEDIUM, 8, "result X:%.1f Y:%.1fcm", resultX_m * 100.0, resultY_m * 100.0);
+//     pros::screen::print(pros::E_TEXT_MEDIUM, 5, "accepted:%d/%d  varX:%.1f varY:%.1fcm",
+//         accepted, SAMPLE_COUNT, varX_cm, varY_cm);
+//     pros::screen::print(pros::E_TEXT_MEDIUM, 6, "X low:%.1f high:%.1fcm", lowX * 100.0, highX * 100.0);
+//     pros::screen::print(pros::E_TEXT_MEDIUM, 7, "Y low:%.1f high:%.1fcm", lowY * 100.0, highY * 100.0);
+//     pros::screen::print(pros::E_TEXT_MEDIUM, 8, "result X:%.1f Y:%.1fcm", resultX_m * 100.0, resultY_m * 100.0);
 
-    // Snap odometry to weighted mean. Heading NOT updated — trust IMU.
-    globalX = resultX_m * 100.0;
-    globalY = resultY_m * 100.0;
+//     // Snap odometry to weighted mean. Heading NOT updated — trust IMU.
+//     globalX = resultX_m * 100.0;
+//     globalY = resultY_m * 100.0;
 
-    return true;
-}
+//     return true;
+// }

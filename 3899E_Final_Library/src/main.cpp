@@ -31,29 +31,29 @@ void initialize()
     // }
 
     // Jetson diagnostic display — live packet stats on LCD at 10Hz
-    pros::Task([]{
-        while (true) {
-            pros::lcd::print(0, "pkts:%d err:%d tmo:%d",
-                g_jetson.get_packets(),
-                g_jetson.get_errors(),
-                g_jetson.get_timeouts());
-            int32_t strat = getStrategy();
-            JetsonDetection det;
-            if (getLatestDetection(CLASS_FWD_RED_BLOCK, 0.4f, &det)) {
-                pros::lcd::print(1, "strat:%d hOff:%.2f dist:%.1fcm",
-                    strat, det.hOffset, det.distanceCm);
-            } else {
-                pros::lcd::print(1, "strat:%d  no target", strat);
-            }
-            pros::delay(100);
-        }
-    }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "JetsonDisplay");
+    // pros::Task([]{
+    //     while (true) {
+    //         pros::lcd::print(0, "pkts:%d err:%d tmo:%d",
+    //             g_jetson.get_packets(),
+    //             g_jetson.get_errors(),
+    //             g_jetson.get_timeouts());
+    //         int32_t strat = getStrategy();
+    //         JetsonDetection det;
+    //         if (getLatestDetection(CLASS_FWD_RED_BLOCK, 0.4f, &det)) {
+    //             pros::lcd::print(1, "strat:%d hOff:%.2f dist:%.1fcm",
+    //                 strat, det.hOffset, det.distanceCm);
+    //         } else {
+    //             pros::lcd::print(1, "strat:%d  no target", strat);
+    //         }
+    //         pros::delay(100);
+    //     }
+    // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "JetsonDisplay");
 }
 
 void disabled() {}
 
 void competition_initialize() {
-    autonSelector();
+    // autonSelector();
 }
 
 void autonomous()
@@ -61,7 +61,7 @@ void autonomous()
     pros::screen::erase();
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
-    navTest();
+    // navTest();
     //runAIMatchRoute();
     //routeTest();
     //routeGridTest();

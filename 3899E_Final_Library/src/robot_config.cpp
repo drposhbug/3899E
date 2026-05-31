@@ -1,4 +1,5 @@
 #include "robot_config.h"
+#include <cstring>
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PORT MAP  (update whenever hardware changes)
@@ -38,71 +39,87 @@
 // same signs so they agree on "forward."
 // ══════════════════════════════════════════════════════════════════════════════
 
+std::int8_t rightMotor1Port = 5; 
+std::int8_t rightMotor2Port = 9;
+std::int8_t rightMotor3Port = 11;
+
+std::int8_t leftMotor1Port = -18;
+std::int8_t leftMotor2Port = -14;
+std::int8_t leftMotor3Port = -20;
+
+std::int8_t intakeMotorPort = -19;
+std::int8_t leverPort = -10; 
+std::int8_t colorSortMotorPort = 3;
+
+std::int8_t horizontalEncoderPort = 2;
+std::int8_t verticalEncoderPort = 4;
+std::int8_t imuPort = 8; 
+std::int8_t colorSensorPort = 15;
+std::int8_t aiVisionPort = 21;
+std::int8_t gpsSensorPort = 17; // not real
+
+std::int8_t receiverPort = 6;
+pros::Link* receiver;
+float messageReceived[5] = {0,0,0,0,0};
+float messageToSend[5] = {0,0,0,0,0};
+std::string LINK_ID = "theThingThatMustBeTheSameAcrossBothBigBotAndSmallBot2055A"; // don't change this
+pros::Mutex radioMutex;
+bool matchloaderState = false, scoreFlapState = false, scorePistonState = false;
+
+char matchloaderPort = 'A';
+char scoreFlapPort = 'H';
+char colorSortFlapPort = 'B';
+char scorePistonPort = 'B';
+
+
 // ── Controller ────────────────────────────────────────────────────────────────
 pros::Controller Controller(pros::E_CONTROLLER_MASTER);
 
 // ── Drive motors (600 RPM blue cartridge) ─────────────────────────────────────
 // Negative port = physically reversed motor; matches mounting orientation.
-pros::Motor LeftMotor1 (-7,  pros::MotorGears::blue);
-pros::Motor LeftMotor2 (19,  pros::MotorGears::blue);
-pros::Motor LeftMotor3 (-6,  pros::MotorGears::blue);
-pros::Motor RightMotor1( 1,  pros::MotorGears::blue);
-pros::Motor RightMotor2(-5,  pros::MotorGears::blue);
-pros::Motor RightMotor3( 2,  pros::MotorGears::blue);
+pros::Motor LeftMotor1 (leftMotor1Port,  pros::MotorGears::blue);
+pros::Motor LeftMotor2 (leftMotor2Port,  pros::MotorGears::blue);
+pros::Motor LeftMotor3 (leftMotor3Port,  pros::MotorGears::blue);
+pros::Motor RightMotor1(rightMotor1Port,  pros::MotorGears::blue);
+pros::Motor RightMotor2(rightMotor2Port,  pros::MotorGears::blue);
+pros::Motor RightMotor3(rightMotor3Port,  pros::MotorGears::blue);
 
 // Drive motor groups — port signs must mirror individual motor definitions above.
-pros::MotorGroup leftDrive ({-7, 19, -6}, pros::MotorGears::blue);
-pros::MotorGroup rightDrive({ 1, -5,  2}, pros::MotorGears::blue);
+pros::MotorGroup leftDrive ({leftMotor1Port, leftMotor2Port, leftMotor3Port}, pros::MotorGears::blue);
+pros::MotorGroup rightDrive({ rightMotor1Port, rightMotor2Port,  rightMotor3Port}, pros::MotorGears::blue);
 
-// ── Mechanism motors ──────────────────────────────────────────────────────────
-// intakeMotor1/2: 11W V5 Smart Motor, blue cartridge (600 RPM).
-pros::Motor intakeMotor1(-10, pros::MotorGears::blue);  // port 10, reversed
-pros::Motor intakeMotor2( 9,  pros::MotorGears::blue);  // port  9, forward
-
-// hoodMotor: 5.5W V5 Smart Motor (port 11).
-// This motor has NO swappable cartridge — speed is fixed at 200 RPM by hardware.
-// pros::MotorGears::green (18:1 enum) matches the motor's internal fixed ratio so
-// that velocity-based API calls scale correctly.  move_voltage() is unaffected by
-// gearset and drives the motor at full power regardless.
-pros::Motor hoodMotor(11, pros::MotorGears::green);      // port 11, forward (negate to reverse)
-
-// upperIndexerMotor: 5.5W V5 Smart Motor (port 15).
-// Same hardware config as hoodMotor — fixed 200 RPM, pros::MotorGears::green.
-// Runs in the OPPOSITE direction to hoodMotor (port negated) so both motors
-// pull game objects through the indexer path together.
-pros::Motor upperIndexerMotor(-15, pros::MotorGears::green); // port 15, reversed
+// ── Mechanism motors (600 RPM blue cartridge) ─────────────────────────────────
+pros::Motor intakeMotor(intakeMotorPort, pros::MotorGears::blue);  // reversed
+pros::Motor lever(leverPort, pros::MotorGears::blue);
+pros::Motor colorSortMotor(colorSortMotorPort,  pros::MotorGears::blue);  // forward
 
 // ── Pneumatics ────────────────────────────────────────────────────────────────
 // set_value(true) = solenoid extended, set_value(false) = retracted.
-pros::adi::DigitalOut frontHoodPneumatics ('G');
-pros::adi::DigitalOut matchLoadPneumatics ('E');
-pros::adi::DigitalOut ptoPneumatics       ('H');
-pros::adi::DigitalOut wingPneumatics      ('C');
-pros::adi::DigitalOut leftGatePneumatics  ('A');
-pros::adi::DigitalOut rightGatePneumatics ('F');
-pros::adi::DigitalOut rudderPneumatics    ('D');
+pros::adi::DigitalOut matchloader(matchloaderPort);
+
+pros::adi::DigitalOut scoreFlap(scoreFlapPort);
+
+pros::adi::DigitalOut colorSortFlap(colorSortFlapPort);
+
+pros::adi::DigitalOut scorePiston(scorePistonPort);
 
 // ── Sensors ───────────────────────────────────────────────────────────────────
 
 // IMU — reset(true) blocks until calibration completes (~2 s).
-pros::Imu InertialSensor(17);
-
-// GPS Sensor — port 3
-// x_offset: -0.1524m = 6 inches left of tracking center
-// y_offset:  0.0m    = centered lengthwise
-pros::Gps gpsSensor(3, -0.1524, 0.0);
+pros::Imu InertialSensor(imuPort);
 
 // Passive odometry tracking wheels.
 // Reversal is applied via set_reversed() in initialize() — the pros::Rotation
 // constructor only accepts a port number in PROS 4.
-pros::Rotation passiveEncoderLeft (20);
-pros::Rotation passiveEncoderRight(13);
-pros::Rotation passiveEncoderX    (12);
+pros::Rotation passiveEncoderLeft (verticalEncoderPort);
+pros::Rotation passiveEncoderRight(verticalEncoderPort);
+pros::Rotation passiveEncoderX    (horizontalEncoderPort);
 
 // Optical sensors for ring color sorting and lane detection.
-pros::Optical opticalSensor   (15);
-pros::Optical leftLaneOptical (16);
-pros::Optical rightLaneOptical(11);
+pros::Optical opticalSensor   (colorSensorPort);
+
+// GPS Sensor -- doesn't actually exist (yet).
+pros::GPS gpsSensor (gpsSensorPort);
 
 // ── AI Vision Sensor ──────────────────────────────────────────────────────────
 // PROS Vision signatures use YCbCr / UV color space — NOT HSV.
@@ -159,21 +176,21 @@ const double minLaunchPower     = 20.0;   // minimum % to overcome static fricti
 const double VOLTAGE_TOLERANCE  =  0.1;   // V delta too small to act on
 
 // Drivetrain is geared to 400 RPM output; scale raw 600 RPM encoder readings.
-const double DRIVE_MOTOR_RPM_ADJ = 400.0 / 600.0;
+const double DRIVE_MOTOR_RPM_ADJ = 400.0 / 600.0; // ????
 
 // ── Odometry geometry (centimeters) ──────────────────────────────────────────
-const double TRACK_WIDTH            = 11.30;   // left-to-right tracking wheel span
-const double ENCODER_OFFSET_X       = -0.023;  // lateral encoder offset from robot center
-const double LEFT_ENCODER_OFFSET_Y  =  0.0;    // longitudinal offset, left encoder
-const double RIGHT_ENCODER_OFFSET_Y =  0.0;    // longitudinal offset, right encoder
+const double TRACK_WIDTH            = 25.40;   // left-to-right tracking wheel span
+const double ENCODER_OFFSET_X       = -13.573125;  // lateral encoder offset from robot center
+const double LEFT_ENCODER_OFFSET_Y  =  1.031875;    // longitudinal offset, left encoder
+const double RIGHT_ENCODER_OFFSET_Y =  1.031875;    // longitudinal offset, right encoder
 
 // ── Wheel dimensions ──────────────────────────────────────────────────────────
-const double wheelCircumferenceCM        = 32.00;  // drive wheel circumference (cm)
+const double wheelCircumferenceCM        = 25.93;  // drive wheel circumference (cm)
 const double encoderWheelCircumferenceCM = 15.96;  // tracking wheel circumference (cm)
 
 // Half-track distances used in turning-radius calculations.
-static const double DISTANCE_TO_WHEEL   = 15.25;  // half-track of drive wheels (cm)
-static const double DISTANCE_TO_ENCODER =  8.30;  // half-track of tracking wheels (cm)
+static const double DISTANCE_TO_WHEEL   = 12.70;  // half-track of drive wheels (cm)
+static const double DISTANCE_TO_ENCODER =  0.00;  // half-track of tracking wheels (cm)
 
 // Derived ratio — drive half-track to encoder half-track.
 const double ENCODER_RADIUS_RATIO = DISTANCE_TO_WHEEL / DISTANCE_TO_ENCODER;
@@ -192,14 +209,39 @@ static void resetMotorPositions()
     rightDrive.tare_position();
 }
 
+// Radio function
+void runRadio(void* param) {
+    while (true) {
+        if (receiver != nullptr) {
+            radioMutex.take(TIMEOUT_MAX);
+			receiver->receive(&messageReceived, sizeof(messageReceived));
+			receiver->clear_receive_buf();
+			receiver->transmit(&messageToSend, sizeof(messageToSend));
+            radioMutex.give();
+		}
+        pros::delay(50);
+    }
+}
+
+void getReceivedMessage(float out[5]) { // mutexes
+    radioMutex.take(TIMEOUT_MAX);
+    memcpy(out, messageReceived, sizeof(messageReceived));
+    radioMutex.give();
+}
+
+void setMessageToSend(float newMessage[5]) {
+    radioMutex.take(TIMEOUT_MAX);
+    memcpy(messageToSend, newMessage, sizeof(newMessage));
+    radioMutex.give();
+}
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 // ROBOT INITIALIZATION
 // ══════════════════════════════════════════════════════════════════════════════
 // Call once from PROS initialize() before any competition mode begins.
 void robotInit()
 {
-    // Retract wings so they don't interfere during IMU calibration.
-    wingPneumatics.set_value(false);
 
     // Calibrate the IMU — reset(true) blocks until finished (~2 s).
     pros::lcd::set_text(1, "Calibrating IMU...");
@@ -219,4 +261,8 @@ void robotInit()
 
     // Zero all drive motor encoders after calibration.
     resetMotorPositions();
+
+    // start radio link
+    receiver = new pros::Link(receiverPort, LINK_ID, pros::E_LINK_RECIEVER, true);
+    pros::Task radioTask(runRadio);
 }

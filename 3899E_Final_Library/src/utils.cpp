@@ -220,33 +220,33 @@ void MotorControlThread(void* params) {
 // COLOR DETECTION TASK
 // Monitors the optical sensor continuously and ejects a wrong-color ring.
 // ══════════════════════════════════════════════════════════════════════════════
-void colorDetectionTask(void* params) {
-    ColorTaskParams* p = static_cast<ColorTaskParams*>(params);
+// void colorDetectionTask(void* params) {
+//     ColorTaskParams* p = static_cast<ColorTaskParams*>(params);
 
-    while (p->isRunning) {
-        double hue = opticalSensor.get_hue();
+//     while (p->isRunning) {
+//         double hue = opticalSensor.get_hue();
 
-        bool redSeen  = (hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
-                        (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2);
-        bool blueSeen = (hue >= BLUE_HUE_MIN  && hue <= BLUE_HUE_MAX);
+//         bool redSeen  = (hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
+//                         (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2);
+//         bool blueSeen = (hue >= BLUE_HUE_MIN  && hue <= BLUE_HUE_MAX);
 
-        if (redSeen  && p->targetColor == Color::RED) {
-            pros::lcd::set_text(0, "DETECT: RED");
-            pros::delay(p->delayMs);
-            intakeMotor1.move(0);         // stop
-            pros::delay(50);
-            intakeMotor1.move(-100);      // reverse to eject (negative = reverse in PROS)
-        } else if (blueSeen && p->targetColor == Color::BLUE) {
-            pros::lcd::set_text(0, "DETECT: BLUE");
-            pros::delay(p->delayMs);
-            intakeMotor1.move(0);
-            pros::delay(50);
-            intakeMotor1.move(-100);
-        }
+//         if (redSeen  && p->targetColor == Color::RED) {
+//             pros::lcd::set_text(0, "DETECT: RED");
+//             pros::delay(p->delayMs);
+//             intakeMotor1.move(0);         // stop
+//             pros::delay(50);
+//             intakeMotor1.move(-100);      // reverse to eject (negative = reverse in PROS)
+//         } else if (blueSeen && p->targetColor == Color::BLUE) {
+//             pros::lcd::set_text(0, "DETECT: BLUE");
+//             pros::delay(p->delayMs);
+//             intakeMotor1.move(0);
+//             pros::delay(50);
+//             intakeMotor1.move(-100);
+//         }
 
-        pros::delay(10);  // ~100 Hz loop
-    }
-}
+//         pros::delay(10);  // ~100 Hz loop
+//     }
+// }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // BUTTON WAIT HELPERS
@@ -281,120 +281,120 @@ void waitForButton() {
 // ══════════════════════════════════════════════════════════════════════════════
 IntakeStallTaskParams intakeStallParams;
 
-void intakeStallTask(void* params) {
-    IntakeStallTaskParams* p = static_cast<IntakeStallTaskParams*>(params);
-    const int REQUIRED_CONSECUTIVE_STALLS = 10;  // ~200 ms at 20 ms loop rate
-    int stallCounter = 0;
+// void intakeStallTask(void* params) {
+//     IntakeStallTaskParams* p = static_cast<IntakeStallTaskParams*>(params);
+//     const int REQUIRED_CONSECUTIVE_STALLS = 10;  // ~200 ms at 20 ms loop rate
+//     int stallCounter = 0;
 
-    while (p->isRunning) {
-        // Measure absolute velocity as a percentage of maximum.
-        double velPct = std::fabs(intakeMotor1.get_actual_velocity())
-                        / absoluteMaxRPM * 100.0;
+//     while (p->isRunning) {
+//         // Measure absolute velocity as a percentage of maximum.
+//         double velPct = std::fabs(intakeMotor1.get_actual_velocity())
+//                         / absoluteMaxRPM * 100.0;
 
-        if (velPct < p->stallThreshold) {
-            stallCounter++;
-            if (stallCounter >= REQUIRED_CONSECUTIVE_STALLS) {
-                // Reverse the intake to clear the jam.
-                intakeMotor1.move_relative(p->reverseRotation,
-                                           p->reverseSpeed * absoluteMaxRPM / 100.0);
+//         if (velPct < p->stallThreshold) {
+//             stallCounter++;
+//             if (stallCounter >= REQUIRED_CONSECUTIVE_STALLS) {
+//                 // Reverse the intake to clear the jam.
+//                 intakeMotor1.move_relative(p->reverseRotation,
+//                                            p->reverseSpeed * absoluteMaxRPM / 100.0);
 
-                // Wait for the move to complete (poll velocity ≈ 0).
-                while (std::fabs(intakeMotor1.get_actual_velocity()) > 5.0)
-                    pros::delay(10);
+//                 // Wait for the move to complete (poll velocity ≈ 0).
+//                 while (std::fabs(intakeMotor1.get_actual_velocity()) > 5.0)
+//                     pros::delay(10);
 
-                // Coast to a stop.
-                intakeMotor1.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-                intakeMotor1.move(0);
+//                 // Coast to a stop.
+//                 intakeMotor1.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+//                 intakeMotor1.move(0);
 
-                p->isRunning = false;
-                break;
-            }
-        } else {
-            stallCounter = 0;  // reset if intake is spinning freely again
-        }
+//                 p->isRunning = false;
+//                 break;
+//             }
+//         } else {
+//             stallCounter = 0;  // reset if intake is spinning freely again
+//         }
 
-        pros::delay(20);
-    }
-}
+//         pros::delay(20);
+//     }
+// }
 
 // Starts the intake and launches the stall-detection task.
-void startIntakeStallDetection() {
-    intakeStallParams.isRunning       = true;
-    intakeStallParams.stallThreshold  = 1.0;   // % velocity below which a stall is declared
-    intakeStallParams.reverseRotation = 210;   // degrees to reverse to clear jam
-    intakeStallParams.reverseSpeed    = 60;    // % speed for the reversal
+// void startIntakeStallDetection() {
+//     intakeStallParams.isRunning       = true;
+//     intakeStallParams.stallThreshold  = 1.0;   // % velocity below which a stall is declared
+//     intakeStallParams.reverseRotation = 210;   // degrees to reverse to clear jam
+//     intakeStallParams.reverseSpeed    = 60;    // % speed for the reversal
 
-    intakeMotor1.move(-100);  // run intake in intake direction (negative = forward intake)
-    pros::Task stall_task(intakeStallTask, &intakeStallParams, "IntakeStall");
-}
+//     intakeMotor1.move(-100);  // run intake in intake direction (negative = forward intake)
+//     pros::Task stall_task(intakeStallTask, &intakeStallParams, "IntakeStall");
+// }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SIMPLE ARM TASK
 // Moves the arm to an encoder position asynchronously.
 // ══════════════════════════════════════════════════════════════════════════════
-static SimpleArmTaskParams simpleArmParams;
+// static SimpleArmTaskParams simpleArmParams;
 
-void simpleArmTask(void* params) {
-    SimpleArmTaskParams* p = static_cast<SimpleArmTaskParams*>(params);
-    p->isComplete = false;
+// void simpleArmTask(void* params) {
+//     SimpleArmTaskParams* p = static_cast<SimpleArmTaskParams*>(params);
+//     p->isComplete = false;
 
-    if (p->delayMs > 0)
-        pros::delay(p->delayMs);
+//     if (p->delayMs > 0)
+//         pros::delay(p->delayMs);
 
-    // targetPosition = enum value + optional fine-tune offset.
-    // Arm motor move_absolute calls go here once arm motors are re-added.
-    // double targetPos = static_cast<double>(p->position) + p->adjustment;
-    // armMotor1.move_absolute(targetPos, 100);
-    // armMotor2.move_absolute(targetPos, 100);
+//     // targetPosition = enum value + optional fine-tune offset.
+//     // Arm motor move_absolute calls go here once arm motors are re-added.
+//     // double targetPos = static_cast<double>(p->position) + p->adjustment;
+//     // armMotor1.move_absolute(targetPos, 100);
+//     // armMotor2.move_absolute(targetPos, 100);
 
-    p->isComplete = true;
-    p->isRunning  = false;
-}
+//     p->isComplete = true;
+//     p->isRunning  = false;
+// }
 
-// Queues an arm move by filling simpleArmParams and launching the task.
-void moveArm(ArmPosition position, int adjustment, int delayMs) {
-    simpleArmParams.isRunning   = true;
-    simpleArmParams.position    = position;
-    simpleArmParams.adjustment  = adjustment;
-    simpleArmParams.delayMs     = delayMs;
-    simpleArmParams.isComplete  = false;
-    pros::Task arm_task(simpleArmTask, &simpleArmParams, "ArmTask");
-}
+// // Queues an arm move by filling simpleArmParams and launching the task.
+// void moveArm(ArmPosition position, int adjustment, int delayMs) {
+//     simpleArmParams.isRunning   = true;
+//     simpleArmParams.position    = position;
+//     simpleArmParams.adjustment  = adjustment;
+//     simpleArmParams.delayMs     = delayMs;
+//     simpleArmParams.isComplete  = false;
+//     pros::Task arm_task(simpleArmTask, &simpleArmParams, "ArmTask");
+// }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// SMART STOP
-// Applies brakes and waits until both linear and angular speeds drop below
-// their thresholds (or the timeout expires), then optionally locks in HOLD mode.
-// ══════════════════════════════════════════════════════════════════════════════
-void smartStop(double linearThreshold, double angularThreshold,
-               int timeoutMsec, bool brakeLock) {
-    // Immediately command both groups to brake.
-    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-    leftDrive.brake();
-    rightDrive.brake();
+// // ══════════════════════════════════════════════════════════════════════════════
+// // SMART STOP
+// // Applies brakes and waits until both linear and angular speeds drop below
+// // their thresholds (or the timeout expires), then optionally locks in HOLD mode.
+// // ══════════════════════════════════════════════════════════════════════════════
+// void smartStop(double linearThreshold, double angularThreshold,
+//                int timeoutMsec, bool brakeLock) {
+//     // Immediately command both groups to brake.
+//     leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+//     rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+//     leftDrive.brake();
+//     rightDrive.brake();
 
-    // Poll until the robot settles or the timeout expires.
-    int elapsed = 0;
-    while (elapsed < timeoutMsec) {
-        // Linear speed from passive encoder (centideg/s → deg/s → RPM → cm/s).
-        double linearSpeed  = std::fabs(passiveEncoderLeft.get_velocity() / 100.0
-                                        / 360.0 * 60.0 * encoderWheelCircumferenceCM / 60.0);
-        // Angular speed from IMU z-axis gyro (degrees/s).
-        double angularSpeed = std::fabs(InertialSensor.get_gyro_rate().z);
+//     // Poll until the robot settles or the timeout expires.
+//     int elapsed = 0;
+//     while (elapsed < timeoutMsec) {
+//         // Linear speed from passive encoder (centideg/s → deg/s → RPM → cm/s).
+//         double linearSpeed  = std::fabs(passiveEncoderLeft.get_velocity() / 100.0
+//                                         / 360.0 * 60.0 * encoderWheelCircumferenceCM / 60.0);
+//         // Angular speed from IMU z-axis gyro (degrees/s).
+//         double angularSpeed = std::fabs(InertialSensor.get_gyro_rate().z);
 
-        if (linearSpeed < linearThreshold && angularSpeed < angularThreshold)
-            break;
+//         if (linearSpeed < linearThreshold && angularSpeed < angularThreshold)
+//             break;
 
-        pros::delay(10);
-        elapsed += 10;
-    }
+//         pros::delay(10);
+//         elapsed += 10;
+//     }
 
-    // Optionally lock the robot in place with HOLD mode.
-    if (brakeLock) {
-        leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-        rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-        leftDrive.brake();
-        rightDrive.brake();
-    }
-}
+//     // Optionally lock the robot in place with HOLD mode.
+//     if (brakeLock) {
+//         leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+//         rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+//         leftDrive.brake();
+//         rightDrive.brake();
+//     }
+// }

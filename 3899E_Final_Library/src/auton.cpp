@@ -107,32 +107,32 @@ void routeGridTest() {
 }
 
 // Spins each drive and mechanism motor for 500ms to verify hardware.
-void systemTest() {
-    pros::screen::erase();
-    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "System Test");
+// void systemTest() {
+//     pros::screen::erase();
+//     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "System Test");
 
-    InertialSensor.reset(true);
+//     InertialSensor.reset(true);
 
-    pros::Motor* allMotors[] = {
-        &LeftMotor1, &LeftMotor2, &LeftMotor3,
-        &RightMotor1, &RightMotor2, &RightMotor3,
-        &intakeMotor1, &intakeMotor2
-    };
-    const int numMotors = 8;
+//     pros::Motor* allMotors[] = {
+//         &LeftMotor1, &LeftMotor2, &LeftMotor3,
+//         &RightMotor1, &RightMotor2, &RightMotor3,
+//         &intakeMotor1, &intakeMotor2
+//     };
+//     const int numMotors = 8;
 
-    for (int i = 0; i < numMotors; i++) {
-        pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Testing motor %d...", i + 1);
-        allMotors[i]->move(80);
-        pros::delay(500);
-        bool alive = (allMotors[i]->get_actual_velocity() != 0);
-        allMotors[i]->brake();
-        if (alive) Controller.rumble(".");
-        pros::delay(300);
-    }
+//     for (int i = 0; i < numMotors; i++) {
+//         pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Testing motor %d...", i + 1);
+//         allMotors[i]->move(80);
+//         pros::delay(500);
+//         bool alive = (allMotors[i]->get_actual_velocity() != 0);
+//         allMotors[i]->brake();
+//         if (alive) Controller.rumble(".");
+//         pros::delay(300);
+//     }
 
-    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "System test complete");
-    Controller.rumble(". .");
-}
+//     pros::screen::print(pros::E_TEXT_MEDIUM, 2, "System test complete");
+//     Controller.rumble(". .");
+// }
 
 // Push robot around and watch live GPS/odometry coordinates on brain screen.
 // Useful for verifying field position mapping before a match.
@@ -146,47 +146,47 @@ void coordinateFinder() {
 // AUTON SELECTOR
 // Left/Right on controller to cycle options, A to confirm and run.
 // ══════════════════════════════════════════════════════════════════════════════
-void autonSelector() {
-    const char* autonNames[] = {
-        "AI Match (Red)",
-        "AI Match (Blue)",
-        "Route Test",
-        "Grid Test",
-        "System Test",
-        "Coordinate Finder",
-    };
-    const int numAutons = 6;
-    int autonMode = 0;
+// void autonSelector() {
+//     const char* autonNames[] = {
+//         "AI Match (Red)",
+//         "AI Match (Blue)",
+//         "Route Test",
+//         "Grid Test",
+//         "System Test",
+//         "Coordinate Finder",
+//     };
+//     const int numAutons = 6;
+//     int autonMode = 0;
 
-    pros::screen::erase();
+//     pros::screen::erase();
 
-    while (true) {
-        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Selected: %s          ", autonNames[autonMode]);
-        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Left/Right to cycle");
-        pros::screen::print(pros::E_TEXT_MEDIUM, 4, "A to run");
+//     while (true) {
+//         pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Selected: %s          ", autonNames[autonMode]);
+//         pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Left/Right to cycle");
+//         pros::screen::print(pros::E_TEXT_MEDIUM, 4, "A to run");
 
-        if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT)) {
-            autonMode = (autonMode - 1 + numAutons) % numAutons;
-            pros::delay(200);
-        } else if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
-            autonMode = (autonMode + 1) % numAutons;
-            pros::delay(200);
-        } else if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
-            pros::screen::erase();
-            pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Running: %s", autonNames[autonMode]);
-            pros::delay(300);
+//         if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT)) {
+//             autonMode = (autonMode - 1 + numAutons) % numAutons;
+//             pros::delay(200);
+//         } else if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
+//             autonMode = (autonMode + 1) % numAutons;
+//             pros::delay(200);
+//         } else if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
+//             pros::screen::erase();
+//             pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Running: %s", autonNames[autonMode]);
+//             pros::delay(300);
 
-            switch (autonMode) {
-                case 0: setAllianceRed(true);  runAIMatchRoute(); break;
-                case 1: setAllianceRed(false); runAIMatchRoute(); break;
-                case 2: routeTest();            break;
-                case 3: routeGridTest();        break;
-                case 4: systemTest();           break;
-                case 5: coordinateFinder();     break;
-            }
-            break;
-        }
+//             switch (autonMode) {
+//                 case 0: setAllianceRed(true);  runAIMatchRoute(); break;
+//                 case 1: setAllianceRed(false); runAIMatchRoute(); break;
+//                 case 2: routeTest();            break;
+//                 case 3: routeGridTest();        break;
+//                 case 4: systemTest();           break;
+//                 case 5: coordinateFinder();     break;
+//             }
+//             break;
+//         }
 
-        pros::delay(20);
-    }
-}
+//         pros::delay(20);
+//     }
+// }

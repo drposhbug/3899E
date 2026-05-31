@@ -10,9 +10,10 @@
         "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\arm-none-eabi\\include\\c++\\14.3.1",
         "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\arm-none-eabi\\include\\c++\\14.3.1\\arm-none-eabi",
         "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\lib\\gcc\\arm-none-eabi\\14.3.1\\include",
-        "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\lib\\gcc\\arm-none-eabi\\14.3.1\\include-fixed"
+        "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\lib\\gcc\\arm-none-eabi\\14.3.1\\include-fixed",
+        "/Users/ayushkothari/Documents/GitHub/3899E/3899E_Final_Library/include"
       ],
-      "compilerPath": "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\bin\\arm-none-eabi-g++",
+      "compilerPath": "/Users/ayushkothari/Library/Application Support/Code/User/globalStorage/sigbots.pros/install/pros-toolchain-macos/bin/arm-none-eabi-g++",
       "cStandard": "gnu11",
       "cppStandard": "gnu++20",
       "intelliSenseMode": "gcc-arm",
@@ -20,11 +21,14 @@
       "forcedInclude": [],
       "browse": {
         "path": [
-          "c:\\Users\\oscar\\OneDrive\\Documents\\GitHub\\3899E\\3899E_Final_Library"
+          "/Users/ayushkothari/Documents/GitHub/3899E/3899E_Final_Library"
         ],
         "limitSymbolsToIncludedHeaders": true,
         "databaseFilename": ""
-      }
+      },
+      "macFrameworkPath": [
+        "/System/Library/Frameworks"
+      ]
     }
   ],
   "version": 4
