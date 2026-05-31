@@ -667,7 +667,8 @@ bin/driver.cpp.o: src/driver.cpp include/robot_config.h include/main.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
  include/pros/vision.h include/utils.h include/robot_config.h \
- include/navigation.h include/utils.h include/autontasks.h
+ include/navigation.h include/utils.h include/motion_config.h \
+ include/autontasks.h
 include/robot_config.h:
 include/main.h:
 include/api.h:
@@ -1414,4 +1415,5 @@ include/utils.h:
 include/robot_config.h:
 include/navigation.h:
 include/utils.h:
+include/motion_config.h:
 include/autontasks.h:

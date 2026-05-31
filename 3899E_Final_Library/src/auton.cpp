@@ -65,25 +65,33 @@ void routeTest() {
 }
 
 void navTest() {
-//straightOdometryV3(100, 70, -20, 10, 5, 1, 0, 0, .2, .2, 40, 50);
+    startOdometryTask();
+    setStartPosition(0.0, 0.0, 0.0);
+    pros::delay(200);
 
-moveOdometry(
-    0,         // targetX — hold current X
-    100,         // targetY — 100cm forward (was targetDistance)
-    70.0,            // breakDistance
-    10.0,            // minSpeed
-    5.0,             // distanceTolerance
-    .1,             // kp_heading
-    0.0,             // ki_heading
-    0.0,             // kd_heading
-    pros::E_MOTOR_BRAKE_BRAKE,
-    1000,             // accelHeadingScaling
-    0.0,             // decelHeadingScaling
-    0.0,             // approachHeadingScaling (no equivalent in straight, defaulting)
-    50.0,            // maxSpeed
-    5.0,            // headingLockDistance (no equivalent, reasonable default)
-    5.0              // timeout (no equivalent, reasonable default)
-);
+    StraightProfile testProfile = DEFAULT_STRAIGHT;
+    testProfile.breakDistance          = 70.0;
+    testProfile.minSpeed               = 10.0;
+    testProfile.maxSpeed               = 50.0;
+    testProfile.kp_heading             = 1;
+    testProfile.accelHeadingScaling    = 0.0;
+    testProfile.decelHeadingScaling    = 0.0;
+    testProfile.approachHeadingScaling = 0.0;
+    testProfile.timeout                = 5.0;
+
+    forwardToPoint(0.0, 100.0, testProfile);
+
+    pros::delay(500);
+    setStartPosition(0.0, 100.0, 0.0);
+
+    backwardToPoint(0.0, 0.0, testProfile);
+
+
+    // Testing StraightDistance Functions
+    // driveForward(100.0, 0.0, testProfile);
+    // pros::delay(500);
+    // setStartPosition(0.0, 100.0, 0.0);
+    // driveBackward(100.0, 0.0, testProfile);
 }
 
 

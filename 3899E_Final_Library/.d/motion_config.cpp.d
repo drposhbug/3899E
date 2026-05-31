@@ -1,4 +1,4 @@
-bin/route_planner.cpp.o: src/route_planner.cpp include/route_planner.h \
+bin/motion_config.cpp.o: src/motion_config.cpp include/motion_config.h \
  include/main.h include/api.h include/pros/adi.h include/pros/ai_vision.h \
  include/pros/colors.h include/pros/device.h include/pros/distance.h \
  include/pros/error.h include/pros/ext_adi.h include/pros/adi.h \
@@ -666,9 +666,8 @@ bin/route_planner.cpp.o: src/route_planner.cpp include/route_planner.h \
  include/pros/optical.h include/pros/rotation.hpp include/pros/rotation.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
- include/pros/vision.h include/robot_geometry.h include/navigation.h \
- include/utils.h include/robot_config.h include/motion_config.h
-include/route_planner.h:
+ include/pros/vision.h include/main.h
+include/motion_config.h:
 include/main.h:
 include/api.h:
 include/pros/adi.h:
@@ -1410,8 +1409,4 @@ include/pros/serial.hpp:
 include/pros/serial.h:
 include/pros/vision.hpp:
 include/pros/vision.h:
-include/robot_geometry.h:
-include/navigation.h:
-include/utils.h:
-include/robot_config.h:
-include/motion_config.h:
+include/main.h:

@@ -84,35 +84,8 @@ void turnRightToPoint(double targetX, double targetY,
                       double maxSpeed               = MotionDefaults::TurningRight::MAX_SPEED,
                       double exitTolerance          = 0.5);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// POINT-TO-POINT STRAIGHT DRIVE HELPERS
-// Drive from the current position to a target field coordinate.
-// forwardToPoint  – approach facing the target.
-// backwardToPoint – approach with the robot reversed.
-// ══════════════════════════════════════════════════════════════════════════════
-void forwardToPoint(double targetX, double targetY,
-                    double breakDistance          = 10.0,
-                    double minSpeed               = 24.0,
-                    double distanceTolerance      = 5.0,
-                    double kp_heading             = 1.1,
-                    double ki_heading             = 0.0,
-                    double kd_heading             = 0.0,
-                    double accelHeadingScaling    = 0.1,
-                    double decelHeadingScaling    = 0.1,
-                    double approachHeadingScaling = 0.3,
-                    double maxSpeed               = 100.0);
-
-void backwardToPoint(double targetX, double targetY,
-                     double breakDistance          = 10.0,
-                     double minSpeed               = 24.0,
-                     double distanceTolerance      = 5.0,
-                     double kp_heading             = 1.1,
-                     double ki_heading             = 0.0,
-                     double kd_heading             = 0.0,
-                     double accelHeadingScaling    = 0.1,
-                     double decelHeadingScaling    = 0.1,
-                     double approachHeadingScaling = 0.3,
-                     double maxSpeed               = 100.0);
+// forwardToPoint / backwardToPoint — defined in navigation.h / navigation.cpp.
+// Removed from odometry.h to prevent duplicate definition errors.
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ODOMETRY BACKGROUND TASK

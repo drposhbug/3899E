@@ -354,7 +354,7 @@ NavResult navigateToTarget(double goalX, double goalY,
                            TargetType target,
                            const RoutePath& precomputedPath) {
 
-    // ── Phase 1: Route planner + moveOdometry ─────────────────────────────
+    // ── Phase 1: Route planner + forwardToPoint ─────────────────────────────
     RoutePath path = (precomputedPath.count > 0)
                    ? precomputedPath
                    : routePlan(globalX, globalY, goalX, goalY);
@@ -370,16 +370,26 @@ NavResult navigateToTarget(double goalX, double goalY,
         // Hand off to vision when close enough and Jetson has a lock
         if (dist <= VISION_HANDOFF_DISTANCE_CM && jetsonTargetTracked()) break;
 
-        uint32_t wpStart   = pros::millis();
+        uint32_t wpStart      = pros::millis();
         const double wpTimeout = 4.0;
 
-        moveOdometry(path.x[i], path.y[i],
-                     20.0, 16.0, 3.0,
-                     0.4, 0.01, 0.05,
-                     pros::E_MOTOR_BRAKE_BRAKE,
-                     0.2, 0.2, 0.2,
-                     ROBOT_CRUISE_POWER_PCT,
-                     8.0, wpTimeout);
+        // ── Phase 1: Route planner + forwardToPoint ─────────────────────────────
+        StraightProfile wpProfile = DEFAULT_STRAIGHT;
+        wpProfile.breakDistance          = 20.0;
+        wpProfile.minSpeed               = 16.0;
+        wpProfile.distanceTolerance      = 3.0;
+        wpProfile.kp_heading             = 0.4;
+        wpProfile.ki_heading             = 0.01;
+        wpProfile.kd_heading             = 0.05;
+        wpProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+        wpProfile.accelHeadingScaling    = 0.2;
+        wpProfile.decelHeadingScaling    = 0.2;
+        wpProfile.approachHeadingScaling = 0.2;
+        wpProfile.maxSpeed               = ROBOT_CRUISE_POWER_PCT;
+        wpProfile.headingLockDistance    = 8.0;
+        wpProfile.timeout                = wpTimeout;
+
+        forwardToPoint(path.x[i], path.y[i], wpProfile);
 
         if (pros::millis() - wpStart >= static_cast<uint32_t>(wpTimeout * 1000.0 - 50.0))
             return NavResult::BLOCKED_REROUTE;

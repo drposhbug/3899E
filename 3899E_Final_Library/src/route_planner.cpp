@@ -9,7 +9,7 @@
 
 #include "route_planner.h"
 #include "robot_geometry.h"
-#include "navigation.h"    // moveOdometry
+#include "navigation.h"    // forwardToPoint, StraightProfile
 #include <cmath>
 #include <cfloat>
 
@@ -318,7 +318,7 @@ RoutePath routePlan(double startX, double startY,
 }
 
 // ---------------------------------------------------------------------------
-// routeExecute — drives path waypoint-by-waypoint using moveOdometry
+// routeExecute — drives path waypoint-by-waypoint using forwardToPoint
 // Returns true if all waypoints reached, false if any timed out (blocked)
 // ---------------------------------------------------------------------------
 
@@ -329,19 +329,25 @@ bool routeExecute(const RoutePath& path,
                   double maxSpeed,
                   double timeout) {
 
+    StraightProfile wpProfile = DEFAULT_STRAIGHT;
+    wpProfile.breakDistance          = breakDistance;
+    wpProfile.minSpeed               = minSpeed;
+    wpProfile.distanceTolerance      = distanceTolerance;
+    wpProfile.kp_heading             = 0.4;
+    wpProfile.ki_heading             = 0.01;
+    wpProfile.kd_heading             = 0.05;
+    wpProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    wpProfile.accelHeadingScaling    = 0.2;
+    wpProfile.decelHeadingScaling    = 0.2;
+    wpProfile.approachHeadingScaling = 0.2;
+    wpProfile.maxSpeed               = maxSpeed;
+    wpProfile.headingLockDistance    = 8.0;
+    wpProfile.timeout                = timeout;
+
     for (int i = 0; i < path.count; i++) {
         uint32_t wpStart = pros::millis();
 
-        moveOdometry(path.x[i], path.y[i],
-                     breakDistance,
-                     minSpeed,
-                     distanceTolerance,
-                     0.4, 0.01, 0.05,   // kp/ki/kd heading
-                     pros::E_MOTOR_BRAKE_BRAKE,
-                     0.2, 0.2, 0.2,     // accel/decel/approach scaling
-                     maxSpeed,
-                     8.0,               // headingLockDistance
-                     timeout);
+        forwardToPoint(path.x[i], path.y[i], wpProfile);
 
         // Timeout means waypoint wasn't reached — something blocked the path
         if (pros::millis() - wpStart >= static_cast<uint32_t>(timeout * 1000.0 - 50.0))

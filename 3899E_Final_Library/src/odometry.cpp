@@ -2,6 +2,7 @@
 #include "robot_config.h"
 #include "utils.h"
 #include "main.h"
+#include "motion_config.h"
 
 // Global position (cm) and heading (degrees, continuous VEX Coordinates)
 // 0° = North, positive clockwise
@@ -100,8 +101,11 @@ void updateOdometry() {
     double deltaXPos = 0.0;
     double deltaYPos = 0.0;
     
-    // Convert current heading to radians for trigonometry
-    double headingRad = currentRotation * (M_PI / 180.0);
+    // Use average heading during the tick (half-angle Euler integration).
+    // Using currentRotation alone biases the position update toward the end-of-tick
+    // angle, causing systematic drift when the robot is turning.
+    double averageRotation = prevRotation + (deltaRotation / 2.0);
+    double headingRad = averageRotation * (M_PI / 180.0);
 
     // Only update position if the robot is in a valid state
     if (currentState == STRAIGHT || currentState == STATIONARY || currentState == TURNING) {
@@ -164,7 +168,12 @@ void turnToPoint(double targetX, double targetY, double breakDistanceInDegrees,
     
     double finalTargetHeading = currentStandardHeading + headingError;
     
-    turnOdometry(finalTargetHeading, breakDistanceInDegrees, minSpeed, maxSpeed);
+    TurnProfile p  = DEFAULT_TURN;
+    p.breakDistance = breakDistanceInDegrees;
+    p.minSpeed      = minSpeed;
+    p.maxSpeed      = maxSpeed;
+    p.exitTolerance = 0.5;  // Explicit tight tolerance — 16° default was a bug
+    turnOdometry(finalTargetHeading, p);
     updateOdometry();
     currentState = STATIONARY;
 }
@@ -183,7 +192,12 @@ void turnLeftToPoint(double targetX, double targetY, double breakDistanceInDegre
     double targetHeading = targetAbsoluteHeading;
     while (targetHeading >= currentHeading + 0.5) targetHeading -= 360.0;
     
-    turnOdometry(targetHeading, breakDistanceInDegrees, minSpeed, maxSpeed, exitTolerance);
+    TurnProfile p  = DEFAULT_TURN;
+    p.breakDistance = breakDistanceInDegrees;
+    p.minSpeed      = minSpeed;
+    p.maxSpeed      = maxSpeed;
+    p.exitTolerance = exitTolerance;
+    turnOdometry(targetHeading, p);
     updateOdometry();
     currentState = STATIONARY;
 }
@@ -202,50 +216,18 @@ void turnRightToPoint(double targetX, double targetY, double breakDistanceInDegr
     double targetHeading = targetStandardHeading;
     while (targetHeading <= currentStandardHeading - 0.5) targetHeading += 360.0;
     
-    turnOdometry(targetHeading, breakDistanceInDegrees, minSpeed, maxSpeed, exitTolerance);
+    TurnProfile p2  = DEFAULT_TURN;
+    p2.breakDistance = breakDistanceInDegrees;
+    p2.minSpeed      = minSpeed;
+    p2.maxSpeed      = maxSpeed;
+    p2.exitTolerance = exitTolerance;
+    turnOdometry(targetHeading, p2);
     updateOdometry();
     currentState = STATIONARY;
 }
 
-// ======================================================================
-// Move forward to target point using computed distance and heading
-// ======================================================================
-void forwardToPoint(double targetX, double targetY, double breakDistance,
-                    double minSpeed, double distanceTolerance, double kp_heading, double ki_heading, double kd_heading,
-                    double accelHeadingScaling, double decelHeadingScaling,
-                    double approachHeadingScaling, double maxSpeed) {
-    updateOdometry();
-    double distanceToTarget, targetHeading;
-    calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
-    straightOdometryV3(distanceToTarget, breakDistance, targetHeading,
-                     minSpeed, distanceTolerance, kp_heading, ki_heading, kd_heading,
-                     accelHeadingScaling, decelHeadingScaling,
-                     approachHeadingScaling, maxSpeed);
-    updateOdometry();
-}
-
-// ======================================================================
-// Move backward to target point (reverses heading and distance)
-// ======================================================================
-void backwardToPoint(double targetX, double targetY, double breakDistance,
-                     double minSpeed, double distanceTolerance,
-                     double kp_heading, double ki_heading, double kd_heading,
-                     double accelHeadingScaling, double decelHeadingScaling,
-                     double approachHeadingScaling, double maxSpeed) {
-    currentState = STRAIGHT;
-    if (maxSpeed > 0) maxSpeed = -fabs(maxSpeed);
-    updateOdometry();
-    double distanceToTarget, targetHeading;
-    calculatePathToTarget(globalX, globalY, targetX, targetY, distanceToTarget, targetHeading);
-    targetHeading += 180.0;
-    distanceToTarget = -fabs(distanceToTarget);
-    straightOdometryV3(distanceToTarget, breakDistance, targetHeading,
-                     minSpeed, distanceTolerance, kp_heading, ki_heading, kd_heading,
-                     accelHeadingScaling, decelHeadingScaling,
-                     approachHeadingScaling, maxSpeed);
-    updateOdometry();
-    currentState = STATIONARY;
-}
+// forwardToPoint / backwardToPoint — implemented in navigation.cpp.
+// Removed from odometry.cpp to prevent duplicate definition errors.
 
 // ======================================================================
 // Background task for continuous odometry updates

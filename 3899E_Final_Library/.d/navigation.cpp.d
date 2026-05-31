@@ -667,8 +667,9 @@ bin/navigation.cpp.o: src/navigation.cpp include/robot_config.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
  include/pros/vision.h include/main.h include/utils.h \
- include/robot_config.h include/pid.h include/odometry.h \
- include/navigation.h include/utils.h
+ include/robot_config.h include/pid.h include/motion_config.h \
+ include/odometry.h include/navigation.h include/utils.h \
+ include/motion_config.h
 include/robot_config.h:
 include/main.h:
 include/api.h:
@@ -1415,6 +1416,8 @@ include/main.h:
 include/utils.h:
 include/robot_config.h:
 include/pid.h:
+include/motion_config.h:
 include/odometry.h:
 include/navigation.h:
 include/utils.h:
+include/motion_config.h:
