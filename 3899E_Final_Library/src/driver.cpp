@@ -135,9 +135,9 @@ void driverControl() {
         motorPowerRight[1] = targetSpeedRight;
         motorPowerRight[2] = targetSpeedRight;
 
-        pros::lcd::set_text(1, std::to_string(globalX));
-        pros::lcd::set_text(2, std::to_string(globalY));
-        pros::lcd::set_text(3, std::to_string(globalRotation));
+        // pros::lcd::set_text(1, std::to_string(globalX));
+        // pros::lcd::set_text(2, std::to_string(globalY));
+        // pros::lcd::set_text(3, std::to_string(globalRotation));
 
         if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
             intakeMotor.move(127);

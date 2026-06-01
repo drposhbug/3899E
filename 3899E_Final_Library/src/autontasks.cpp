@@ -1,31 +1,31 @@
-// #include "autontasks.h"
-// #include "robot_config.h"
-// #include "utils.h"
-// #include "odometry.h"
-// #include <atomic>
-// #include <cmath>
+#include "autontasks.h"
+#include "robot_config.h"
+#include "utils.h"
+#include "odometry.h"
+#include <atomic>
+#include <cmath>
 
 // // ──────────────────────────────────────────────────────────────────────────────
 // // GLOBALS
 // // ──────────────────────────────────────────────────────────────────────────────
 
-// HeadingDisplayParams headingDisplayParams = {false};
+HeadingDisplayParams headingDisplayParams = {false};
 
-// // Written by motion functions; read by the display tasks.
-// double g_targetDistance = 0.0;  // current nav target distance (cm)
-// double g_targetHeading  = 0.0;  // current nav target heading (degrees)
+// Written by motion functions; read by the display tasks.
+double g_targetDistance = 0.0;  // current nav target distance (cm)
+double g_targetHeading  = 0.0;  // current nav target heading (degrees)
 
-// // ──────────────────────────────────────────────────────────────────────────────
-// // SHARED ASYNC TASK STATE
-// // Each async group stores its timing/power params plus a running flag.
-// // Tasks are self-terminating via the flag — no handle storage needed.
-// // ──────────────────────────────────────────────────────────────────────────────
-// struct AsyncTaskParams {
-//     std::atomic<bool> running{false};
-//     double timeMs  = 0;
-//     double delayMs = 0;
-//     double power   = 100;
-// };
+// ──────────────────────────────────────────────────────────────────────────────
+// SHARED ASYNC TASK STATE
+// Each async group stores its timing/power params plus a running flag.
+// Tasks are self-terminating via the flag — no handle storage needed.
+// ──────────────────────────────────────────────────────────────────────────────
+struct AsyncTaskParams {
+    std::atomic<bool> running{false};
+    double timeMs  = 0;
+    double delayMs = 0;
+    double power   = 100;
+};
 
 // // ══════════════════════════════════════════════════════════════════════════════
 // // INTAKE HOPPER TASK  (intake motors + front hood)
@@ -384,75 +384,75 @@
 // // DISPLAY TASKS
 // // ══════════════════════════════════════════════════════════════════════════════
 
-// // Heading display: shows encoder distances, IMU heading, and nav targets on the
-// // driver controller.  Updates every 500 ms — anything faster risks VEXnet drops.
-// void headingDisplayTask(void* params) {
-//     HeadingDisplayParams* p = static_cast<HeadingDisplayParams*>(params);
+// Heading display: shows encoder distances, IMU heading, and nav targets on the
+// driver controller.  Updates every 500 ms — anything faster risks VEXnet drops.
+void headingDisplayTask(void* params) {
+    HeadingDisplayParams* p = static_cast<HeadingDisplayParams*>(params);
 
-//     while (p->isRunning) {
-//         // Read encoder positions: PROS returns centidegrees, divide by 100 for degrees
-//         double leftEnc   = passiveEncoderLeft.get_position()  / 100.0;
-//         double rightEnc  = passiveEncoderRight.get_position() / 100.0;
-//         double centerEnc = passiveEncoderX.get_position()     / 100.0;
+    while (p->isRunning) {
+        // Read encoder positions: PROS returns centidegrees, divide by 100 for degrees
+        double leftEnc   = passiveEncoderLeft.get_position()  / 100.0;
+        double rightEnc  = passiveEncoderRight.get_position() / 100.0;
+        double centerEnc = passiveEncoderX.get_position()     / 100.0;
 
-//         // Convert encoder degrees to centimeters travelled
-//         double leftCM   = leftEnc   * encoderWheelCircumferenceCM / 360.0;
-//         double rightCM  = rightEnc  * encoderWheelCircumferenceCM / 360.0;
-//         double centerCM = centerEnc * encoderWheelCircumferenceCM / 360.0;
-//         double avgCM    = (leftCM + rightCM) / 2.0;
-//         double heading  = getNormalizedHeading();
+        // Convert encoder degrees to centimeters travelled
+        double leftCM   = leftEnc   * encoderWheelCircumferenceCM / 360.0;
+        double rightCM  = rightEnc  * encoderWheelCircumferenceCM / 360.0;
+        double centerCM = centerEnc * encoderWheelCircumferenceCM / 360.0;
+        double avgCM    = (leftCM + rightCM) / 2.0;
+        double heading  = getNormalizedHeading();
 
-//         // Line 0: encoder distances (L=left, R=right, X=lateral)
-//         // %.0f strips decimals to fit within the controller's 15-char line width
-//         Controller.print(0, 0, "L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
+        // Line 0: encoder distances (L=left, R=right, X=lateral)
+        // %.0f strips decimals to fit within the controller's 15-char line width
+        Controller.print(0, 0, "L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
 
-//         // Line 1: average distance and current heading
-//         Controller.print(1, 0, "Avg:%.0f  H:%.1f   ", avgCM, heading);
+        // Line 1: average distance and current heading
+        Controller.print(1, 0, "Avg:%.0f  H:%.1f   ", avgCM, heading);
 
-//         // Line 2: current navigation targets (updated by motion functions)
-//         Controller.print(2, 0, "Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
+        // Line 2: current navigation targets (updated by motion functions)
+        Controller.print(2, 0, "Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
 
-//         pros::delay(500);
-//     }
+        pros::delay(500);
+    }
 
-//     Controller.clear();
-// }
+    Controller.clear();
+}
 
-// // Driver display: shows LeftMotor3 diagnostics for troubleshooting.
-// // Reads all six drive motor RPMs, but only displays LeftMotor3 detail.
-// void driverDisplayTask(void* params) {
-//     HeadingDisplayParams* p = static_cast<HeadingDisplayParams*>(params);
+// Driver display: shows LeftMotor3 diagnostics for troubleshooting.
+// Reads all six drive motor RPMs, but only displays LeftMotor3 detail.
+void driverDisplayTask(void* params) {
+    HeadingDisplayParams* p = static_cast<HeadingDisplayParams*>(params);
 
-//     while (p->isRunning) {
-//         // Read current RPM from all six drivetrain motors
-//         double leftRpm1  = LeftMotor1.get_actual_velocity();
-//         double leftRpm2  = LeftMotor2.get_actual_velocity();
-//         double leftRpm3  = LeftMotor3.get_actual_velocity();
-//         double rightRpm1 = RightMotor1.get_actual_velocity();
-//         double rightRpm2 = RightMotor2.get_actual_velocity();
-//         double rightRpm3 = RightMotor3.get_actual_velocity();
+    while (p->isRunning) {
+        // Read current RPM from all six drivetrain motors
+        double leftRpm1  = LeftMotor1.get_actual_velocity();
+        double leftRpm2  = LeftMotor2.get_actual_velocity();
+        double leftRpm3  = LeftMotor3.get_actual_velocity();
+        double rightRpm1 = RightMotor1.get_actual_velocity();
+        double rightRpm2 = RightMotor2.get_actual_velocity();
+        double rightRpm3 = RightMotor3.get_actual_velocity();
 
-//         Controller.clear();
+        Controller.clear();
 
-//         // Line 0: LeftMotor3 RPM and installed status (1=connected, 0=missing)
-//         Controller.print(0, 0, "L3 RPM:%.0f OK:%d",
-//             leftRpm3,
-//             LeftMotor3.is_installed() ? 1 : 0);
+        // Line 0: LeftMotor3 RPM and installed status (1=connected, 0=missing)
+        Controller.print(0, 0, "L3 RPM:%.0f OK:%d",
+            leftRpm3,
+            LeftMotor3.is_installed() ? 1 : 0);
 
-//         // Line 1: voltage (PROS returns mV → /1000 for V) and current (mA → /1000 for A)
-//         Controller.print(1, 0, "V:%.1f A:%.2f",
-//             LeftMotor3.get_voltage()       / 1000.0,
-//             LeftMotor3.get_current_draw()  / 1000.0);
+        // Line 1: voltage (PROS returns mV → /1000 for V) and current (mA → /1000 for A)
+        Controller.print(1, 0, "V:%.1f A:%.2f",
+            LeftMotor3.get_voltage()       / 1000.0,
+            LeftMotor3.get_current_draw()  / 1000.0);
 
-//         // Line 2: motor temperature in °C (PROS reports Celsius, not %)
-//         Controller.print(2, 0, "Temp:%.0fC",
-//             LeftMotor3.get_temperature());
+        // Line 2: motor temperature in °C (PROS reports Celsius, not %)
+        Controller.print(2, 0, "Temp:%.0fC",
+            LeftMotor3.get_temperature());
 
-//         pros::delay(500);
-//     }
+        pros::delay(500);
+    }
 
-//     Controller.clear();
-// }
+    Controller.clear();
+}
 
 // // ══════════════════════════════════════════════════════════════════════════════
 // // ASYNC SCORING TASK
@@ -500,47 +500,47 @@
 // // the robot around the field and record coordinates for autonomous path planning.
 // // ══════════════════════════════════════════════════════════════════════════════
 
-// struct CoordinateFinderParams { bool isRunning; };
-// static CoordinateFinderParams coordFinderParams = {false};
+struct CoordinateFinderParams { bool isRunning; };
+static CoordinateFinderParams coordFinderParams = {false};
 
-// void coordinateFinderTask(void* params) {
-//     CoordinateFinderParams* p = static_cast<CoordinateFinderParams*>(params);
+void coordinateFinderTask(void* params) {
+    CoordinateFinderParams* p = static_cast<CoordinateFinderParams*>(params);
 
-//     while (p->isRunning) {
-//         updateOdometry();  // refresh globalX/Y from encoder and IMU readings
+    while (p->isRunning) {
+        updateOdometry();  // refresh globalX/Y from encoder and IMU readings
 
-//         pros::screen::erase();
-//         pros::screen::set_pen(0xFFFFFF);  // white
+        pros::screen::erase();
+        pros::screen::set_pen(0xFFFFFF);  // white
 
-//         // Title bar (medium text, line 1)
-//         pros::screen::print(pros::E_TEXT_MEDIUM, 1, "=== COORDINATE FINDER ===");
+        // Title bar (medium text, line 1)
+        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "=== COORDINATE FINDER ===");
 
-//         // Large position readout — easy to read from across the field
-//         pros::screen::print(pros::E_TEXT_LARGE, 3, "X: %.1f cm", globalX);
-//         pros::screen::print(pros::E_TEXT_LARGE, 5, "Y: %.1f cm", globalY);
-//         pros::screen::print(pros::E_TEXT_LARGE, 7, "H: %.1f deg", getNormalizedHeading());
+        // Large position readout — easy to read from across the field
+        pros::screen::print(pros::E_TEXT_LARGE, 3, "X: %.1f cm", globalX);
+        pros::screen::print(pros::E_TEXT_LARGE, 5, "Y: %.1f cm", globalY);
+        pros::screen::print(pros::E_TEXT_LARGE, 7, "H: %.1f deg", getNormalizedHeading());
 
-//         // Usage instructions in yellow (small text, lines 9-10)
-//         pros::screen::set_pen(0xFFFF00);
-//         pros::screen::print(pros::E_TEXT_SMALL, 9,  "Push robot to target position");
-//         pros::screen::print(pros::E_TEXT_SMALL, 10, "Record coordinates above");
+        // Usage instructions in yellow (small text, lines 9-10)
+        pros::screen::set_pen(0xFFFF00);
+        pros::screen::print(pros::E_TEXT_SMALL, 9,  "Push robot to target position");
+        pros::screen::print(pros::E_TEXT_SMALL, 10, "Record coordinates above");
 
-//         pros::delay(500);
-//     }
-// }
+        pros::delay(500);
+    }
+}
 
-// void startCoordinateFinder() {
-//     if (!coordFinderParams.isRunning) {
-//         coordFinderParams.isRunning = true;
-//         pros::Task(coordinateFinderTask, &coordFinderParams, "coordFinder");  // pass params struct by address
-//     }
-// }
+void startCoordinateFinder() {
+    if (!coordFinderParams.isRunning) {
+        coordFinderParams.isRunning = true;
+        pros::Task(coordinateFinderTask, &coordFinderParams, "coordFinder");  // pass params struct by address
+    }
+}
 
-// void stopCoordinateFinder() {
-//     coordFinderParams.isRunning = false;
-//     pros::delay(600);  // wait for the task to finish its current 500 ms cycle
-//     pros::screen::erase();
-// }
+void stopCoordinateFinder() {
+    coordFinderParams.isRunning = false;
+    pros::delay(600);  // wait for the task to finish its current 500 ms cycle
+    pros::screen::erase();
+}
 
 // // ══════════════════════════════════════════════════════════════════════════════
 // // MATCHLOAD PNEUMATIC-ONLY TASK

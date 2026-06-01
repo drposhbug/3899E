@@ -61,7 +61,7 @@ void autonomous()
     pros::screen::erase();
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
-    // navTest();
+    navTest();
     //runAIMatchRoute();
     //routeTest();
     //routeGridTest();
@@ -71,9 +71,10 @@ void autonomous()
     
 }
 
-void opcontrol()
-{
+void opcontrol() {
+// {
     pros::screen::erase();
     Controller.clear();
     driverControl();
+    // coordinateFinder();
 }

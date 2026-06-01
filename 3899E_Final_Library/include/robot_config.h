@@ -59,8 +59,15 @@ extern pros::Rotation passiveEncoderX;   // lateral (strafing) encoder
 // Optical sensors — ring/ball color detection and lane tracking.
 extern pros::Optical opticalSensor;
 
-// GPS sensor -- doesn't actually exist (yet).
-extern pros::GPS gpsSensor;
+// GPS Sensor — port 3, left side mount
+// Offset from tracking center: x = -0.1524m (6" left), y = 0.0m (centered)
+// Mount optical window at 9.5" (24.1cm) height — same as field GPS strips.
+extern pros::Gps gpsSensor;
+
+// Maximum GPS position error (meters) to accept a reset.
+// get_error() returns estimated RMS error — lower = higher confidence.
+// 0.10m = 10cm; tighten after field calibration.
+#define GPS_MAX_ERROR_M  0.10
 
 // Radio - for communication
 extern std::int8_t receiverPort;

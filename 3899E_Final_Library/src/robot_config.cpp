@@ -111,9 +111,9 @@ pros::Imu InertialSensor(imuPort);
 // Passive odometry tracking wheels.
 // Reversal is applied via set_reversed() in initialize() — the pros::Rotation
 // constructor only accepts a port number in PROS 4.
-pros::Rotation passiveEncoderLeft (verticalEncoderPort);
-pros::Rotation passiveEncoderRight(verticalEncoderPort);
-pros::Rotation passiveEncoderX    (horizontalEncoderPort);
+pros::Rotation passiveEncoderLeft   (verticalEncoderPort);
+pros::Rotation passiveEncoderRight  (verticalEncoderPort);
+pros::Rotation passiveEncoderX      (horizontalEncoderPort);
 
 // Optical sensors for ring color sorting and lane detection.
 pros::Optical opticalSensor   (colorSensorPort);
