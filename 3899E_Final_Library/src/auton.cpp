@@ -69,29 +69,71 @@ void navTest() {
     setStartPosition(0.0, 0.0, 0.0);
     pros::delay(200);
 
-    StraightProfile testProfile = DEFAULT_STRAIGHT;
-    testProfile.breakDistance          = 70.0;
-    testProfile.minSpeed               = 10.0;
-    testProfile.maxSpeed               = 50.0;
-    testProfile.kp_heading             = 1;
-    testProfile.accelHeadingScaling    = 0.0;
-    testProfile.decelHeadingScaling    = 0.0;
-    testProfile.approachHeadingScaling = 0.0;
-    testProfile.timeout                = 5.0;
+    StraightProfile driveProfile = DEFAULT_STRAIGHT;
+    driveProfile.breakDistance          = 70.0;   // cm before target to begin decel
+    driveProfile.minSpeed               = 10.0;   // % minimum approach speed
+    driveProfile.maxSpeed               = 100.0;   // % peak cruise speed
+    driveProfile.distanceTolerance      = 2.0;    // cm exit bubble
+    driveProfile.timeout                = 15.0;    // seconds 5 sec default
+    driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    driveProfile.kp_heading             = 0.1;    // heading PID proportional
+    driveProfile.ki_heading             = 0.0;    // heading PID integral
+    driveProfile.kd_heading             = 0.0;    // heading PID derivative
+    driveProfile.accelHeadingScaling    = 0.2;    // correction weight during accel
+    driveProfile.decelHeadingScaling    = 0.0;    // correction weight during decel
+    driveProfile.approachHeadingScaling = 0.0;    // correction weight during approach
+    driveProfile.headingLockDistance    = 3.0;    // cm — freeze heading near target
+    driveProfile.launchVoltage          = 1.0;    // V — initial kick voltage
+    driveProfile.accelFactor            = 1.2;    // traction ramp multiplier
+    driveProfile.slipThreshold          = 0.45;   // RPM slip before traction cuts in
+    driveProfile.decelStepPercent       = 0.45;   // ABS voltage reduction per step
+    driveProfile.lockThreshold          = 0.25;   // wheel lockup ratio
 
-    forwardToPoint(0.0, 100.0, testProfile);
+    TurnProfile turnProfile = DEFAULT_TURN;
+    turnProfile.breakDistance  = 5.0;    // degrees before target to begin decel
+    turnProfile.minSpeed       = 10.0;   // % minimum approach speed
+    turnProfile.maxSpeed       = 20.0;  // % peak turn speed
+    turnProfile.exitTolerance  = 3;    // degrees — stop when within this
+    turnProfile.timeout        = 3.0;    // seconds — release if stuck
 
-    pros::delay(500);
-    setStartPosition(0.0, 100.0, 0.0);
+    /*
+    // ── Full square backward: (0,0) → (0,100) → (100,100) → (100,0) → (0,0) ──
+    // Front faces opposite direction of travel so rear closes on target.
+    turnLeft(-180.0, turnProfile);             // face south — back faces north
+    pros::delay(300);
+    backwardToPoint(  0.0, 100.0, driveProfile);  // leg 1: back north to (0,100)
+    pros::delay(300);
+    turnLeft(-270.0, turnProfile);             // face west — back faces east
+    pros::delay(300);
+    backwardToPoint(-100.0, 100.0, driveProfile);  // leg 2: back east to (100,100)
+    pros::delay(300);
+    turnLeft(0.0, turnProfile);             // face north — back faces south
+    pros::delay(300);
+    backwardToPoint(-100.0,   0.0, driveProfile);  // leg 3: back south to (100,0)
+    pros::delay(300);
+    turnLeft( -90.0, turnProfile);             // face east — back faces west
+    pros::delay(300);
+    backwardToPoint(  0.0,   0.0, driveProfile);  // leg 4: back west to origin
+    */
 
-    backwardToPoint(0.0, 0.0, testProfile);
+    // ── Stage 2: straight + turn + straight ──────────────────────────
+    // forwardToPoint(0.0, 100.0, driveProfile);
+    // pros::delay(300);
+    // turnToPoint(100.0, 100.0, turnProfile);
+    // pros::delay(300);
+    // forwardToPoint(100.0, 100.0, driveProfile);
 
-
-    // Testing StraightDistance Functions
-    // driveForward(100.0, 0.0, testProfile);
+    // ── Stage 1: forward + backward (closed-loop) ────────────────────
+    // forwardToPoint(0.0, 100.0, driveProfile);
     // pros::delay(500);
     // setStartPosition(0.0, 100.0, 0.0);
-    // driveBackward(100.0, 0.0, testProfile);
+    // backwardToPoint(0.0, 0.0, driveProfile);
+
+    // ── driveForward/driveBackward test (open-loop) ───────────────────
+    driveForward(150.0, 0.0, driveProfile);
+    pros::delay(500);
+    setStartPosition(0.0, 150.0, 0.0);
+    driveBackward(150.0, 0.0, driveProfile);
 }
 
 

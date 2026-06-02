@@ -668,8 +668,7 @@ bin/autontasks.cpp.o: src/autontasks.cpp include/autontasks.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
  include/pros/vision.h include/robot_config.h include/robot_config.h \
- include/utils.h include/odometry.h include/navigation.h \
- include/motion_config.h
+ include/utils.h include/odometry.h
 include/autontasks.h:
 include/utils.h:
 include/main.h:
@@ -1417,5 +1416,3 @@ include/robot_config.h:
 include/robot_config.h:
 include/utils.h:
 include/odometry.h:
-include/navigation.h:
-include/motion_config.h:

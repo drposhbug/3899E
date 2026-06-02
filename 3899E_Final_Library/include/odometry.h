@@ -2,7 +2,6 @@
 #define ODOMETRY_H
 
 #include "main.h"          // PROS entry point
-#include "navigation.h"    // MotionDefaults namespace
 #include "robot_config.h"
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -57,36 +56,8 @@ void calculatePathToTarget(double currentX, double currentY,
                            double targetX,  double targetY,
                            double& distance, double& heading);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// POINT-TO-POINT TURN HELPERS
-// Turn the robot to face a field coordinate rather than an absolute heading.
-// All three functions use the same motion profile (MotionDefaults::TurningLeft).
-// In VEX Coordinates: Left = decreasing heading (CCW), Right = increasing heading (CW).
-//
-// turnToPoint      – chooses the shorter direction automatically.
-// turnLeftToPoint  – forces a left (counterclockwise) turn.
-// turnRightToPoint – forces a right (clockwise) turn.
-// ══════════════════════════════════════════════════════════════════════════════
-void turnToPoint(double targetX, double targetY,
-                 double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
-                 double minSpeed               = MotionDefaults::TurningLeft::MIN_SPEED,
-                 double maxSpeed               = MotionDefaults::TurningLeft::MAX_SPEED);
-
-void turnLeftToPoint(double targetX, double targetY,
-                     double breakDistanceInDegrees = MotionDefaults::TurningLeft::BREAK_DISTANCE,
-                     double minSpeed               = MotionDefaults::TurningLeft::MIN_SPEED,
-                     double maxSpeed               = MotionDefaults::TurningLeft::MAX_SPEED,
-                     double exitTolerance          = 0.5);
-
-void turnRightToPoint(double targetX, double targetY,
-                      double breakDistanceInDegrees = MotionDefaults::TurningRight::BREAK_DISTANCE,
-                      double minSpeed               = MotionDefaults::TurningRight::MIN_SPEED,
-                      double maxSpeed               = MotionDefaults::TurningRight::MAX_SPEED,
-                      double exitTolerance          = 0.5);
-
-// forwardToPoint / backwardToPoint — defined in navigation.h / navigation.cpp.
-// Removed from odometry.h to prevent duplicate definition errors.
-
+// ── All point-to-point navigation functions (turnToPoint, forwardToPoint, etc.)
+// are declared in navigation.h and implemented in navigation.cpp.
 // ══════════════════════════════════════════════════════════════════════════════
 // ODOMETRY BACKGROUND TASK
 // The task runs updateOdometry() in a tight loop (~10 ms period).

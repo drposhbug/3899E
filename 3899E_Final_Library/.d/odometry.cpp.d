@@ -666,8 +666,7 @@ bin/odometry.cpp.o: src/odometry.cpp include/odometry.h include/main.h \
  include/pros/optical.h include/pros/rotation.hpp include/pros/rotation.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
- include/pros/vision.h include/navigation.h include/utils.h \
- include/robot_config.h include/motion_config.h include/robot_config.h \
+ include/pros/vision.h include/robot_config.h include/robot_config.h \
  include/utils.h include/main.h include/motion_config.h
 include/odometry.h:
 include/main.h:
@@ -1411,10 +1410,7 @@ include/pros/serial.hpp:
 include/pros/serial.h:
 include/pros/vision.hpp:
 include/pros/vision.h:
-include/navigation.h:
-include/utils.h:
 include/robot_config.h:
-include/motion_config.h:
 include/robot_config.h:
 include/utils.h:
 include/main.h:

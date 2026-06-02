@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "pid.h"
 #include "motion_config.h"
+#include "navigation.h"
 #include <cmath>
 #include <atomic>
 #include "odometry.h"
@@ -102,17 +103,17 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
     bool decelCompleted = false;
     bool accelCompleted = false;
     bool decel = false;
-
+ 
     double currentHeading = getContinuousStandardHeading();
+    double startHeading   = currentHeading;
 
-    // Caller has already set targetHeading to the correct continuous value;
-    // assign directly and compute error from it.
     double targetRotationHeading = targetHeading;
     double headingError          = targetRotationHeading - currentHeading;
-
+    double totalTurnDistance     = headingError;  // total degrees to travel
+ 
     pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Target Head: %.2f", targetHeading);
     pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Curr Rotation: %.2f", currentHeading);
-
+ 
     // copysign on voltage: positive headingError (CW turn) → negative maxSpeedVoltage,
     // which the motor output negation converts to a correct CW spin.
     double maxSpeedVoltage       = std::copysign(p.maxSpeed * 0.01 * absoluteMaxVoltage, -headingError);
@@ -120,43 +121,46 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
     double launchVoltage         = std::copysign(4, -headingError);
     double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(launchVoltage)), -headingError);
     double minDriveMotorRPM      = (p.minSpeed * 0.01) * absoluteMaxRPM;
-
+ 
     double averageMotorVoltage  = 0;
     double motorVoltageLeft     = minLaunchSpeedVoltage;
     double motorVoltageRight    = minLaunchSpeedVoltage;
-
+ 
     double leftEncoderRollingAverage  = 0;
     double rightEncoderRollingAverage = 0;
     double voltageRollingAverage      = 0;
-
+ 
     adaptiveABS adaptiveABSLeft(p.decelStepPercent, p.lockThreshold);
     adaptiveABS adaptiveABSRight(p.decelStepPercent, p.lockThreshold);
-
+ 
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, p.slipThreshold);
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, p.slipThreshold);
-
+ 
+    uint32_t safetyStart = pros::millis();
+    double timeoutMs     = p.timeout * 1000.0;
+ 
     // Loop to continuously adjust motor power
-    while ((maxSpeedVoltage > 0 && currentHeading >= targetRotationHeading + p.exitTolerance) ||
-           (maxSpeedVoltage < 0 && currentHeading <= targetRotationHeading - p.exitTolerance))
+    while (std::fabs(currentHeading - startHeading) <= std::fabs(totalTurnDistance) - p.exitTolerance)
     {
+        if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
         currentHeading = getContinuousStandardHeading();
-        headingError = targetRotationHeading - currentHeading;
-
+        headingError   = targetRotationHeading - currentHeading;
+ 
         pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Curr Rotation: %.2f", currentHeading);
         pros::screen::print(pros::E_TEXT_MEDIUM, 7, "Target: %.2f", targetHeading);
-
+ 
         // Read speeds; MotorGroup get_actual_velocity() returns average across all motors
         double leftMotorRPM  = fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ;
         double rightMotorRPM = fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ;
-
+ 
         // Encoder RPM scaled to the same units as drive motor RPM
         double leftEncoderRPM  = fabs(passiveEncoderLeft.get_velocity())  *
                                  (encoderWheelCircumferenceCM / wheelCircumferenceCM);
         double rightEncoderRPM = fabs(passiveEncoderRight.get_velocity()) *
                                  (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-
+ 
         double averageEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2.0;
-
+ 
         // Launch Phase
         if ((std::fabs(headingError) > fabs(p.breakDistance)) && !accelCompleted && !decel)
         {
@@ -165,16 +169,16 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
                 motorVoltageLeft, leftMotorRPM, averageEncoderRPM, p.accelFactor);
             double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
                 motorVoltageRight, rightMotorRPM, averageEncoderRPM, p.accelFactor);
-
+ 
             // Sync both sides to the slower of the two (prevents one side pulling ahead)
             double syncedMotorVoltage = std::min(fabs(leftTractionVoltage), fabs(rightTractionVoltage));
             motorVoltageLeft  = std::copysign(syncedMotorVoltage, motorVoltageLeft);
             motorVoltageRight = std::copysign(syncedMotorVoltage, motorVoltageRight);
-
+ 
             // Average of both sides — used to detect when cruise speed is reached
             averageMotorVoltage   = (fabs(motorVoltageLeft) + fabs(motorVoltageRight)) / 2.0;
             voltageRollingAverage = rollingAverage(averageMotorVoltage, voltageRollingAverage, 5);
-
+ 
             if (fabs(voltageRollingAverage) >= (fabs(maxSpeedVoltage) - VOLTAGE_TOLERANCE)) {
                 accelCompleted = true;
             }
@@ -195,29 +199,29 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
                 adaptiveABSRight.initialize(motorVoltageRight);
             }
             decel = true;
-
+ 
             double leftMotorRPMDecel    = fabs(leftDrive.get_actual_velocity())    * DRIVE_MOTOR_RPM_ADJ;
             double rightMotorRPMDecel   = fabs(rightDrive.get_actual_velocity())   * DRIVE_MOTOR_RPM_ADJ;
             double leftEncoderRPMDecel  = fabs(passiveEncoderLeft.get_velocity())  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
             double rightEncoderRPMDecel = fabs(passiveEncoderRight.get_velocity()) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-
+ 
             double leftDecelVoltage  = adaptiveABSLeft.decelControlSpeed(leftMotorRPMDecel,  leftEncoderRPMDecel);
             double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPMDecel, rightEncoderRPMDecel);
-
+ 
             pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
             pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
-
+ 
             // If either side wants to coast (lockup), sync both to coast
             pros::motor_brake_mode_e_t syncedBrakeMode =
                 (leftBrakeMode == pros::E_MOTOR_BRAKE_COAST || rightBrakeMode == pros::E_MOTOR_BRAKE_COAST)
                 ? pros::E_MOTOR_BRAKE_COAST
                 : pros::E_MOTOR_BRAKE_BRAKE;
-
+ 
             double syncedDecelVoltage = std::max(fabs(leftDecelVoltage), fabs(rightDecelVoltage));
-
+ 
             leftDrive.set_brake_mode(syncedBrakeMode);
             rightDrive.set_brake_mode(syncedBrakeMode);
-
+ 
             // Apply decel voltage or zero-out and let brake mode hold
             if (syncedBrakeMode == pros::E_MOTOR_BRAKE_BRAKE && syncedDecelVoltage > 0.0) {
                 motorVoltageLeft  = std::copysign(syncedDecelVoltage, motorVoltageLeft);
@@ -226,10 +230,10 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
                 motorVoltageLeft  = 0.0;
                 motorVoltageRight = 0.0;
             }
-
+ 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPMDecel,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPMDecel, rightEncoderRollingAverage, 3);
-
+ 
             if (fabs(leftEncoderRollingAverage)  <= fabs(minDriveMotorRPM) &&
                 fabs(rightEncoderRollingAverage) <= fabs(minDriveMotorRPM))
             {
@@ -243,14 +247,14 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
             motorVoltageLeft  = minSpeedVoltage;
             motorVoltageRight = minSpeedVoltage;
         }
-
+ 
         // Apply voltages — left side is negated because it faces opposite direction to right
         leftDrive.move_voltage((int32_t)(-motorVoltageLeft  * 1000));
         rightDrive.move_voltage((int32_t)( motorVoltageRight * 1000));
-
+ 
         pros::delay(10);
     }
-
+ 
     // Final stop with brake
     currentDrivePhase = PHASE_IDLE;
     leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
@@ -1083,16 +1087,78 @@ void visionDriveV2(
 // backwardToPoint calls this with reversed = true. In that case the heading
 // is flipped 180° once before the loop so the robot's rear faces the target,
 // and all phase voltages are negated so the robot drives backward. The heading
-// PID steers correctly throughout — positive correction still steers right
-// relative to the robot's facing direction.
 // ======================================================================
+// turnToPoint — Turn to face a field coordinate using shortest path.
+// Computes the minimum heading error from current position to (targetX, targetY)
+// and delegates to turnOdometry with the provided profile.
+// ======================================================================
+void turnToPoint(double targetX, double targetY, const TurnProfile& p) {
+    updateOdometry();
+
+    double deltaX = targetX - globalX;
+    double deltaY = targetY - globalY;
+
+    double targetStandardHeading  = atan2(deltaX, deltaY) * 180.0 / M_PI;
+    double currentStandardHeading = getContinuousStandardHeading();
+
+    // Shortest-path error: clamp to (-180, +180]
+    double headingError = targetStandardHeading - currentStandardHeading;
+    headingError = fmod(headingError + 540.0, 360.0) - 180.0;
+
+    // Snap target to continuous frame so turnOdometry sees a coherent heading
+    double finalTargetHeading = currentStandardHeading + headingError;
+
+    turnOdometry(finalTargetHeading, p);
+    updateOdometry();
+}
+
+// ======================================================================
+// turnLeftToPoint — Force a CCW turn to face a field coordinate.
+// Subtracts 360° until target sits below current heading.
+// ======================================================================
+void turnLeftToPoint(double targetX, double targetY, const TurnProfile& p) {
+    updateOdometry();
+
+    double deltaX = targetX - globalX;
+    double deltaY = targetY - globalY;
+
+    double targetHeading  = atan2(deltaX, deltaY) * 180.0 / M_PI;
+    double currentHeading = getContinuousStandardHeading();
+
+    // Force CCW: target must be less than current - exitTolerance
+    while (targetHeading >= currentHeading - p.exitTolerance) targetHeading -= 360.0;
+
+    turnOdometry(targetHeading, p);
+    updateOdometry();
+}
+
+// ======================================================================
+// turnRightToPoint — Force a CW turn to face a field coordinate.
+// Adds 360° until target sits above current heading.
+// ======================================================================
+void turnRightToPoint(double targetX, double targetY, const TurnProfile& p) {
+    updateOdometry();
+
+    double deltaX = targetX - globalX;
+    double deltaY = targetY - globalY;
+
+    double targetHeading  = atan2(deltaX, deltaY) * 180.0 / M_PI;
+    double currentHeading = getContinuousStandardHeading();
+
+    // Force CW: target must be greater than current + exitTolerance
+    while (targetHeading <= currentHeading + p.exitTolerance) targetHeading += 360.0;
+
+    turnOdometry(targetHeading, p);
+    updateOdometry();
+}
+
 // ======================================================================
 // forwardToPoint — Closed-loop point-to-point drive using live odometry.
 //
 // Re-computes heading and remaining distance to (targetX, targetY) each tick.
-// Drives forward only. Use backwardToPoint for reverse approach.
+// For reverse approach use backwardToPoint — a fully separate implementation.
 // ======================================================================
-void forwardToPoint(double targetX, double targetY, const StraightProfile& p, bool /*reversed*/)
+void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
 {
     const int REQUIRED_CONSECUTIVE_STOPS = 3;
 
@@ -1427,8 +1493,8 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
 
             leftDrive.set_brake_mode(leftBrakeMode);
             rightDrive.set_brake_mode(rightBrakeMode);
-            motorVoltageLeft  = std::min(0.0, -adjustedHeadingCorrection);
-            motorVoltageRight = std::min(0.0,  adjustedHeadingCorrection);
+            motorVoltageLeft  = std::min(0.0,  adjustedHeadingCorrection);
+            motorVoltageRight = std::min(0.0, -adjustedHeadingCorrection);
 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);

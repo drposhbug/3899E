@@ -131,9 +131,10 @@ void updateOdometry() {
     globalY += deltaYPos;
     globalRotation = currentRotation;
 
-    // Debug: Print position to brain screen (North-Up heading for readability)
+    // Debug: Print position to brain screen
+    // H shown as continuous heading — same value used by PID and motion functions
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "X: %.2f, Y: %.2f, H: %.2f",
-                        globalX, globalY, getNormalizedHeading());
+                        globalX, globalY, getContinuousStandardHeading());
 }
 
 // ======================================================================
@@ -148,86 +149,8 @@ void calculatePathToTarget(double currentX, double currentY, double targetX, dou
     heading = atan2(deltaX, deltaY) * 180.0 / M_PI;
 }
 
-// ======================================================================
-// Turn to face a target field point using shortest path
-// Uses continuous heading for accurate error calculation
-// ======================================================================
-void turnToPoint(double targetX, double targetY, double breakDistanceInDegrees,
-                 double minSpeed, double maxSpeed) {
-    currentState = TURNING;
-    updateOdometry();
-    
-    double deltaX = targetX - globalX;
-    double deltaY = targetY - globalY;
-    
-    double targetStandardHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
-    double currentStandardHeading = getContinuousStandardHeading();
-    
-    double headingError = targetStandardHeading - currentStandardHeading;
-    headingError = fmod(headingError + 540.0, 360.0) - 180.0;
-    
-    double finalTargetHeading = currentStandardHeading + headingError;
-    
-    TurnProfile p  = DEFAULT_TURN;
-    p.breakDistance = breakDistanceInDegrees;
-    p.minSpeed      = minSpeed;
-    p.maxSpeed      = maxSpeed;
-    p.exitTolerance = 0.5;  // Explicit tight tolerance — 16° default was a bug
-    turnOdometry(finalTargetHeading, p);
-    updateOdometry();
-    currentState = STATIONARY;
-}
-
-void turnLeftToPoint(double targetX, double targetY, double breakDistanceInDegrees,
-                     double minSpeed, double maxSpeed, double exitTolerance) {
-    currentState = TURNING;
-    updateOdometry();
-    
-    double deltaX = targetX - globalX;
-    double deltaY = targetY - globalY;
-    
-    double targetAbsoluteHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
-    double currentHeading = getContinuousStandardHeading();
-    
-    double targetHeading = targetAbsoluteHeading;
-    while (targetHeading >= currentHeading + 0.5) targetHeading -= 360.0;
-    
-    TurnProfile p  = DEFAULT_TURN;
-    p.breakDistance = breakDistanceInDegrees;
-    p.minSpeed      = minSpeed;
-    p.maxSpeed      = maxSpeed;
-    p.exitTolerance = exitTolerance;
-    turnOdometry(targetHeading, p);
-    updateOdometry();
-    currentState = STATIONARY;
-}
-
-void turnRightToPoint(double targetX, double targetY, double breakDistanceInDegrees,
-                      double minSpeed, double maxSpeed, double exitTolerance) {
-    currentState = TURNING;
-    updateOdometry();
-    
-    double deltaX = targetX - globalX;
-    double deltaY = targetY - globalY;
-    
-    double targetStandardHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
-    double currentStandardHeading = getContinuousStandardHeading();
-    
-    double targetHeading = targetStandardHeading;
-    while (targetHeading <= currentStandardHeading - 0.5) targetHeading += 360.0;
-    
-    TurnProfile p2  = DEFAULT_TURN;
-    p2.breakDistance = breakDistanceInDegrees;
-    p2.minSpeed      = minSpeed;
-    p2.maxSpeed      = maxSpeed;
-    p2.exitTolerance = exitTolerance;
-    turnOdometry(targetHeading, p2);
-    updateOdometry();
-    currentState = STATIONARY;
-}
-
-// forwardToPoint / backwardToPoint — implemented in navigation.cpp.
-// Removed from odometry.cpp to prevent duplicate definition errors.
+// ── All point-to-point navigation functions (turnToPoint, forwardToPoint, etc.)
+// are implemented in navigation.cpp.
 
 // ======================================================================
 // Background task for continuous odometry updates

@@ -173,47 +173,8 @@ extern ArmPosition armstat;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MOTION PROFILE DEFAULT PARAMETERS
+// Moved to motion_config.h — single source of truth for all motion defaults.
 // ══════════════════════════════════════════════════════════════════════════════
-// Tuned defaults for each motion type. Navigation functions use these as
-// default argument values — call sites only need to pass what they change.
-namespace MotionDefaults {
-
-    namespace StraightForward {
-        constexpr double BREAK_DISTANCE           = 35.0;  // cm before target to begin decel
-        constexpr double MIN_SPEED                = 20.0;  // minimum speed % during approach
-        constexpr double MAX_SPEED                = 100.0; // peak speed %
-        constexpr double KP_HEADING               = 0.615; // proportional heading correction gain
-        constexpr double KI_HEADING               = 0.0;
-        constexpr double KD_HEADING               = 0.0;
-        constexpr double ACCEL_HEADING_SCALING    = 0.10;  // heading correction weight during accel
-        constexpr double DECEL_HEADING_SCALING    = 0.05;  // heading correction weight during decel
-        constexpr double APPROACH_HEADING_SCALING = 0.05;  // heading correction weight in final approach
-    }
-
-    namespace StraightBackward {
-        constexpr double BREAK_DISTANCE           = 30.0;
-        constexpr double MIN_SPEED                = 20.0;
-        constexpr double MAX_SPEED                = 80.0;
-        constexpr double KP_HEADING               = 0.8;
-        constexpr double KI_HEADING               = 0.0;
-        constexpr double KD_HEADING               = 0.0;
-        constexpr double ACCEL_HEADING_SCALING    = 0.08;
-        constexpr double DECEL_HEADING_SCALING    = 0.06;
-        constexpr double APPROACH_HEADING_SCALING = 0.06;
-    }
-
-    namespace TurningLeft {
-        constexpr double BREAK_DISTANCE = 5.0;   // degrees before target to begin decel
-        constexpr double MIN_SPEED      = 20.0;
-        constexpr double MAX_SPEED      = 100.0;
-    }
-
-    namespace TurningRight {
-        constexpr double BREAK_DISTANCE = 5.0;
-        constexpr double MIN_SPEED      = 20.0;
-        constexpr double MAX_SPEED      = 100.0;
-    }
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ROBOT INITIALIZATION
