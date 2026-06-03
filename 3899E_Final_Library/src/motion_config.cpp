@@ -94,6 +94,7 @@ const TurnProfile DEFAULT_TURN = {
     .minSpeed         = 25.0,   // %
     .maxSpeed         = 100.0,  // %
     .exitTolerance    = 0.5,    // degrees — tight; 16° default in turnOdometry was a bug
+    .timeout          = 3.0,    // seconds
 
     // ── Internal motion constants ─────────────────────────────────────────────
     // Deliberately different from straight — turns require faster traction response.
@@ -113,6 +114,7 @@ const TurnProfile DEFAULT_PIVOT = {
     .minSpeed         = 20.0,   // %
     .maxSpeed         = 100.0,  // %
     .exitTolerance    = 2.0,    // degrees — wider tolerance suits pivot dynamics
+    .timeout          = 3.0,    // seconds
 
     // ── Internal motion constants ─────────────────────────────────────────────
     // Pivot turns have no traction/ABS system — these fields are unused.

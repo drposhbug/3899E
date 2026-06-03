@@ -111,17 +111,32 @@ void driveBackward(double targetDistance,
                    const StraightProfile& p = BACKWARD_STRAIGHT);
 
 // ══════════════════════════════════════════════════════════════════════════════
+// POINT-TO-POINT TURN HELPERS
+// Turn the robot to face a field coordinate rather than an absolute heading.
+// All use TurnProfile — single source of truth for turn tuning.
+//
+// turnToPoint      — shortest path automatically
+// turnLeftToPoint  — forces CCW turn
+// turnRightToPoint — forces CW turn
+// ══════════════════════════════════════════════════════════════════════════════
+void turnToPoint(double targetX, double targetY,
+                 const TurnProfile& p = DEFAULT_TURN);
+
+void turnLeftToPoint(double targetX, double targetY,
+                     const TurnProfile& p = DEFAULT_TURN);
+
+void turnRightToPoint(double targetX, double targetY,
+                      const TurnProfile& p = DEFAULT_TURN);
+
+// ══════════════════════════════════════════════════════════════════════════════
 // CORE ODOMETRY ENGINE
 // Closed-loop — re-computes heading and distance to (x, y) each tick.
-// forwardToPoint drives forward; backwardToPoint drives backward.
-// Both use the same heading convention: nose points toward target.
-// reversed flag is handled internally — voltage negated at motor output each
-// tick after distance is recalculated (sqrt always returns positive).
+// forwardToPoint: forward approach.
+// backwardToPoint: separate implementation — rear faces target, drives backward.
 // ══════════════════════════════════════════════════════════════════════════════
 void forwardToPoint(double targetX,
                     double targetY,
-                    const StraightProfile& p = DEFAULT_STRAIGHT,
-                    bool   reversed          = false);
+                    const StraightProfile& p = DEFAULT_STRAIGHT);
 
 void backwardToPoint(double targetX,
                      double targetY,

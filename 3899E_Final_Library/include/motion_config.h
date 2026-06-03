@@ -75,6 +75,7 @@ struct TurnProfile {
     double minSpeed;                // approach phase speed %
     double maxSpeed;                // peak turn speed %
     double exitTolerance;           // acceptable heading error to declare turn complete (degrees)
+    double timeout;                 // maximum run time (seconds)
 
     // ── Internal motion constants ─────────────────────────────────────────────
     // Turn-specific values — deliberately different from StraightProfile.
