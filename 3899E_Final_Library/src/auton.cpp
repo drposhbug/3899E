@@ -70,22 +70,22 @@ void navTest() {
     pros::delay(200);
 
     StraightProfile driveProfile = DEFAULT_STRAIGHT;
-    driveProfile.breakDistance          = 120.0;   // cm before target to begin decel
+    driveProfile.breakDistance          = 50.0;   // cm before target to begin decel
     driveProfile.minSpeed               = 20.0;   // % minimum approach speed
     driveProfile.maxSpeed               = 80.0;   // % peak cruise speed
     driveProfile.distanceTolerance      = 2.0;    // cm exit bubble
     driveProfile.timeout                = 5.0;    // seconds 5 sec default
     driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-    driveProfile.kp_heading             = 0.3;    // heading PID proportional
+    driveProfile.kp_heading             = 1.5;    // heading PID proportional
     driveProfile.ki_heading             = 0.0;    // heading PID integral
     driveProfile.kd_heading             = 0.0;    // heading PID derivative
-    driveProfile.accelHeadingScaling    = 0.05;    // correction weight during accel
+    driveProfile.accelHeadingScaling    = 0.1;    // correction weight during accel
     driveProfile.decelHeadingScaling    = 0.0;    // correction weight during decel
     driveProfile.approachHeadingScaling = 0.0;    // correction weight during approach
     driveProfile.headingLockDistance    = 3.0;    // cm — freeze heading near target
-    driveProfile.launchVoltage          = 3.5;    // V — initial kick voltage
+    driveProfile.launchVoltage          = 6.0;    // V — initial kick voltage
     driveProfile.accelFactor            = 1.0;    // traction ramp multiplier
-    driveProfile.slipThreshold          = 0.0;   // RPM slip before traction cuts in
+    driveProfile.slipThreshold          = 1.0;   // RPM slip before traction cuts in
     driveProfile.decelStepPercent       = 0.45;   // ABS voltage reduction per step
     driveProfile.lockThreshold          = 0.0;   // wheel lockup ratio
 
@@ -133,12 +133,12 @@ void navTest() {
     driveForward(150.0, 0.0, driveProfile);
     pros::delay(500);
     // setStartPosition(0.0, 150.0, 0.0);
-    driveBackward(150.0, 0.0, driveProfile);
-    pros::delay(500);
-    setStartPosition(0,0,0);
-    driveForward(50,0,driveProfile);
-    pros::delay(500);
-    driveBackward(50,0,driveProfile);
+    // driveBackward(150.0, 0.0, driveProfile);
+    // pros::delay(500);
+    // setStartPosition(0,0,0);
+    // driveForward(50,0,driveProfile);
+    // pros::delay(500);
+    // driveBackward(50,0,driveProfile);
 }
 
 
