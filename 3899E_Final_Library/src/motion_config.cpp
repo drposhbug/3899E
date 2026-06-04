@@ -46,6 +46,8 @@ const StraightProfile DEFAULT_STRAIGHT = {
     .slipThreshold          = 20.0,
     .decelStepPercent       = 0.45,
     .lockThreshold          = 0.25,
+    .maxCurrentA            = 12.0,   // amps — trip if sustained above this
+    .overcurrentDurationMs   = 500,    // ms current must stay high before tripping
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -81,6 +83,8 @@ const StraightProfile BACKWARD_STRAIGHT = {
     .slipThreshold          = 20.0,
     .decelStepPercent       = 0.45,
     .lockThreshold          = 0.25,
+    .maxCurrentA            = 12.0,   // amps
+    .overcurrentDurationMs   = 500,    // ms
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -102,6 +106,8 @@ const TurnProfile DEFAULT_TURN = {
     .slipThreshold    = 10.0,
     .decelStepPercent = 20.0,
     .lockThreshold    = 10.0,
+    .maxCurrentA            = 12.0,   // amps
+    .overcurrentDurationMs   = 500,    // ms
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -123,6 +129,8 @@ const TurnProfile DEFAULT_PIVOT = {
     .slipThreshold    = 0.0,
     .decelStepPercent = 0.0,
     .lockThreshold    = 0.0,
+    .maxCurrentA            = 12.0,   // amps
+    .overcurrentDurationMs   = 500,    // ms
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -167,4 +175,6 @@ const VisionProfile DEFAULT_VISION = {
     .slipThreshold          = 20.0,
     .decelStepPercent       = 0.45,
     .lockThreshold          = 0.25,
+    .maxCurrentA            = 12.0,   // amps
+    .overcurrentDurationMs   = 500,    // ms
 };

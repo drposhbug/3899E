@@ -62,6 +62,13 @@ struct StraightProfile {
     double slipThreshold;           // motor vs encoder RPM difference before traction cuts in
     double decelStepPercent;        // ABS voltage reduction per step during decel
     double lockThreshold;           // encoder/motor RPM ratio that declares wheel lockup
+
+    // ── Overcurrent protection ────────────────────────────────────────────────
+    // Circuit breaker — exits the move if drive current stays above maxCurrentA
+    // for overcurrentDurationMs milliseconds. Protects against stalls and jams.
+    // Set maxCurrentA = 50.0 to disable.
+    double   maxCurrentA;           // total drive current trip threshold (amps)
+    uint32_t overcurrentDurationMs;  // ms current must stay high before tripping
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -83,6 +90,13 @@ struct TurnProfile {
     double slipThreshold;           // motor vs encoder RPM difference before traction cuts in
     double decelStepPercent;        // ABS voltage reduction per step during decel
     double lockThreshold;           // encoder/motor RPM ratio that declares wheel lockup
+
+    // ── Overcurrent protection ────────────────────────────────────────────────
+    // Circuit breaker — exits the move if drive current stays above maxCurrentA
+    // for overcurrentDurationMs milliseconds. Protects against stalls and jams.
+    // Set maxCurrentA = 50.0 to disable.
+    double   maxCurrentA;           // total drive current trip threshold (amps)
+    uint32_t overcurrentDurationMs;  // ms current must stay high before tripping
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -134,6 +148,13 @@ struct VisionProfile {
     double slipThreshold;           // motor vs encoder RPM difference before traction cuts in
     double decelStepPercent;        // ABS voltage reduction per step during decel
     double lockThreshold;           // encoder/motor RPM ratio that declares wheel lockup
+
+    // ── Overcurrent protection ────────────────────────────────────────────────
+    // Circuit breaker — exits the move if drive current stays above maxCurrentA
+    // for overcurrentDurationMs milliseconds. Protects against stalls and jams.
+    // Set maxCurrentA = 50.0 to disable.
+    double   maxCurrentA;           // total drive current trip threshold (amps)
+    uint32_t overcurrentDurationMs;  // ms current must stay high before tripping
 };
 
 

@@ -68,8 +68,8 @@ void smartMove(double distanceCM, double maxSpeed, bool reversed, double wallSta
 
     while (fabs(distanceTravelled) < fabs(distanceCM) && !wallDetected) {
         distanceTravelled = getCurrentEncoderDistanceCM() - startDist;
-        double avgEncoderSpeed = (fabs(passiveEncoderLeft.get_velocity()) +
-                                  fabs(passiveEncoderRight.get_velocity())) / 2.0;
+        double avgEncoderSpeed = (std::fabs(globalLeftEncoderRPM) +
+                                  std::fabs(globalRightEncoderRPM)) / 2.0;
 
         // Wall stall: if encoder barely moving, start (or extend) stall timer
         if (wallDetectEnabled) {
@@ -129,7 +129,7 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
     double leftEncoderRollingAverage  = 0;
     double rightEncoderRollingAverage = 0;
     double voltageRollingAverage      = 0;
- 
+    double averageEncoderRPMSmoothed  = 0;
     adaptiveABS adaptiveABSLeft(p.decelStepPercent, p.lockThreshold);
     adaptiveABS adaptiveABSRight(p.decelStepPercent, p.lockThreshold);
  
@@ -138,11 +138,31 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
  
     uint32_t safetyStart = pros::millis();
     double timeoutMs     = p.timeout * 1000.0;
+    bool     isOvercurrent      = false;
+    uint32_t overcurrentStartTime = 0;
  
     // Loop to continuously adjust motor power
     while (std::fabs(currentHeading - startHeading) <= std::fabs(totalTurnDistance) - p.exitTolerance)
     {
         if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
+
+        // ── Overcurrent circuit breaker ───────────────────────────────────────
+        // Trips if total drive current stays above threshold for overcurrentDurationMs.
+        // Arms after 200ms (ignores launch-surge spike); then trips if overcurrent persists for overcurrentDurationMs.
+        {
+            double totalCurrentA = (leftDrive.get_current_draw() + rightDrive.get_current_draw()) / 1000.0;
+            if (totalCurrentA > p.maxCurrentA) {
+                if (!isOvercurrent) {
+                    overcurrentStartTime = pros::millis();
+                    isOvercurrent = true;
+                } else if ((pros::millis() - overcurrentStartTime) > p.overcurrentDurationMs &&
+                           (pros::millis() - safetyStart) > 200u) {
+                    break;
+                }
+            } else {
+                isOvercurrent = false;
+            }
+        }
         currentHeading = getContinuousStandardHeading();
         headingError   = targetRotationHeading - currentHeading;
  
@@ -150,25 +170,24 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
         pros::screen::print(pros::E_TEXT_MEDIUM, 7, "Target: %.2f", targetHeading);
  
         // Read speeds; MotorGroup get_actual_velocity() returns average across all motors
-        double leftMotorRPM  = fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM = fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ;
+        double leftMotorRPM  = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double rightMotorRPM = std::fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
  
         // Encoder RPM scaled to the same units as drive motor RPM
-        double leftEncoderRPM  = fabs(passiveEncoderLeft.get_velocity())  *
-                                 (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = fabs(passiveEncoderRight.get_velocity()) *
-                                 (encoderWheelCircumferenceCM / wheelCircumferenceCM);
- 
+        double leftEncoderRPM  = std::fabs(globalLeftEncoderRPM)  * encoderWheelCircumferenceCM / 60.0;
+        double rightEncoderRPM = std::fabs(globalRightEncoderRPM) * encoderWheelCircumferenceCM / 60.0;
+
         double averageEncoderRPM = (leftEncoderRPM + rightEncoderRPM) / 2.0;
+        averageEncoderRPMSmoothed = rollingAverage(averageEncoderRPM, averageEncoderRPMSmoothed, 3);
  
         // Launch Phase
         if ((std::fabs(headingError) > fabs(p.breakDistance)) && !accelCompleted && !decel)
         {
             currentDrivePhase = PHASE_LAUNCH;
             double leftTractionVoltage  = tractionControlLeft.tractionControlSpeed(
-                motorVoltageLeft, leftMotorRPM, averageEncoderRPM, p.accelFactor);
+                motorVoltageLeft, leftMotorRPM, averageEncoderRPMSmoothed, p.accelFactor);
             double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
-                motorVoltageRight, rightMotorRPM, averageEncoderRPM, p.accelFactor);
+                motorVoltageRight, rightMotorRPM, averageEncoderRPMSmoothed, p.accelFactor);
  
             // Sync both sides to the slower of the two (prevents one side pulling ahead)
             double syncedMotorVoltage = std::min(fabs(leftTractionVoltage), fabs(rightTractionVoltage));
@@ -200,10 +219,10 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
             }
             decel = true;
  
-            double leftMotorRPMDecel    = fabs(leftDrive.get_actual_velocity())    * DRIVE_MOTOR_RPM_ADJ;
-            double rightMotorRPMDecel   = fabs(rightDrive.get_actual_velocity())   * DRIVE_MOTOR_RPM_ADJ;
-            double leftEncoderRPMDecel  = fabs(passiveEncoderLeft.get_velocity())  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-            double rightEncoderRPMDecel = fabs(passiveEncoderRight.get_velocity()) * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            double leftMotorRPMDecel    = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+            double rightMotorRPMDecel   = std::fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+            double leftEncoderRPMDecel  = std::fabs(globalLeftEncoderRPM)  * encoderWheelCircumferenceCM / 60.0;
+            double rightEncoderRPMDecel = std::fabs(globalRightEncoderRPM) * encoderWheelCircumferenceCM / 60.0;
  
             double leftDecelVoltage  = adaptiveABSLeft.decelControlSpeed(leftMotorRPMDecel,  leftEncoderRPMDecel);
             double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPMDecel, rightEncoderRPMDecel);
@@ -286,6 +305,12 @@ void adaptiveABS::initialize(double startingVoltage) {
 
 // Steps down voltage; switches to coast if lockup detected, back to brake once cleared
 double adaptiveABS::decelControlSpeed(double wheelSpeed, double robotSpeed) {
+    // Below deadband: robot nearly stopped, lockup math unreliable — hold brake and exit cleanly.
+    // 4.0 cm/s ≈ 15 RPM × encoderWheelCircumference ÷ 60; same threshold, now in cm/s units.
+    if (std::fabs(robotSpeed) < 4.0) {
+        currentBrakeMode = pros::E_MOTOR_BRAKE_BRAKE;
+        return lastAttemptedVoltage;
+    }
     double lockupRatio = calculateLockupRatio(wheelSpeed, robotSpeed);
     if (lockupRatio > lockThreshold) {
         lastAttemptedVoltage = 0.0;
@@ -370,8 +395,9 @@ void straightDistance(double targetDistance, double targetHeading, const Straigh
     double minSpeedVoltage       = std::copysign(p.minSpeed * 0.01 * absoluteMaxVoltage, targetDistance);
     double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(p.launchVoltage)), targetDistance);
 
-    // Calculate minimum RPM threshold for deceleration exit detection
-    double minDriveMotorRPM = (p.minSpeed * 0.01) * absoluteMaxRPM;
+    // Minimum speed threshold for decel exit — converted to cm/s to match encoder rolling average.
+    // minSpeed% × 600 RPM × encoderCircumference ÷ 60 = cm/s at the encoder wheel.
+    double minDriveMotorRPM = (p.minSpeed * 0.01) * absoluteMaxRPM * encoderWheelCircumferenceCM / 60.0;
 
     // Per-side voltage tracking — plain doubles, one per side
     // Separate traction state from PID-corrected output — prevents heading correction
@@ -390,6 +416,14 @@ void straightDistance(double targetDistance, double targetHeading, const Straigh
     double leftEncoderRollingAverage  = 0;
     double rightEncoderRollingAverage = 0;
 
+    // Smoothed encoder speed for traction control — raw single-tick delta is too noisy
+    double leftEncoderRPMSmoothed  = 0;
+    double rightEncoderRPMSmoothed = 0;
+
+    // Consecutive ticks below minDriveMotorRPM required before decelCompleted — matches V2
+    int consecutiveAtTargetCount    = 0;
+    const int REQUIRED_CONSECUTIVE_DECEL = 3;
+
     // Traction control instances for independent per-side slip management
     tractionControl tractionControlLeft(minLaunchSpeedVoltage, maxSpeedVoltage, p.slipThreshold);
     tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, p.slipThreshold);
@@ -401,6 +435,8 @@ void straightDistance(double targetDistance, double targetHeading, const Straigh
     // Timeout safety: record entry time, compare each tick
     uint32_t safetyStart = pros::millis();
     double timeoutMs     = p.timeout * 1000.0;
+    bool     isOvercurrent      = false;
+    uint32_t overcurrentStartTime = 0;
 
     // ═══════════════════════════════════════════════════════════════════
     // MAIN CONTROL LOOP
@@ -419,13 +455,35 @@ void straightDistance(double targetDistance, double targetHeading, const Straigh
             break;  // Prevent infinite loop on sensor failure or unreachable target
         }
 
-        // Read encoder speeds (ground truth) scaled by wheel size ratio
-        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        // ── Overcurrent circuit breaker ───────────────────────────────────────
+        {
+            double totalCurrentA = (leftDrive.get_current_draw() + rightDrive.get_current_draw()) / 1000.0;
+            if (totalCurrentA > p.maxCurrentA) {
+                if (!isOvercurrent) {
+                    overcurrentStartTime = pros::millis();
+                    isOvercurrent = true;
+                } else if ((pros::millis() - overcurrentStartTime) > p.overcurrentDurationMs &&
+                           (pros::millis() - safetyStart) > 200u) {
+                    break;
+                }
+            } else {
+                isOvercurrent = false;
+            }
+        }
+        // This is the only apples-to-apples comparison — both measure robot speed over ground.
+        // Motor:   shaft RPM × DRIVE_MOTOR_RPM_ADJ (→ wheel RPM) × circumference ÷ 60
+        // Encoder: encoder RPM × encoder circumference ÷ 60
+        // No cross-wheel ratio needed — each wheel handles its own unit conversion.
+        double leftMotorSpeed  = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double rightMotorSpeed = std::fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double leftEncoderSpeed  = std::fabs(globalLeftEncoderRPM)  * encoderWheelCircumferenceCM / 60.0;
+        double rightEncoderSpeed = std::fabs(globalRightEncoderRPM) * encoderWheelCircumferenceCM / 60.0;
 
-        // MotorGroup get_actual_velocity() returns average across all motors on that side
-        double leftMotorRPM  = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+        // Smooth the raw encoder speed — globalLeftEncoderRPM is a single-tick delta
+        // (10ms window), too noisy to feed directly into slip ratio math.
+        // 5-sample rolling average matches the internal smoothing of get_actual_velocity().
+        leftEncoderRPMSmoothed  = rollingAverage(leftEncoderSpeed,  leftEncoderRPMSmoothed,  3);
+        rightEncoderRPMSmoothed = rollingAverage(rightEncoderSpeed, rightEncoderRPMSmoothed, 3);
 
         // ───────────────────────────────────────────────────────────────
         // PHASE 1: LAUNCH / ACCELERATION
@@ -438,17 +496,20 @@ void straightDistance(double targetDistance, double targetHeading, const Straigh
 
             // Update traction state independently — heading correction does not feed back in
             tractionVoltageLeft  = tractionControlLeft.tractionControlSpeed(
-                tractionVoltageLeft, leftMotorRPM, leftEncoderRPM, p.accelFactor);
+                tractionVoltageLeft, leftMotorSpeed, leftEncoderRPMSmoothed, p.accelFactor);
             tractionVoltageRight = tractionControlRight.tractionControlSpeed(
-                tractionVoltageRight, rightMotorRPM, rightEncoderRPM, p.accelFactor);
+                tractionVoltageRight, rightMotorSpeed, rightEncoderRPMSmoothed, p.accelFactor);
 
-            // Apply heading correction on top of traction base — forgotten next tick
-            motorVoltageLeft  = tractionVoltageLeft  + (headingCorrection * p.accelHeadingScaling);
-            motorVoltageRight = tractionVoltageRight - (headingCorrection * p.accelHeadingScaling);
+            // Sync both sides to the lower voltage — prevents veering when one side slips more
+            double syncedMotorVoltage = (std::fabs(tractionVoltageLeft) < std::fabs(tractionVoltageRight))
+                                        ? tractionVoltageLeft : tractionVoltageRight;
 
-            // Exit condition checks traction base, not PID-skewed motor output
-            if (std::fabs(tractionVoltageLeft)  >= std::fabs(maxSpeedVoltage) &&
-                std::fabs(tractionVoltageRight) >= std::fabs(maxSpeedVoltage))
+            // Apply heading correction on top of synchronized base
+            motorVoltageLeft  = syncedMotorVoltage + (headingCorrection * p.accelHeadingScaling);
+            motorVoltageRight = syncedMotorVoltage - (headingCorrection * p.accelHeadingScaling);
+
+            // Exit condition checks synced base, not PID-skewed motor output
+            if (std::fabs(syncedMotorVoltage) >= std::fabs(maxSpeedVoltage))
             {
                 accelCompleted = true;
             }
@@ -478,40 +539,57 @@ void straightDistance(double targetDistance, double targetHeading, const Straigh
             // Initialize ABS controllers on first entry to deceleration phase
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight));
+                adaptiveABSLeft.initialize(motorVoltageLeft);
+                adaptiveABSRight.initialize(motorVoltageRight);
             }
 
-            // Update ABS state based on wheel lockup detection
-            adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+            // Get independent decel voltages and brake modes from ABS
+            double leftDecelVoltage  = adaptiveABSLeft.decelControlSpeed(leftMotorSpeed,  leftEncoderRPMSmoothed);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorSpeed, rightEncoderRPMSmoothed);
 
-            // Get independent brake modes for each side (coast = locked wheel, brake = normal)
             pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
             pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
-            // Scale heading correction for deceleration phase.
+            // Sync brake mode — if either side is coasting (locked wheel detected), both coast.
+            // Prevents one side braking hard while the other freewheels, which causes severe yaw.
+            pros::motor_brake_mode_e_t syncedBrakeMode =
+                (leftBrakeMode == pros::E_MOTOR_BRAKE_COAST || rightBrakeMode == pros::E_MOTOR_BRAKE_COAST)
+                ? pros::E_MOTOR_BRAKE_COAST
+                : pros::E_MOTOR_BRAKE_BRAKE;
+
+            // Sync decel voltage to the lower of the two sides.
+            // The more-locked side dictates the limit — prevents yaw from asymmetric braking.
+            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
+                ? leftDecelVoltage : rightDecelVoltage;
+
+            // Apply heading correction scaled for decel phase.
             // dir is NOT applied here — dirSign handles motor direction at output.
-            // Applying dir here would reverse the steering correction for backward driving.
-            double adjustedHeadingCorrection = headingCorrection * p.decelHeadingScaling;
+            double steeringCorrection = headingCorrection * p.decelHeadingScaling;
 
-            // Set per-side brake modes; apply selective-release steering voltages
-            leftDrive.set_brake_mode(leftBrakeMode);
-            rightDrive.set_brake_mode(rightBrakeMode);
+            leftDrive.set_brake_mode(syncedBrakeMode);
+            rightDrive.set_brake_mode(syncedBrakeMode);
 
-            // Selective release: only apply positive correction values for steering
-            motorVoltageLeft  = std::max(0.0,  adjustedHeadingCorrection);
-            motorVoltageRight = std::max(0.0, -adjustedHeadingCorrection);
+            // If ABS commands coast, zero the base voltage but keep steering active.
+            // Standard differential: left + correction, right - correction.
+            double baseVoltage    = (syncedBrakeMode == pros::E_MOTOR_BRAKE_COAST) ? 0.0 : syncedDecelVoltage;
+            motorVoltageLeft  = baseVoltage + steeringCorrection;
+            motorVoltageRight = baseVoltage - steeringCorrection;
 
-            // Rolling averages filter momentary encoder spikes
-            leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
-            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+            // Rolling averages filter momentary encoder spikes for decel exit detection
+            // Window of 10 matches V2 — wider average prevents premature exit on noise spikes
+            leftEncoderRollingAverage  = rollingAverage(leftEncoderRPMSmoothed,  leftEncoderRollingAverage,  10);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPMSmoothed, rightEncoderRollingAverage, 10);
 
-            // Both sides must slow below threshold before transitioning to approach
+            // Require 3 consecutive ticks below threshold before declaring decel done — matches V2
             if (std::fabs(leftEncoderRollingAverage)  <= std::fabs(minDriveMotorRPM) &&
                 std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM))
             {
-                decelCompleted = true;
+                if (++consecutiveAtTargetCount >= REQUIRED_CONSECUTIVE_DECEL)
+                    decelCompleted = true;
+            }
+            else
+            {
+                consecutiveAtTargetCount = 0;
             }
         }
 
@@ -604,8 +682,8 @@ void smartStraight(double targetDistance, double breakDistance, double targetHea
         currentHeading = getContinuousStandardHeading();
         double headingCorrection = headingPID.calculate(targetHeadingStandard, currentHeading);
 
-        double avgRPM = (std::fabs(passiveEncoderLeft.get_velocity()) +
-                         std::fabs(passiveEncoderRight.get_velocity())) / 2.0;
+        double avgRPM = (std::fabs(globalLeftEncoderRPM) +
+                         std::fabs(globalRightEncoderRPM)) / 2.0;
 
         // Wall stall detection
         if (wallStalledTimeMs > 0) {
@@ -676,6 +754,11 @@ void pivotTurnOdometryV2(double targetHeading, const TurnProfile& p)
     double motorVoltageLeft  = 0;
     double motorVoltageRight = 0;
 
+    uint32_t safetyStart          = pros::millis();
+    double   timeoutMs            = p.timeout * 1000.0;
+    bool     isOvercurrent        = false;
+    uint32_t overcurrentStartTime = 0;
+
     // Main loop — continue until within tolerance
     while (true)
     {
@@ -684,6 +767,25 @@ void pivotTurnOdometryV2(double targetHeading, const TurnProfile& p)
 
         // Exit condition
         if (std::fabs(headingError) <= p.exitTolerance) break;
+
+        // Timeout safety
+        if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
+
+        // ── Overcurrent circuit breaker ───────────────────────────────────────
+        {
+            double totalCurrentA = (leftDrive.get_current_draw() + rightDrive.get_current_draw()) / 1000.0;
+            if (totalCurrentA > p.maxCurrentA) {
+                if (!isOvercurrent) {
+                    overcurrentStartTime = pros::millis();
+                    isOvercurrent = true;
+                } else if ((pros::millis() - overcurrentStartTime) > p.overcurrentDurationMs &&
+                           (pros::millis() - safetyStart) > 200u) {
+                    break;
+                }
+            } else {
+                isOvercurrent = false;
+            }
+        }
 
         // ───────────────────────────────────────────────
         // LAUNCH / ACCEL PHASE
@@ -1189,6 +1291,8 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
     bool accelCompleted = false;
 
     double leftEncoderRollingAverage  = 0;
+    double leftEncoderRPMSmoothed  = 0;
+    double rightEncoderRPMSmoothed = 0;
     double rightEncoderRollingAverage = 0;
     int consecutiveAtTargetCount = 0;
     bool   headingLocked      = false;
@@ -1201,6 +1305,8 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
 
     uint32_t safetyStart = pros::millis();
     double timeoutMs     = p.timeout * 1000.0;
+    bool     isOvercurrent      = false;
+    uint32_t overcurrentStartTime = 0;
 
     while (true)
     {
@@ -1213,6 +1319,24 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
 
         // ── 2. TIMEOUT ─────────────────────────────────────────────────
         if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
+
+        // ── Overcurrent circuit breaker ───────────────────────────────────────
+        // Trips if total drive current stays above threshold for overcurrentDurationMs.
+        // Arms after 200ms (ignores launch-surge spike); then trips if overcurrent persists for overcurrentDurationMs.
+        {
+            double totalCurrentA = (leftDrive.get_current_draw() + rightDrive.get_current_draw()) / 1000.0;
+            if (totalCurrentA > p.maxCurrentA) {
+                if (!isOvercurrent) {
+                    overcurrentStartTime = pros::millis();
+                    isOvercurrent = true;
+                } else if ((pros::millis() - overcurrentStartTime) > p.overcurrentDurationMs &&
+                           (pros::millis() - safetyStart) > 200u) {
+                    break;
+                }
+            } else {
+                isOvercurrent = false;
+            }
+        }
 
         // ── 3. EXIT CONDITIONS ─────────────────────────────────────────
         if (currentDistanceToTarget <= p.distanceTolerance) {
@@ -1240,10 +1364,12 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
         double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
 
         // ── 5. SENSOR READINGS ─────────────────────────────────────────
-        double leftMotorRPM    = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM   = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftMotorRPM  = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double rightMotorRPM = std::fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double leftEncoderRPM  = std::fabs(globalLeftEncoderRPM)  * encoderWheelCircumferenceCM / 60.0;
+        double rightEncoderRPM = std::fabs(globalRightEncoderRPM) * encoderWheelCircumferenceCM / 60.0;
+        leftEncoderRPMSmoothed  = rollingAverage(leftEncoderRPM,  leftEncoderRPMSmoothed,  3);
+        rightEncoderRPMSmoothed = rollingAverage(rightEncoderRPM, rightEncoderRPMSmoothed, 3);
 
         // ── 6. MOTION PHASES ───────────────────────────────────────────
 
@@ -1253,17 +1379,20 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
             currentDrivePhase = PHASE_LAUNCH;
             // Update traction state independently — heading correction does not feed back in
             tractionVoltageLeft  = tractionControlLeft.tractionControlSpeed(
-                tractionVoltageLeft, leftMotorRPM, leftEncoderRPM, p.accelFactor);
+                tractionVoltageLeft, leftMotorRPM, leftEncoderRPMSmoothed, p.accelFactor);
             tractionVoltageRight = tractionControlRight.tractionControlSpeed(
-                tractionVoltageRight, rightMotorRPM, rightEncoderRPM, p.accelFactor);
+                tractionVoltageRight, rightMotorRPM, rightEncoderRPMSmoothed, p.accelFactor);
 
-            // Add heading correction on top — forgotten next tick
-            motorVoltageLeft  = tractionVoltageLeft  + (headingCorrection * p.accelHeadingScaling);
-            motorVoltageRight = tractionVoltageRight - (headingCorrection * p.accelHeadingScaling);
+            // Sync both sides to lower voltage — prevents veering when one side slips more
+            double syncedMotorVoltage = (std::fabs(tractionVoltageLeft) < std::fabs(tractionVoltageRight))
+                                        ? tractionVoltageLeft : tractionVoltageRight;
 
-            // Exit checks traction base, not PID-skewed motor output
-            if (std::fabs(tractionVoltageLeft)  >= maxSpeedVoltage &&
-                std::fabs(tractionVoltageRight) >= maxSpeedVoltage)
+            // Apply heading correction on top of synchronized base
+            motorVoltageLeft  = syncedMotorVoltage + (headingCorrection * p.accelHeadingScaling);
+            motorVoltageRight = syncedMotorVoltage - (headingCorrection * p.accelHeadingScaling);
+
+            // Exit checks synced base, not PID-skewed motor output
+            if (std::fabs(syncedMotorVoltage) >= maxSpeedVoltage)
                 accelCompleted = true;
         }
 
@@ -1281,21 +1410,30 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
             currentDrivePhase = PHASE_DECEL;
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight));
+                adaptiveABSLeft.initialize(motorVoltageLeft);
+                adaptiveABSRight.initialize(motorVoltageRight);
             }
 
-            adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+            double leftDecelVoltage  = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPMSmoothed);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPMSmoothed);
 
             pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
             pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
-            double adjustedHeadingCorrection = headingCorrection * p.decelHeadingScaling;
 
-            leftDrive.set_brake_mode(leftBrakeMode);
-            rightDrive.set_brake_mode(rightBrakeMode);
-            motorVoltageLeft  = std::max(0.0,  adjustedHeadingCorrection);
-            motorVoltageRight = std::max(0.0, -adjustedHeadingCorrection);
+            pros::motor_brake_mode_e_t syncedBrakeMode =
+                (leftBrakeMode == pros::E_MOTOR_BRAKE_COAST || rightBrakeMode == pros::E_MOTOR_BRAKE_COAST)
+                ? pros::E_MOTOR_BRAKE_COAST : pros::E_MOTOR_BRAKE_BRAKE;
+
+            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
+                ? leftDecelVoltage : rightDecelVoltage;
+            double steeringCorrection = headingCorrection * p.decelHeadingScaling;
+
+            leftDrive.set_brake_mode(syncedBrakeMode);
+            rightDrive.set_brake_mode(syncedBrakeMode);
+
+            double baseVoltage    = (syncedBrakeMode == pros::E_MOTOR_BRAKE_COAST) ? 0.0 : syncedDecelVoltage;
+            motorVoltageLeft  = baseVoltage + steeringCorrection;
+            motorVoltageRight = baseVoltage - steeringCorrection;
 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -1382,6 +1520,8 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
 
     double leftEncoderRollingAverage  = 0;
     double rightEncoderRollingAverage = 0;
+    double leftEncoderRPMSmoothed     = 0;
+    double rightEncoderRPMSmoothed    = 0;
     int consecutiveAtTargetCount = 0;
     bool   headingLocked      = false;
     double lockedHeadingValue = 0;
@@ -1393,6 +1533,8 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
 
     uint32_t safetyStart = pros::millis();
     double timeoutMs     = p.timeout * 1000.0;
+    bool     isOvercurrent      = false;
+    uint32_t overcurrentStartTime = 0;
 
     while (true)
     {
@@ -1405,6 +1547,24 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
 
         // ── 2. TIMEOUT ─────────────────────────────────────────────────
         if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
+
+        // ── Overcurrent circuit breaker ───────────────────────────────────────
+        // Trips if total drive current stays above threshold for overcurrentDurationMs.
+        // Arms after 200ms (ignores launch-surge spike); then trips if overcurrent persists for overcurrentDurationMs.
+        {
+            double totalCurrentA = (leftDrive.get_current_draw() + rightDrive.get_current_draw()) / 1000.0;
+            if (totalCurrentA > p.maxCurrentA) {
+                if (!isOvercurrent) {
+                    overcurrentStartTime = pros::millis();
+                    isOvercurrent = true;
+                } else if ((pros::millis() - overcurrentStartTime) > p.overcurrentDurationMs &&
+                           (pros::millis() - safetyStart) > 200u) {
+                    break;
+                }
+            } else {
+                isOvercurrent = false;
+            }
+        }
 
         // ── 3. EXIT CONDITIONS ─────────────────────────────────────────
         if (currentDistanceToTarget <= p.distanceTolerance) {
@@ -1436,10 +1596,12 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
         double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
 
         // ── 5. SENSOR READINGS ─────────────────────────────────────────
-        double leftMotorRPM    = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM   = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftMotorRPM  = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double rightMotorRPM = std::fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double leftEncoderRPM  = std::fabs(globalLeftEncoderRPM)  * encoderWheelCircumferenceCM / 60.0;
+        double rightEncoderRPM = std::fabs(globalRightEncoderRPM) * encoderWheelCircumferenceCM / 60.0;
+        leftEncoderRPMSmoothed  = rollingAverage(leftEncoderRPM,  leftEncoderRPMSmoothed,  3);
+        rightEncoderRPMSmoothed = rollingAverage(rightEncoderRPM, rightEncoderRPMSmoothed, 3);
 
         // ── 6. MOTION PHASES ───────────────────────────────────────────
         // Base voltages are negative — direction is already encoded.
@@ -1452,17 +1614,20 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
             currentDrivePhase = PHASE_LAUNCH;
             // Update traction state independently — heading correction does not feed back in
             tractionVoltageLeft  = tractionControlLeft.tractionControlSpeed(
-                tractionVoltageLeft, leftMotorRPM, leftEncoderRPM, p.accelFactor);
+                tractionVoltageLeft, leftMotorRPM, leftEncoderRPMSmoothed, p.accelFactor);
             tractionVoltageRight = tractionControlRight.tractionControlSpeed(
-                tractionVoltageRight, rightMotorRPM, rightEncoderRPM, p.accelFactor);
+                tractionVoltageRight, rightMotorRPM, rightEncoderRPMSmoothed, p.accelFactor);
 
-            // Add heading correction on top — forgotten next tick
-            motorVoltageLeft  = tractionVoltageLeft  + (headingCorrection * p.accelHeadingScaling);
-            motorVoltageRight = tractionVoltageRight - (headingCorrection * p.accelHeadingScaling);
+            // Sync both sides to lower voltage — prevents veering when one side slips more
+            double syncedMotorVoltage = (std::fabs(tractionVoltageLeft) < std::fabs(tractionVoltageRight))
+                                        ? tractionVoltageLeft : tractionVoltageRight;
 
-            // Exit checks traction base, not PID-skewed motor output
-            if (std::fabs(tractionVoltageLeft)  >= std::fabs(maxSpeedVoltage) &&
-                std::fabs(tractionVoltageRight) >= std::fabs(maxSpeedVoltage))
+            // Apply heading correction on top of synchronized base
+            motorVoltageLeft  = syncedMotorVoltage + (headingCorrection * p.accelHeadingScaling);
+            motorVoltageRight = syncedMotorVoltage - (headingCorrection * p.accelHeadingScaling);
+
+            // Exit checks synced base, not PID-skewed motor output
+            if (std::fabs(syncedMotorVoltage) >= std::fabs(maxSpeedVoltage))
                 accelCompleted = true;
         }
 
@@ -1480,21 +1645,30 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
             currentDrivePhase = PHASE_DECEL;
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight));
+                adaptiveABSLeft.initialize(motorVoltageLeft);
+                adaptiveABSRight.initialize(motorVoltageRight);
             }
 
-            adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+            double leftDecelVoltage  = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPMSmoothed);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPMSmoothed);
 
             pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
             pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
-            double adjustedHeadingCorrection = headingCorrection * p.decelHeadingScaling;
 
-            leftDrive.set_brake_mode(leftBrakeMode);
-            rightDrive.set_brake_mode(rightBrakeMode);
-            motorVoltageLeft  = std::min(0.0,  adjustedHeadingCorrection);
-            motorVoltageRight = std::min(0.0, -adjustedHeadingCorrection);
+            pros::motor_brake_mode_e_t syncedBrakeMode =
+                (leftBrakeMode == pros::E_MOTOR_BRAKE_COAST || rightBrakeMode == pros::E_MOTOR_BRAKE_COAST)
+                ? pros::E_MOTOR_BRAKE_COAST : pros::E_MOTOR_BRAKE_BRAKE;
+
+            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
+                ? leftDecelVoltage : rightDecelVoltage;
+            double steeringCorrection = headingCorrection * p.decelHeadingScaling;
+
+            leftDrive.set_brake_mode(syncedBrakeMode);
+            rightDrive.set_brake_mode(syncedBrakeMode);
+
+            double baseVoltage    = (syncedBrakeMode == pros::E_MOTOR_BRAKE_COAST) ? 0.0 : syncedDecelVoltage;
+            motorVoltageLeft  = baseVoltage + steeringCorrection;
+            motorVoltageRight = baseVoltage - steeringCorrection;
 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -1602,6 +1776,8 @@ void visionForwardToPoint(pros::vision_signature_s_t targetSignature,
 
     double leftEncoderRollingAverage  = 0;
     double rightEncoderRollingAverage = 0;
+    double leftEncoderRPMSmoothed     = 0;
+    double rightEncoderRPMSmoothed    = 0;
 
     int consecutiveAtTargetCount = 0;
     int consecutiveWidthCount    = 0;
@@ -1628,6 +1804,8 @@ void visionForwardToPoint(pros::vision_signature_s_t targetSignature,
 
     uint32_t safetyStart = pros::millis();
     double timeoutMs     = p.timeout * 1000.0;
+    bool     isOvercurrent      = false;
+    uint32_t overcurrentStartTime = 0;
 
     // ═══════════════════════════════════════════════════════════════════
     // MAIN CONTROL LOOP
@@ -1652,6 +1830,24 @@ void visionForwardToPoint(pros::vision_signature_s_t targetSignature,
         // 2. TIMEOUT
         // ───────────────────────────────────────────────────────────────
         if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
+
+        // ── Overcurrent circuit breaker ───────────────────────────────────────
+        // Trips if total drive current stays above threshold for overcurrentDurationMs.
+        // Arms after 200ms (ignores launch-surge spike); then trips if overcurrent persists for overcurrentDurationMs.
+        {
+            double totalCurrentA = (leftDrive.get_current_draw() + rightDrive.get_current_draw()) / 1000.0;
+            if (totalCurrentA > p.maxCurrentA) {
+                if (!isOvercurrent) {
+                    overcurrentStartTime = pros::millis();
+                    isOvercurrent = true;
+                } else if ((pros::millis() - overcurrentStartTime) > p.overcurrentDurationMs &&
+                           (pros::millis() - safetyStart) > 200u) {
+                    break;
+                }
+            } else {
+                isOvercurrent = false;
+            }
+        }
 
         // ───────────────────────────────────────────────────────────────
         // 3. EXIT CONDITIONS
@@ -1762,10 +1958,12 @@ void visionForwardToPoint(pros::vision_signature_s_t targetSignature,
         // ───────────────────────────────────────────────────────────────
         // 6. SENSOR READINGS
         // ───────────────────────────────────────────────────────────────
-        double leftMotorRPM    = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM   = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftEncoderRPM  = std::fabs(globalLeftEncoderRPM)  * encoderWheelCircumferenceCM / 60.0;
+        double rightEncoderRPM = std::fabs(globalRightEncoderRPM) * encoderWheelCircumferenceCM / 60.0;
+        leftEncoderRPMSmoothed  = rollingAverage(leftEncoderRPM,  leftEncoderRPMSmoothed,  3);
+        rightEncoderRPMSmoothed = rollingAverage(rightEncoderRPM, rightEncoderRPMSmoothed, 3);
+        double leftMotorRPM  = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double rightMotorRPM = std::fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
 
         // ───────────────────────────────────────────────────────────────
         // 7. MOTION PHASE CONTROL
@@ -1777,17 +1975,20 @@ void visionForwardToPoint(pros::vision_signature_s_t targetSignature,
             currentDrivePhase = PHASE_LAUNCH;
             // Update traction state independently — heading correction does not feed back in
             tractionVoltageLeft  = tractionControlLeft.tractionControlSpeed(
-                tractionVoltageLeft, leftMotorRPM, leftEncoderRPM, p.accelFactor);
+                tractionVoltageLeft, leftMotorRPM, leftEncoderRPMSmoothed, p.accelFactor);
             tractionVoltageRight = tractionControlRight.tractionControlSpeed(
-                tractionVoltageRight, rightMotorRPM, rightEncoderRPM, p.accelFactor);
+                tractionVoltageRight, rightMotorRPM, rightEncoderRPMSmoothed, p.accelFactor);
 
-            // Add heading correction on top — forgotten next tick
-            motorVoltageLeft  = tractionVoltageLeft  + (headingCorrection * p.accelHeadingScaling);
-            motorVoltageRight = tractionVoltageRight - (headingCorrection * p.accelHeadingScaling);
+            // Sync both sides to lower voltage — prevents veering when one side slips more
+            double syncedMotorVoltage = (std::fabs(tractionVoltageLeft) < std::fabs(tractionVoltageRight))
+                                        ? tractionVoltageLeft : tractionVoltageRight;
 
-            // Exit checks traction base, not PID-skewed motor output
-            if (std::fabs(tractionVoltageLeft)  >= maxSpeedVoltage &&
-                std::fabs(tractionVoltageRight) >= maxSpeedVoltage)
+            // Apply heading correction on top of synchronized base
+            motorVoltageLeft  = syncedMotorVoltage + (headingCorrection * p.accelHeadingScaling);
+            motorVoltageRight = syncedMotorVoltage - (headingCorrection * p.accelHeadingScaling);
+
+            // Exit checks synced base, not PID-skewed motor output
+            if (std::fabs(syncedMotorVoltage) >= maxSpeedVoltage)
             {
                 accelCompleted = true;
             }
@@ -1807,22 +2008,30 @@ void visionForwardToPoint(pros::vision_signature_s_t targetSignature,
             currentDrivePhase = PHASE_DECEL;
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight));
+                adaptiveABSLeft.initialize(motorVoltageLeft);
+                adaptiveABSRight.initialize(motorVoltageRight);
             }
 
-            adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+            double leftDecelVoltage  = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPMSmoothed);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPMSmoothed);
 
             pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
             pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
-            double adjustedHeadingCorrection = headingCorrection * p.decelHeadingScaling;
+            pros::motor_brake_mode_e_t syncedBrakeMode =
+                (leftBrakeMode == pros::E_MOTOR_BRAKE_COAST || rightBrakeMode == pros::E_MOTOR_BRAKE_COAST)
+                ? pros::E_MOTOR_BRAKE_COAST : pros::E_MOTOR_BRAKE_BRAKE;
 
-            leftDrive.set_brake_mode(leftBrakeMode);
-            rightDrive.set_brake_mode(rightBrakeMode);
-            motorVoltageLeft  = std::max(0.0,  adjustedHeadingCorrection);
-            motorVoltageRight = std::max(0.0, -adjustedHeadingCorrection);
+            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
+                ? leftDecelVoltage : rightDecelVoltage;
+            double steeringCorrection = headingCorrection * p.decelHeadingScaling;
+
+            leftDrive.set_brake_mode(syncedBrakeMode);
+            rightDrive.set_brake_mode(syncedBrakeMode);
+
+            double baseVoltage    = (syncedBrakeMode == pros::E_MOTOR_BRAKE_COAST) ? 0.0 : syncedDecelVoltage;
+            motorVoltageLeft  = baseVoltage + steeringCorrection;
+            motorVoltageRight = baseVoltage - steeringCorrection;
 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -1944,6 +2153,8 @@ void visionDriveForward(pros::vision_signature_s_t targetSignature,
 
     double leftEncoderRollingAverage  = 0;
     double rightEncoderRollingAverage = 0;
+    double leftEncoderRPMSmoothed     = 0;
+    double rightEncoderRPMSmoothed    = 0;
 
     int consecutiveWidthCount = 0;
 
@@ -1965,6 +2176,8 @@ void visionDriveForward(pros::vision_signature_s_t targetSignature,
 
     uint32_t safetyStart = pros::millis();
     double timeoutMs     = p.timeout * 1000.0;
+    bool     isOvercurrent      = false;
+    uint32_t overcurrentStartTime = 0;
 
     // ═══════════════════════════════════════════════════════════════════
     // MAIN CONTROL LOOP
@@ -1984,6 +2197,24 @@ void visionDriveForward(pros::vision_signature_s_t targetSignature,
         // 2. TIMEOUT
         // ───────────────────────────────────────────────────────────────
         if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
+
+        // ── Overcurrent circuit breaker ───────────────────────────────────────
+        // Trips if total drive current stays above threshold for overcurrentDurationMs.
+        // Arms after 200ms (ignores launch-surge spike); then trips if overcurrent persists for overcurrentDurationMs.
+        {
+            double totalCurrentA = (leftDrive.get_current_draw() + rightDrive.get_current_draw()) / 1000.0;
+            if (totalCurrentA > p.maxCurrentA) {
+                if (!isOvercurrent) {
+                    overcurrentStartTime = pros::millis();
+                    isOvercurrent = true;
+                } else if ((pros::millis() - overcurrentStartTime) > p.overcurrentDurationMs &&
+                           (pros::millis() - safetyStart) > 200u) {
+                    break;
+                }
+            } else {
+                isOvercurrent = false;
+            }
+        }
 
         // ───────────────────────────────────────────────────────────────
         // 3. ENCODER OVERSHOOT GUARD
@@ -2076,12 +2307,14 @@ void visionDriveForward(pros::vision_signature_s_t targetSignature,
         pros::screen::print(pros::E_TEXT_MEDIUM, 8, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
 
         // ───────────────────────────────────────────────────────────────
+        double leftEncoderRPM  = std::fabs(globalLeftEncoderRPM)  * encoderWheelCircumferenceCM / 60.0;
+        double rightEncoderRPM = std::fabs(globalRightEncoderRPM) * encoderWheelCircumferenceCM / 60.0;
+        leftEncoderRPMSmoothed  = rollingAverage(leftEncoderRPM,  leftEncoderRPMSmoothed,  3);
+        rightEncoderRPMSmoothed = rollingAverage(rightEncoderRPM, rightEncoderRPMSmoothed, 3);
         // 6. SENSOR READINGS
         // ───────────────────────────────────────────────────────────────
-        double leftMotorRPM    = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM   = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftMotorRPM  = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double rightMotorRPM = std::fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
 
         // ───────────────────────────────────────────────────────────────
         // 7. MOTION PHASE CONTROL
@@ -2094,17 +2327,20 @@ void visionDriveForward(pros::vision_signature_s_t targetSignature,
             currentDrivePhase = PHASE_LAUNCH;
             // Update traction state independently — heading correction does not feed back in
             tractionVoltageLeft  = tractionControlLeft.tractionControlSpeed(
-                tractionVoltageLeft, leftMotorRPM, leftEncoderRPM, p.accelFactor);
+                tractionVoltageLeft, leftMotorRPM, leftEncoderRPMSmoothed, p.accelFactor);
             tractionVoltageRight = tractionControlRight.tractionControlSpeed(
-                tractionVoltageRight, rightMotorRPM, rightEncoderRPM, p.accelFactor);
+                tractionVoltageRight, rightMotorRPM, rightEncoderRPMSmoothed, p.accelFactor);
 
-            // Add heading correction on top — forgotten next tick
-            motorVoltageLeft  = tractionVoltageLeft  + (headingCorrection * p.accelHeadingScaling);
-            motorVoltageRight = tractionVoltageRight - (headingCorrection * p.accelHeadingScaling);
+            // Sync both sides to lower voltage — prevents veering when one side slips more
+            double syncedMotorVoltage = (std::fabs(tractionVoltageLeft) < std::fabs(tractionVoltageRight))
+                                        ? tractionVoltageLeft : tractionVoltageRight;
 
-            // Exit checks traction base, not PID-skewed motor output
-            if (std::fabs(tractionVoltageLeft)  >= maxSpeedVoltage &&
-                std::fabs(tractionVoltageRight) >= maxSpeedVoltage)
+            // Apply heading correction on top of synchronized base
+            motorVoltageLeft  = syncedMotorVoltage + (headingCorrection * p.accelHeadingScaling);
+            motorVoltageRight = syncedMotorVoltage - (headingCorrection * p.accelHeadingScaling);
+
+            // Exit checks synced base, not PID-skewed motor output
+            if (std::fabs(syncedMotorVoltage) >= maxSpeedVoltage)
             {
                 accelCompleted = true;
             }
@@ -2124,22 +2360,30 @@ void visionDriveForward(pros::vision_signature_s_t targetSignature,
             currentDrivePhase = PHASE_DECEL;
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight));
+                adaptiveABSLeft.initialize(motorVoltageLeft);
+                adaptiveABSRight.initialize(motorVoltageRight);
             }
 
-            adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+            double leftDecelVoltage  = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPMSmoothed);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPMSmoothed);
 
             pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
             pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
-            double adjustedHeadingCorrection = headingCorrection * p.decelHeadingScaling;
+            pros::motor_brake_mode_e_t syncedBrakeMode =
+                (leftBrakeMode == pros::E_MOTOR_BRAKE_COAST || rightBrakeMode == pros::E_MOTOR_BRAKE_COAST)
+                ? pros::E_MOTOR_BRAKE_COAST : pros::E_MOTOR_BRAKE_BRAKE;
 
-            leftDrive.set_brake_mode(leftBrakeMode);
-            rightDrive.set_brake_mode(rightBrakeMode);
-            motorVoltageLeft  = std::max(0.0,  adjustedHeadingCorrection);
-            motorVoltageRight = std::max(0.0, -adjustedHeadingCorrection);
+            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
+                ? leftDecelVoltage : rightDecelVoltage;
+            double steeringCorrection = headingCorrection * p.decelHeadingScaling;
+
+            leftDrive.set_brake_mode(syncedBrakeMode);
+            rightDrive.set_brake_mode(syncedBrakeMode);
+
+            double baseVoltage    = (syncedBrakeMode == pros::E_MOTOR_BRAKE_COAST) ? 0.0 : syncedDecelVoltage;
+            motorVoltageLeft  = baseVoltage + steeringCorrection;
+            motorVoltageRight = baseVoltage - steeringCorrection;
 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -2250,6 +2494,8 @@ void visionOnly(pros::vision_signature_s_t targetSignature,
 
     double leftEncoderRollingAverage  = 0;
     double rightEncoderRollingAverage = 0;
+    double leftEncoderRPMSmoothed     = 0;
+    double rightEncoderRPMSmoothed    = 0;
 
     int consecutiveWidthCount = 0;
 
@@ -2269,6 +2515,8 @@ void visionOnly(pros::vision_signature_s_t targetSignature,
 
     uint32_t safetyStart = pros::millis();
     double timeoutMs     = p.timeout * 1000.0;
+    bool     isOvercurrent      = false;
+    uint32_t overcurrentStartTime = 0;
 
     while (true)
     {
@@ -2278,6 +2526,24 @@ void visionOnly(pros::vision_signature_s_t targetSignature,
         double currentGyroHeading      = getContinuousStandardHeading();
 
         if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
+
+        // ── Overcurrent circuit breaker ───────────────────────────────────────
+        // Trips if total drive current stays above threshold for overcurrentDurationMs.
+        // Arms after 200ms (ignores launch-surge spike); then trips if overcurrent persists for overcurrentDurationMs.
+        {
+            double totalCurrentA = (leftDrive.get_current_draw() + rightDrive.get_current_draw()) / 1000.0;
+            if (totalCurrentA > p.maxCurrentA) {
+                if (!isOvercurrent) {
+                    overcurrentStartTime = pros::millis();
+                    isOvercurrent = true;
+                } else if ((pros::millis() - overcurrentStartTime) > p.overcurrentDurationMs &&
+                           (pros::millis() - safetyStart) > 200u) {
+                    break;
+                }
+            } else {
+                isOvercurrent = false;
+            }
+        }
 
         // Safety exit if vision never acquires
         if (fabs(currentDistance) >= targetDistance) break;
@@ -2357,14 +2623,16 @@ void visionOnly(pros::vision_signature_s_t targetSignature,
 
         double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
 
+        double leftEncoderRPM  = std::fabs(globalLeftEncoderRPM)  * encoderWheelCircumferenceCM / 60.0;
+        double rightEncoderRPM = std::fabs(globalRightEncoderRPM) * encoderWheelCircumferenceCM / 60.0;
+        leftEncoderRPMSmoothed  = rollingAverage(leftEncoderRPM,  leftEncoderRPMSmoothed,  3);
+        rightEncoderRPMSmoothed = rollingAverage(rightEncoderRPM, rightEncoderRPMSmoothed, 3);
         pros::screen::print(pros::E_TEXT_MEDIUM, 7, "initH:%.1f fusedH:%.1f", initialGyroHeading, fusedTargetHeading);
         pros::screen::print(pros::E_TEXT_MEDIUM, 8, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
 
         // --- MOTOR RPM READINGS ---
-        double leftMotorRPM    = leftDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
-        double rightMotorRPM   = rightDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
-        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double leftMotorRPM  = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
+        double rightMotorRPM = std::fabs(rightDrive.get_actual_velocity()) * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;
 
         // --- MOTION PHASES ---
 
@@ -2374,17 +2642,20 @@ void visionOnly(pros::vision_signature_s_t targetSignature,
             currentDrivePhase = PHASE_LAUNCH;
             // Update traction state independently — heading correction does not feed back in
             tractionVoltageLeft  = tractionControlLeft.tractionControlSpeed(
-                tractionVoltageLeft, leftMotorRPM, leftEncoderRPM, p.accelFactor);
+                tractionVoltageLeft, leftMotorRPM, leftEncoderRPMSmoothed, p.accelFactor);
             tractionVoltageRight = tractionControlRight.tractionControlSpeed(
-                tractionVoltageRight, rightMotorRPM, rightEncoderRPM, p.accelFactor);
+                tractionVoltageRight, rightMotorRPM, rightEncoderRPMSmoothed, p.accelFactor);
 
-            // Add heading correction on top — forgotten next tick
-            motorVoltageLeft  = tractionVoltageLeft  + (headingCorrection * p.accelHeadingScaling);
-            motorVoltageRight = tractionVoltageRight - (headingCorrection * p.accelHeadingScaling);
+            // Sync both sides to lower voltage — prevents veering when one side slips more
+            double syncedMotorVoltage = (std::fabs(tractionVoltageLeft) < std::fabs(tractionVoltageRight))
+                                        ? tractionVoltageLeft : tractionVoltageRight;
 
-            // Exit checks traction base, not PID-skewed motor output
-            if (std::fabs(tractionVoltageLeft)  >= std::fabs(maxSpeedVoltage) &&
-                std::fabs(tractionVoltageRight) >= std::fabs(maxSpeedVoltage))
+            // Apply heading correction on top of synchronized base
+            motorVoltageLeft  = syncedMotorVoltage + (headingCorrection * p.accelHeadingScaling);
+            motorVoltageRight = syncedMotorVoltage - (headingCorrection * p.accelHeadingScaling);
+
+            // Exit checks synced base, not PID-skewed motor output
+            if (std::fabs(syncedMotorVoltage) >= std::fabs(maxSpeedVoltage))
             {
                 accelCompleted = true;
             }
@@ -2404,22 +2675,30 @@ void visionOnly(pros::vision_signature_s_t targetSignature,
             currentDrivePhase = PHASE_DECEL;
             if (!decel) {
                 decel = true;
-                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft));
-                adaptiveABSRight.initialize(std::fabs(motorVoltageRight));
+                adaptiveABSLeft.initialize(motorVoltageLeft);
+                adaptiveABSRight.initialize(motorVoltageRight);
             }
 
-            adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPM);
-            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+            double leftDecelVoltage  = adaptiveABSLeft.decelControlSpeed(leftMotorRPM, leftEncoderRPMSmoothed);
+            double rightDecelVoltage = adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPMSmoothed);
 
             pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
             pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
 
-            double adjustedHeadingCorrection = headingCorrection * p.decelHeadingScaling * dir;
+            pros::motor_brake_mode_e_t syncedBrakeMode =
+                (leftBrakeMode == pros::E_MOTOR_BRAKE_COAST || rightBrakeMode == pros::E_MOTOR_BRAKE_COAST)
+                ? pros::E_MOTOR_BRAKE_COAST : pros::E_MOTOR_BRAKE_BRAKE;
 
-            leftDrive.set_brake_mode(leftBrakeMode);
-            rightDrive.set_brake_mode(rightBrakeMode);
-            motorVoltageLeft  = std::max(0.0,  adjustedHeadingCorrection);
-            motorVoltageRight = std::max(0.0, -adjustedHeadingCorrection);
+            double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
+                ? leftDecelVoltage : rightDecelVoltage;
+            double steeringCorrection = headingCorrection * p.decelHeadingScaling;
+
+            leftDrive.set_brake_mode(syncedBrakeMode);
+            rightDrive.set_brake_mode(syncedBrakeMode);
+
+            double baseVoltage    = (syncedBrakeMode == pros::E_MOTOR_BRAKE_COAST) ? 0.0 : syncedDecelVoltage;
+            motorVoltageLeft  = baseVoltage + steeringCorrection;
+            motorVoltageRight = baseVoltage - steeringCorrection;
 
             leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
             rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
@@ -2513,8 +2792,8 @@ void driveToWall(double targetDistance, double targetHeading, double minSpeed,
     {
         distanceTravelled = getCurrentEncoderDistanceCM() - startDist;
 
-        double leftRPM  = std::fabs(passiveEncoderLeft.get_velocity());
-        double rightRPM = std::fabs(passiveEncoderRight.get_velocity());
+        double leftRPM  = std::fabs(globalLeftEncoderRPM);
+        double rightRPM = std::fabs(globalRightEncoderRPM);
 
         // Left side stall detection
         if (leftRPM < WALL_THRESHOLD) {

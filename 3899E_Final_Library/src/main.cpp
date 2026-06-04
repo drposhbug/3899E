@@ -60,6 +60,25 @@ void autonomous()
 {
     pros::screen::erase();
 
+    // DEBUG velocity display task — remove before competition
+    // Reads motor and encoder velocity every 50ms, holds last non-zero value on screen.
+    static double dispMotorRPM   = 0.0;
+    static double dispEncoderRPM = 0.0;
+    pros::Task([&]{
+        while (true) {
+            double mRPM = leftDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+            double eRPM = globalLeftEncoderRPM * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+            // Only update display if robot is moving — holds last value when stopped
+            if (std::fabs(mRPM) > 1.0 || std::fabs(eRPM) > 0.1) {
+                dispMotorRPM   = mRPM;
+                dispEncoderRPM = eRPM;
+            }
+            pros::lcd::print(2, "mRPM:%7.1f eRPM:%7.2f", dispMotorRPM, dispEncoderRPM);
+            pros::lcd::print(3, "slip: mRPM/eRPM ratio");
+            pros::delay(50);
+        }
+    }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
+
     // ── Uncomment one to test at home ─────────────────────────────────────────
     navTest();
     //runAIMatchRoute();

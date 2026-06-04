@@ -161,6 +161,10 @@ const double VOLTAGE_TOLERANCE  =  0.1;   // V delta too small to act on
 // Drivetrain is geared to 400 RPM output; scale raw 600 RPM encoder readings.
 const double DRIVE_MOTOR_RPM_ADJ = 400.0 / 600.0;
 
+// pros::Rotation::get_velocity() returns centidegrees/second.
+// Convert: cdeg/s ÷ 100 (→ deg/s) ÷ 360 (→ rev/s) × 60 (→ RPM) = cdeg/s ÷ 600.
+const double ROTATION_CDEG_TO_RPM = 1.0 / 600.0;
+
 // ── Odometry geometry (centimeters) ──────────────────────────────────────────
 const double TRACK_WIDTH            = 11.30;   // left-to-right tracking wheel span
 const double ENCODER_OFFSET_X       = -0.023;  // lateral encoder offset from robot center

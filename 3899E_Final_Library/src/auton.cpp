@@ -70,24 +70,26 @@ void navTest() {
     pros::delay(200);
 
     StraightProfile driveProfile = DEFAULT_STRAIGHT;
-    driveProfile.breakDistance          = 70.0;   // cm before target to begin decel
+    driveProfile.breakDistance          = 100.0;   // cm before target to begin decel
     driveProfile.minSpeed               = 10.0;   // % minimum approach speed
     driveProfile.maxSpeed               = 100.0;   // % peak cruise speed
     driveProfile.distanceTolerance      = 2.0;    // cm exit bubble
-    driveProfile.timeout                = 15.0;    // seconds 5 sec default
-    driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    driveProfile.timeout                = 5.0;    // seconds 5 sec default
+    driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_COAST; // motor behavior at stop
     driveProfile.kp_heading             = 0.1;    // heading PID proportional
     driveProfile.ki_heading             = 0.0;    // heading PID integral
     driveProfile.kd_heading             = 0.0;    // heading PID derivative
     driveProfile.accelHeadingScaling    = 0.2;    // correction weight during accel
-    driveProfile.decelHeadingScaling    = 0.0;    // correction weight during decel
-    driveProfile.approachHeadingScaling = 0.0;    // correction weight during approach
+    driveProfile.decelHeadingScaling    = 0.1;    // correction weight during decel
+    driveProfile.approachHeadingScaling = 0.1;    // correction weight during approach
     driveProfile.headingLockDistance    = 3.0;    // cm — freeze heading near target
-    driveProfile.launchVoltage          = 1.0;    // V — initial kick voltage
+    driveProfile.launchVoltage          = 6.0;    // V — initial kick voltage
     driveProfile.accelFactor            = 1.2;    // traction ramp multiplier
-    driveProfile.slipThreshold          = 0.45;   // RPM slip before traction cuts in
-    driveProfile.decelStepPercent       = 0.45;   // ABS voltage reduction per step
-    driveProfile.lockThreshold          = 0.25;   // wheel lockup ratio
+    driveProfile.slipThreshold          = 0.3;   // RPM slip before traction cuts in
+    driveProfile.decelStepPercent       = 2.0;   // ABS voltage reduction per step
+    driveProfile.lockThreshold          = 0.3;   // wheel lockup ratio
+    driveProfile.maxCurrentA         = 4.0;   // amps — wall stall trip threshold
+    driveProfile.overcurrentDurationMs = 300; // ms — how long before breaker fires
 
     TurnProfile turnProfile = DEFAULT_TURN;
     turnProfile.breakDistance  = 5.0;    // degrees before target to begin decel
@@ -131,9 +133,9 @@ void navTest() {
 
     // ── driveForward/driveBackward test (open-loop) ───────────────────
     driveForward(150.0, 0.0, driveProfile);
-    pros::delay(500);
-    setStartPosition(0.0, 150.0, 0.0);
-    driveBackward(150.0, 0.0, driveProfile);
+    //pros::delay(500);
+    //setStartPosition(0.0, 150.0, 0.0);
+    //driveBackward(150.0, 0.0, driveProfile);
 }
 
 
