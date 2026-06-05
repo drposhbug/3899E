@@ -366,29 +366,29 @@ IntakeStallTaskParams intakeStallParams;
 // // Applies brakes and waits until both linear and angular speeds drop below
 // // their thresholds (or the timeout expires), then optionally locks in HOLD mode.
 // // ══════════════════════════════════════════════════════════════════════════════
-// void smartStop(double linearThreshold, double angularThreshold,
-//                int timeoutMsec, bool brakeLock) {
-//     // Immediately command both groups to brake.
-//     leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-//     rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-//     leftDrive.brake();
-//     rightDrive.brake();
+void smartStop(double linearThreshold, double angularThreshold,
+               int timeoutMsec, bool brakeLock) {
+    // Immediately command both groups to brake.
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.brake();
+    rightDrive.brake();
 
-//     // Poll until the robot settles or the timeout expires.
-//     int elapsed = 0;
-//     while (elapsed < timeoutMsec) {
-//         // Linear speed from passive encoder (centideg/s → deg/s → RPM → cm/s).
-//         double linearSpeed  = std::fabs(passiveEncoderLeft.get_velocity() / 100.0
-//                                         / 360.0 * 60.0 * encoderWheelCircumferenceCM / 60.0);
-//         // Angular speed from IMU z-axis gyro (degrees/s).
-//         double angularSpeed = std::fabs(InertialSensor.get_gyro_rate().z);
+    // Poll until the robot settles or the timeout expires.
+    int elapsed = 0;
+    while (elapsed < timeoutMsec) {
+        // Linear speed from passive encoder (centideg/s → deg/s → RPM → cm/s).
+        double linearSpeed  = std::fabs(passiveEncoderLeft.get_velocity() / 100.0
+                                        / 360.0 * 60.0 * encoderWheelCircumferenceCM / 60.0);
+        // Angular speed from IMU z-axis gyro (degrees/s).
+        double angularSpeed = std::fabs(InertialSensor.get_gyro_rate().z);
 
-//         if (linearSpeed < linearThreshold && angularSpeed < angularThreshold)
-//             break;
+        if (linearSpeed < linearThreshold && angularSpeed < angularThreshold)
+            break;
 
-//         pros::delay(10);
-//         elapsed += 10;
-//     }
+        pros::delay(10);
+        elapsed += 10;
+    }
 
     // Optionally lock the robot in place with HOLD mode.
     if (brakeLock) {
@@ -398,3 +398,4 @@ IntakeStallTaskParams intakeStallParams;
         rightDrive.brake();
     }
 }
+
