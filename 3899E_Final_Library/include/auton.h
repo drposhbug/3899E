@@ -10,6 +10,7 @@ void routeGridTest();      // print obstacle grid to brain screen
 void systemTest();         // spin each motor to verify hardware
 void coordinateFinder();   // live GPS/odometry coordinate display
 void navTest();            // test odometry-based straight drive
+void visionTest();          // test vision-based drive 
 
 // ── Selector — called from autonomous() in main.cpp ──────────────────────────
 void autonSelector();

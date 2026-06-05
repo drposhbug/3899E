@@ -70,13 +70,13 @@ void navTest() {
     pros::delay(200);
 
     StraightProfile driveProfile = DEFAULT_STRAIGHT;
-    driveProfile.breakDistance          = 100.0;   // cm before target to begin decel
-    driveProfile.minSpeed               = 10.0;   // % minimum approach speed
-    driveProfile.maxSpeed               = 100.0;   // % peak cruise speed
-    driveProfile.distanceTolerance      = 2.0;    // cm exit bubble
+    driveProfile.breakDistance          = 85.0;   // cm before target to begin decel
+    driveProfile.minSpeed               = 13.0;   // % minimum approach speed
+    driveProfile.maxSpeed               = 80.0;   // % peak cruise speed
+    driveProfile.distanceTolerance      = 1.0;    // cm exit bubble
     driveProfile.timeout                = 5.0;    // seconds 5 sec default
     driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_COAST; // motor behavior at stop
-    driveProfile.kp_heading             = 0.1;    // heading PID proportional
+    driveProfile.kp_heading             = 1.0;    // heading PID proportional
     driveProfile.ki_heading             = 0.0;    // heading PID integral
     driveProfile.kd_heading             = 0.0;    // heading PID derivative
     driveProfile.accelHeadingScaling    = 0.2;    // correction weight during accel
@@ -132,14 +132,65 @@ void navTest() {
     // backwardToPoint(0.0, 0.0, driveProfile);
 
     // ── driveForward/driveBackward test (open-loop) ───────────────────
-    driveForward(150.0, 0.0, driveProfile);
-    //pros::delay(500);
-    //setStartPosition(0.0, 150.0, 0.0);
-    //driveBackward(150.0, 0.0, driveProfile);
+    // driveForward(150.0, 0.0, driveProfile);
+    // pros::delay(500);
+    // setStartPosition(0.0, 150.0, 0.0);
+    // driveBackward(150.0, 0.0, driveProfile);
 }
 
 
- 
+void visionTest() {
+    startOdometryTask();
+    setStartPosition(0.0, 0.0, 0.0);
+    pros::delay(200);
+
+    // Signature: aiVision_redCube (from robot_config.h)
+    // TODO: tune targetPixelWidth — 80px ≈ ~30 cm from a 3" block
+    VisionProfile vp = DEFAULT_VISION;
+    vp.drive.breakDistance          = 85.0;   // cm before target to begin decel
+    vp.drive.minSpeed               = 10.0;   // % minimum approach speed
+    vp.drive.maxSpeed               = 60.0;   // % peak cruise speed
+    vp.drive.distanceTolerance      = 1.0;    // cm exit bubble
+    vp.drive.timeout                = 5.0;    // seconds
+    vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    vp.drive.kp_heading             = .1;    // low gain — vision correction is noisy
+    vp.drive.ki_heading             = 0.0;
+    vp.drive.kd_heading             = 0.0;
+    vp.drive.accelHeadingScaling    = 0.2;    // correction weight during accel
+    vp.drive.decelHeadingScaling    = 0.1;    // correction weight during decel
+    vp.drive.approachHeadingScaling = 0.1;    // correction weight during approach
+    vp.drive.headingLockDistance    = 15.0;   // cm — wider than odom; vision may shift near target
+    vp.drive.launchVoltage          = 6.0;    // V — initial kick voltage
+    vp.drive.accelFactor            = 1.2;    // traction ramp multiplier
+    vp.drive.slipThreshold          = 0.3;    // RPM slip before traction cuts in
+    vp.drive.decelStepPercent       = 2.0;    // ABS voltage reduction per step
+    vp.drive.lockThreshold          = 0.3;    // wheel lockup ratio
+    vp.drive.maxCurrentA            = 4.0;    // amps — wall stall trip threshold
+    vp.drive.overcurrentDurationMs  = 300;    // ms — how long before breaker fires
+    vp.kp_distToHeadScaling         = 2.0;    // vision correction aggressiveness
+    vp.minObjectWidth               = 10;     // pixels — ignore detections smaller than this
+    vp.minX                         = 0;      // detection zone left bound (pixels)
+    vp.maxX                         = 320;    // detection zone right bound (pixels)
+    vp.minY                         = 0;      // detection zone top bound (pixels)
+    vp.maxY                         = 240;    // detection zone bottom bound (pixels)
+
+    // ── Stage 1: visionDriveForward — open-loop encoder distance + vision steering ──
+    // Robot drives 150 cm forward; vision steers once target acquired.
+    visionDriveForward(aiVision_blueCube, 80, 150.0, 0.0, vp);
+
+    // ── Stage 2: visionForwardToPoint — closed-loop odometry + vision steering ──
+    // Robot drives to (0, 150) using live odometry; vision corrects heading.
+    // visionForwardToPoint(aiVision_redCube, 80, 0.0, 150.0, vp);
+
+    // ── Stage 3: visionBackwardToPoint — closed-loop backward + vision steering ──
+    // Robot drives backward to (0, 0) using live odometry; vision corrects heading.
+    // visionBackwardToPoint(aiVision_redCube, 80, 0.0, 0.0, vp);
+
+    // ── Stage 4: visionOnly — pure vision approach, no odometry position updates ──
+    // Robot drives toward target until pixel width >= 80, encoder safety, or timeout.
+    //visionOnly(aiVision_blueCube, 60, 200.0, vp);
+}
+
 
 // Prints the route planner obstacle grid to brain screen.
 // Use before competition to verify goal and park zone positions are correct.
@@ -198,8 +249,9 @@ void autonSelector() {
         "Grid Test",
         "System Test",
         "Coordinate Finder",
+        "Vision Test",
     };
-    const int numAutons = 6;
+    const int numAutons = 7;
     int autonMode = 0;
 
     pros::screen::erase();
@@ -221,12 +273,13 @@ void autonSelector() {
             pros::delay(300);
 
             switch (autonMode) {
-                case 0: setAllianceRed(true);  runAIMatchRoute(); break;
-                case 1: setAllianceRed(false); runAIMatchRoute(); break;
-                case 2: routeTest();            break;
-                case 3: routeGridTest();        break;
-                case 4: systemTest();           break;
-                case 5: coordinateFinder();     break;
+                case 0:  setAllianceRed(true);  runAIMatchRoute();      break;
+                case 1:  setAllianceRed(false); runAIMatchRoute();      break;
+                case 2:  routeTest();                                   break;
+                case 3:  routeGridTest();                               break;
+                case 4:  systemTest();                                  break;
+                case 5:  coordinateFinder();  break;
+                case 6:  visionTest();        break;
             }
             break;
         }

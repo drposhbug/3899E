@@ -105,32 +105,15 @@ pros::Optical leftLaneOptical (16);
 pros::Optical rightLaneOptical(11);
 
 // ── AI Vision Sensor ──────────────────────────────────────────────────────────
-// PROS Vision signatures use YCbCr / UV color space — NOT HSV.
-// Values below are PLACEHOLDERS; re-run the PROS Vision Sensor utility to
-// calibrate U/V ranges for your specific field lighting conditions.
-//
-// Signature format: id, u_min, u_max, u_mean, v_min, v_max, v_mean, range, type
-pros::vision_signature_s_t aiVision_blueCube   = pros::Vision::signature_from_utility(
-    1, -3600, -2800, -3200,  7000,  9000,  8000, 3.0, 0);  // TODO: recalibrate
+// Color descriptors converted from VEX aivision::colordesc format:
+//   aivision::colordesc(id, r, g, b, hue_range, saturation)
+// PROS AIVision::Color uses identical fields in the same order.
+pros::AIVision::Color aiVision_redCube  = {.id=1, .red=146, .green=27,  .blue=79,  .hue_range=21.0, .saturation_range=0.6};
+pros::AIVision::Color aiVision_blueCube = {.id=2, .red=59,  .green=91,  .blue=170, .hue_range=19.0, .saturation_range=0.28};
 
-pros::vision_signature_s_t aiVision_orangeGoal = pros::Vision::signature_from_utility(
-    2,  3000,  5000,  4000, -1200,  -600,  -900, 3.0, 0);  // TODO: recalibrate
-
-pros::vision_signature_s_t aiVision_redCube    = pros::Vision::signature_from_utility(
-    3,  3500,  5500,  4500,  1000,  2500,  1750, 3.0, 0);  // TODO: recalibrate
-
-// AI Vision sensor (port 14) — must be defined before color codes.
-pros::Vision aiVision(14);
-
-// Color codes — multi-signature patterns detected together.
-pros::vision_color_code_t aiVision_redLoad     = aiVision.create_color_code(1, 3, 0, 0, 0);
-pros::vision_color_code_t aiVision_blueLoad    = aiVision.create_color_code(1, 1, 0, 0, 0);
-pros::vision_color_code_t aiVision_blueRedBlue = aiVision.create_color_code(1, 3, 1, 0, 0);
-pros::vision_color_code_t aiVision_redBlue     = aiVision.create_color_code(3, 1, 0, 0, 0);
-
-// Detection result objects — written to by aiVision.get_by_sig() at runtime.
-pros::vision_object_s_t aiVision_blueBlock = {};
-pros::vision_object_s_t aiVision_redBlock  = {};
+// AI Vision sensor — port 14.
+// Colors pushed to sensor and detection enabled in robotInit().
+pros::AIVision aiVision(14);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE VARIABLES
@@ -213,10 +196,10 @@ void robotInit()
     gyroReadingAtStart = InertialSensor.get_rotation();     // capture baseline
     pros::lcd::set_text(1, "IMU ready");
 
-    // Register color signatures with the AI Vision sensor.
-    aiVision.set_signature(1, &aiVision_blueCube);
-    aiVision.set_signature(2, &aiVision_orangeGoal);
-    aiVision.set_signature(3, &aiVision_redCube);
+    // Push color descriptors to the AI Vision sensor and enable color detection.
+    aiVision.set_color(aiVision_redCube);
+    aiVision.set_color(aiVision_blueCube);
+    aiVision.enable_detection_types(pros::AivisionModeType::colors);
 
     pros::delay(500);
     pros::lcd::clear();

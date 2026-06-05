@@ -238,27 +238,27 @@ void driveToWall(double targetDistance,
 //   reversed = true → drives backward.
 // visionDriveBackward — thin wrapper, calls visionDriveForward(reversed=true).
 // ══════════════════════════════════════════════════════════════════════════════
-void visionForwardToPoint(pros::vision_signature_s_t targetSignature,
+void visionForwardToPoint(pros::AIVision::Color targetSignature,
                           int    targetPixelWidth,
                           double targetX,
                           double targetY,
                           const VisionProfile& p = DEFAULT_VISION,
                           bool   reversed        = false);
 
-void visionBackwardToPoint(pros::vision_signature_s_t targetSignature,
+void visionBackwardToPoint(pros::AIVision::Color targetSignature,
                            int    targetPixelWidth,
                            double targetX,
                            double targetY,
                            const VisionProfile& p = DEFAULT_VISION);
 
-void visionDriveForward(pros::vision_signature_s_t targetSignature,
+void visionDriveForward(pros::AIVision::Color targetSignature,
                         int    targetPixelWidth,
                         double targetDistance,
                         double targetHeading     = 0.0,
                         const VisionProfile& p   = DEFAULT_VISION,
                         bool   reversed          = false);
 
-void visionDriveBackward(pros::vision_signature_s_t targetSignature,
+void visionDriveBackward(pros::AIVision::Color targetSignature,
                          int    targetPixelWidth,
                          double targetDistance,
                          double targetHeading   = 0.0,
@@ -273,7 +273,7 @@ void visionDriveBackward(pros::vision_signature_s_t targetSignature,
 //                   encoder distance >= targetDistance (safety),
 //                   or timeout elapsed.
 // ══════════════════════════════════════════════════════════════════════════════
-void visionOnly(pros::vision_signature_s_t targetSignature,
+void visionOnly(pros::AIVision::Color targetSignature,
                 int    targetPixelWidth,
                 double targetDistance,
                 const VisionProfile& p = DEFAULT_VISION);
@@ -284,7 +284,7 @@ void visionOnly(pros::vision_signature_s_t targetSignature,
 // Two overloads: color signature and color code.
 // ══════════════════════════════════════════════════════════════════════════════
 void visionDriveMinimal(
-    pros::vision_signature_s_t targetSignature,
+    pros::AIVision::Color targetSignature,
     int    targetPixelWidth,
     double targetHeading           = 0.0,
     double minSpeedPct             = 20.0,
@@ -318,7 +318,7 @@ void visionDriveMinimal(
 // Separate architecture; not part of the profile system.
 // ══════════════════════════════════════════════════════════════════════════════
 void visionDriveV2(
-    pros::vision_signature_s_t targetSignature,
+    pros::AIVision::Color targetSignature,
     int    targetPixelWidth      = 60,
     double targetHeading         = 0.0,
     pros::motor_brake_mode_e_t brakeMode = pros::E_MOTOR_BRAKE_COAST,
