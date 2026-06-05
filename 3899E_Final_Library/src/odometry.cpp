@@ -10,6 +10,10 @@ double globalX = 0.0;
 double globalY = 0.0;
 double globalRotation = 0.0;
 
+// Encoder velocity computed from position deltas — use instead of get_velocity() which is broken in PROS
+double globalLeftEncoderRPM  = 0.0;
+double globalRightEncoderRPM = 0.0;
+
 // Previous encoder readings for delta calculations
 double prevLeftEncoder = 0.0;
 double prevRightEncoder = 0.0;
@@ -89,6 +93,11 @@ void updateOdometry() {
     prevRightEncoder = rightEncoder;
     prevXEncoder    = xEncoder;
     prevRotation    = currentRotation;
+
+    // Compute encoder velocity from position deltas — get_velocity() is unreliable in PROS
+    // deltaLeft in degrees; x100 = cdeg; /6 = RPM (cdeg x 60000 / (36000 x 10ms))
+    globalLeftEncoderRPM  = (deltaLeft  * 100.0) / 6.0;
+    globalRightEncoderRPM = (deltaRight * 100.0) / 6.0;
 
     // 4. Convert Sensor Data to Physical Distances (cm)
     // Calculate the scaling factor once to ensure consistency across all wheels

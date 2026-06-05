@@ -131,6 +131,10 @@ extern const double VOLTAGE_TOLERANCE;  // minimum voltage delta worth correctin
 // RPM scaling: drivetrain is geared to 400 RPM output; scale raw 600 RPM readings.
 extern const double DRIVE_MOTOR_RPM_ADJ;
 
+// pros::Rotation::get_velocity() returns centidegrees/second, not RPM.
+// Multiply by this to convert to RPM: cdeg/s ÷ 100 ÷ 360 × 60 = cdeg/s ÷ 600.
+extern const double ROTATION_CDEG_TO_RPM;
+
 // ── Odometry geometry (centimeters) ──────────────────────────────────────────
 extern const double TRACK_WIDTH;             // left-to-right tracking wheel span
 extern const double ENCODER_OFFSET_X;        // lateral encoder offset from robot center

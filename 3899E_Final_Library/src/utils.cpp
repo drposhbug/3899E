@@ -93,16 +93,16 @@ bool isAccelerating(double targetDriverSpeed, double currentSpeed) {
     return false;
 }
 
-// SAE J670 slip ratio: |wheelSpeed − robotSpeed| / max(|wheelSpeed|, |robotSpeed|).
-// 0.0 = perfect traction, 1.0 = full spin / full lock.
+// Slip ratio: how much the drive wheel outruns the chassis.
+// Range: 0.0 (perfect traction) to 1.0 (full spin).
 double calculateSlipRatio(double wheelSpeed, double robotSpeed) {
     double ref = std::max(std::fabs(wheelSpeed), std::fabs(robotSpeed));
     if (ref < DIV_BY_ZERO_THRESHOLD) return 0.0;
     return std::fabs((wheelSpeed - robotSpeed) / ref);
 }
 
-// Lockup ratio: how much the wheel has slowed below the chassis speed.
-// Used by adaptiveABS to detect impending wheel lock.
+// Lockup ratio: how much the chassis outruns the wheel during braking.
+// Range: 0.0 (no lockup) to 1.0 (full lock).
 double calculateLockupRatio(double wheelSpeed, double robotSpeed) {
     if (std::fabs(robotSpeed) < DIV_BY_ZERO_THRESHOLD)
         return (std::fabs(wheelSpeed) < DIV_BY_ZERO_THRESHOLD) ? 0.0 : 1.0;
@@ -390,11 +390,11 @@ IntakeStallTaskParams intakeStallParams;
 //         elapsed += 10;
 //     }
 
-//     // Optionally lock the robot in place with HOLD mode.
-//     if (brakeLock) {
-//         leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-//         rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-//         leftDrive.brake();
-//         rightDrive.brake();
-//     }
-// }
+    // Optionally lock the robot in place with HOLD mode.
+    if (brakeLock) {
+        leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+        rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+        leftDrive.brake();
+        rightDrive.brake();
+    }
+}

@@ -15,6 +15,11 @@ extern double globalX;         // robot X position (cm)
 extern double globalY;         // robot Y position (cm)
 extern double globalRotation;  // continuous rotation (degrees)
 
+// Encoder velocity computed from position deltas in updateOdometry().
+// Use these instead of pros::Rotation::get_velocity() which is unreliable in PROS.
+extern double globalLeftEncoderRPM;   // left tracking wheel velocity (RPM)
+extern double globalRightEncoderRPM;  // right tracking wheel velocity (RPM)
+
 // ── Previous encoder snapshots (used to compute deltas each iteration) ────────
 extern double prevLeftEncoder;   // previous left encoder reading (degrees)
 extern double prevRightEncoder;  // previous right encoder reading (degrees)
