@@ -55,8 +55,9 @@ std::int8_t horizontalEncoderPort = 2;
 std::int8_t verticalEncoderPort = 4;
 std::int8_t imuPort = 8; 
 std::int8_t colorSensorPort = 15;
-std::int8_t aiVisionPort = 21;
+// std::int8_t aiVisionPort = 21;
 std::int8_t gpsSensorPort = 17; // not real
+std::int8_t aiVisionPort = 12;
 
 std::int8_t receiverPort = 6;
 pros::Link* receiver;
@@ -120,6 +121,8 @@ pros::Optical opticalSensor   (colorSensorPort);
 
 // GPS Sensor -- doesn't actually exist (yet).
 pros::GPS gpsSensor (gpsSensorPort);
+
+pros::AIVision aivisionsensor(aiVisionPort);
 
 // ── AI Vision Sensor ──────────────────────────────────────────────────────────
 // PROS Vision signatures use YCbCr / UV color space — NOT HSV.

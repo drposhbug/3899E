@@ -14,4 +14,5 @@ void navTest();            // test odometry-based straight drive
 // ── Selector — called from autonomous() in main.cpp ──────────────────────────
 void autonSelector();
 
+void autonLeft15();
 #endif // AUTON_H
