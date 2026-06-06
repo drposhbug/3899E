@@ -8,9 +8,12 @@
 //
 // Single source of truth for all tunable motion parameters.
 // Each struct covers one motion family:
-//   StraightProfile — straightDistance, forwardToPoint, and all straight wrappers
+//   StraightProfile — straightDistance, forwardToPoint, backwardToPoint,
+//                     driveForward, driveBackward
 //   TurnProfile     — turnOdometry, pivotTurnOdometryV2, and all turn wrappers
-//   VisionProfile   — moveVisionOdometry, moveVisionOdometryOpen, visionOnly
+//   VisionProfile   — visionForwardToPoint, visionBackwardToPoint,
+//                     visionDriveForward, visionDriveBackward, visionOnly
+//                     (NOT visionDriveMinimal or visionDriveV2 — legacy arch)
 //
 // Usage — use defaults:
 //   driveForward(60.0);
@@ -101,60 +104,35 @@ struct TurnProfile {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // VisionProfile
-// Covers: moveVisionOdometry, moveVisionOdometryOpen, visionOnly
-// Does NOT cover visionDriveMinimal or visionDriveV2 — those are a separate
-// simpler architecture with different params and no motion phases.
+// Covers: visionForwardToPoint, visionBackwardToPoint, visionDriveForward,
+//         visionDriveBackward, visionOnly
+// Does NOT cover visionDriveMinimal or visionDriveV2 — those are legacy
+// simple architecture with individual params, left as-is.
+//
+// Motion params live in the embedded StraightProfile — single source of truth.
+// Tune drive behaviour in `drive`; vision-only params follow below.
 // ──────────────────────────────────────────────────────────────────────────────
 struct VisionProfile {
-    // ── Motion shape ──────────────────────────────────────────────────────────
-    double breakDistance;           // cm from target to begin decel
-    double minSpeed;                // approach phase speed %
-    double maxSpeed;                // peak cruise speed %
-    double distanceTolerance;       // odometry exit bubble radius (cm)
-    double timeout;                 // maximum run time (seconds)
-    pros::motor_brake_mode_e_t brakeMode;  // motor behavior at stop
-
-    // ── Heading PID ───────────────────────────────────────────────────────────
-    double kp_head;                 // proportional gain
-    double ki_head;                 // integral gain
-    double kd_head;                 // derivative gain
+    // ── Motion params — single source of truth ────────────────────────────────
+    // All motion shape, heading PID, phase scaling, traction, ABS, and
+    // overcurrent fields are inherited from StraightProfile.
+    // Vision functions read p.drive.kp_heading, p.drive.maxSpeed etc —
+    // identical field names to forwardToPoint / backwardToPoint.
+    StraightProfile drive;
 
     // ── Vision heading fusion ─────────────────────────────────────────────────
     // kp_distToHeadScaling: aggressiveness of vision correction.
     // 0.0 = hold odometry heading (ignores vision), 1.0 = full snap to object.
     double kp_distToHeadScaling;
 
-    // ── Phase heading scaling ─────────────────────────────────────────────────
-    double accelHeadingScaling;     // correction weight during acceleration
-    double decelHeadingScaling;     // correction weight during deceleration
-    double approachHeadingScaling;  // correction weight during final approach
-
-    // ── Heading lock ──────────────────────────────────────────────────────────
-    // Freeze heading target within this many cm of target to prevent atan2
-    // instability. Only active before vision acquires.
-    double headingLockDistance;
-
     // ── Vision object filter ──────────────────────────────────────────────────
     // Bounding box and size filter — ignores detections outside this screen region.
+    // Screen is 320×240 pixels.
     int    minObjectWidth;          // minimum pixel width for a valid detection
     int    minX;                    // left bound of valid detection zone (pixels)
     int    maxX;                    // right bound of valid detection zone (pixels)
     int    minY;                    // top bound of valid detection zone (pixels)
     int    maxY;                    // bottom bound of valid detection zone (pixels)
-
-    // ── Internal motion constants ─────────────────────────────────────────────
-    double launchVoltage;           // initial kick voltage to overcome static friction (V)
-    double accelFactor;             // traction control voltage ramp multiplier per tick
-    double slipThreshold;           // motor vs encoder RPM difference before traction cuts in
-    double decelStepPercent;        // ABS voltage reduction per step during decel
-    double lockThreshold;           // encoder/motor RPM ratio that declares wheel lockup
-
-    // ── Overcurrent protection ────────────────────────────────────────────────
-    // Circuit breaker — exits the move if drive current stays above maxCurrentA
-    // for overcurrentDurationMs milliseconds. Protects against stalls and jams.
-    // Set maxCurrentA = 50.0 to disable.
-    double   maxCurrentA;           // total drive current trip threshold (amps)
-    uint32_t overcurrentDurationMs;  // ms current must stay high before tripping
 };
 
 

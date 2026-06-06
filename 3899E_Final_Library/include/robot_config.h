@@ -82,24 +82,17 @@ extern bool scorePistonState;
 // ══════════════════════════════════════════════════════════════════════════════
 // AI VISION SENSOR
 // ══════════════════════════════════════════════════════════════════════════════
-// Color signatures use PROS YCbCr / UV color space — NOT HSV.
-// Re-run the PROS Vision Sensor utility to calibrate U/V ranges for your lighting.
-extern pros::vision_signature_s_t aiVision_blueCube;
-extern pros::vision_signature_s_t aiVision_orangeGoal;
-extern pros::vision_signature_s_t aiVision_redCube;
-
-// Color codes — multi-signature patterns detected together.
-extern pros::vision_color_code_t aiVision_redLoad;
-extern pros::vision_color_code_t aiVision_blueLoad;
-extern pros::vision_color_code_t aiVision_blueRedBlue;
-extern pros::vision_color_code_t aiVision_redBlue;
-
-// Detection result objects — populated at runtime by aiVision.get_by_sig().
-extern pros::vision_object_s_t aiVision_blueBlock;
-extern pros::vision_object_s_t aiVision_redBlock;
+// Uses pros::AIVision — NOT the older pros::Vision sensor API.
+// Colors defined from VEX aivision::colordesc values and pushed to sensor in robotInit().
+// Detection type: AivisionModeType::colors (color blob detection).
+//
+// COLOR1 (id=1): red cube  — r=146 g=27  b=79  hue_range=21  sat=0.6
+// COLOR2 (id=2): blue cube — r=59  g=91  b=170 hue_range=19  sat=0.28
+extern pros::AIVision::Color aiVision_redCube;
+extern pros::AIVision::Color aiVision_blueCube;
 
 // The AI Vision sensor itself (port 14).
-extern pros::Vision aiVision;
+extern pros::AIVision aiVision;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // GLOBAL ROBOT STATE
