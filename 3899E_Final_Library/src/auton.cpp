@@ -70,15 +70,15 @@ void navTest() {
     pros::delay(200);
 
     StraightProfile driveProfile = DEFAULT_STRAIGHT;
-    driveProfile.breakDistance          = 58.0;   // cm before target to begin decel
+    driveProfile.breakDistance          = 90.0;   // cm before target to begin decel
     driveProfile.minSpeed               = 20.0;   // % minimum approach speed
     driveProfile.maxSpeed               = 80.0;   // % peak cruise speed
     driveProfile.distanceTolerance      = 1.0;    // cm exit bubble
     driveProfile.timeout                = 5.0;    // seconds 5 sec default
     driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-    driveProfile.kp_heading             = 0.5;    // heading PID proportional
+    driveProfile.kp_heading             = 2.0;    // heading PID proportional
     driveProfile.ki_heading             = 0.0;    // heading PID integral
-    driveProfile.kd_heading             = 0.0;    // heading PID derivative
+    driveProfile.kd_heading             = 5.0;    // heading PID derivative
     driveProfile.accelHeadingScaling    = 0.2;    // correction weight during accel
     driveProfile.decelHeadingScaling    = 0.1;    // correction weight during decel
     driveProfile.approachHeadingScaling = 0.1;    // correction weight during approach
@@ -86,7 +86,7 @@ void navTest() {
     driveProfile.launchVoltage          = 3.0;    // V — initial kick voltage
     driveProfile.accelFactor            = 1.2;    // traction ramp multiplier
     driveProfile.slipThreshold          = 0.3;   // RPM slip before traction cuts in
-    driveProfile.decelStepPercent       = 2.0;   // ABS voltage reduction per step
+    driveProfile.decelStepPercent       = 0.30;   // ABS voltage reduction per step
     driveProfile.lockThreshold          = 0.3;   // wheel lockup ratio
     driveProfile.maxCurrentA            = 4.0;   // amps — wall stall trip threshold
     driveProfile.overcurrentDurationMs  = 300; // ms — how long before breaker fires

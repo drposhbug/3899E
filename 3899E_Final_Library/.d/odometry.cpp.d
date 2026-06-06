@@ -1,5 +1,5 @@
-bin/navigation.cpp.o: src/navigation.cpp include/robot_config.h \
- include/main.h include/api.h include/pros/adi.h include/pros/ai_vision.h \
+bin/odometry.cpp.o: src/odometry.cpp include/odometry.h include/main.h \
+ include/api.h include/pros/adi.h include/pros/ai_vision.h \
  include/pros/colors.h include/pros/device.h include/pros/distance.h \
  include/pros/error.h include/pros/ext_adi.h include/pros/adi.h \
  include/pros/adi.h include/pros/gps.h include/pros/imu.h \
@@ -666,11 +666,9 @@ bin/navigation.cpp.o: src/navigation.cpp include/robot_config.h \
  include/pros/optical.h include/pros/rotation.hpp include/pros/rotation.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
- include/pros/vision.h include/main.h include/utils.h \
- include/robot_config.h include/pid.h include/motion_config.h \
- include/navigation.h include/utils.h include/motion_config.h \
- include/odometry.h
-include/robot_config.h:
+ include/pros/vision.h include/robot_config.h include/robot_config.h \
+ include/utils.h include/main.h include/motion_config.h
+include/odometry.h:
 include/main.h:
 include/api.h:
 include/pros/adi.h:
@@ -1412,12 +1410,8 @@ include/pros/serial.hpp:
 include/pros/serial.h:
 include/pros/vision.hpp:
 include/pros/vision.h:
-include/main.h:
-include/utils.h:
 include/robot_config.h:
-include/pid.h:
-include/motion_config.h:
-include/navigation.h:
+include/robot_config.h:
 include/utils.h:
+include/main.h:
 include/motion_config.h:
-include/odometry.h:

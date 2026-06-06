@@ -91,7 +91,8 @@ extern bool scorePistonState;
 extern pros::AIVision::Color aiVision_redCube;
 extern pros::AIVision::Color aiVision_blueCube;
 
-// The AI Vision sensor itself (port 14).
+extern pros::AIVision aiVision_Front;
+extern pros::AIVision aiVision_Back;
 extern pros::AIVision aiVision;
 
 // ══════════════════════════════════════════════════════════════════════════════

@@ -8,11 +8,35 @@
 #include "odometry.h"
 #include "ai.h"
 
+std::pmr::string teamColor = "RED";  // default to red, set to "BLUE" if blue alliance
+
 void initialize()
 {
     passiveEncoderLeft.set_reversed(true);
     passiveEncoderRight.set_reversed(false);
     passiveEncoderX.set_reversed(true);
+
+    // Reset and enable color blob detection on the front camera
+    aiVision_Front.reset();
+    aiVision_Front.enable_detection_types(pros::AivisionModeType::colors);
+
+    // Re-create your VEXcode parameters inside the PROS struct format:
+    // (id, red/Cr, green/Cb, blue/hue, hue_range, sat_range)
+    pros::AIVision::Color redBlock  = {1, 167, 29, 70, 16, 0.38};
+    pros::AIVision::Color blueBlock = {2, 31, 69, 115, 17, 0.42};
+    pros::AIVision::Color mlModel   = {3, 223, 137, 51, 7, 0.45};
+
+    // Upload the signatures to the front camera hardware
+    aiVision_Front.set_color(redBlock);
+    aiVision_Front.set_color(blueBlock);
+    aiVision_Front.set_color(mlModel);
+
+    // If your back camera uses identical color tracking, send them there too:
+    aiVision_Back.reset();
+    aiVision_Back.enable_detection_types(pros::AivisionModeType::colors);
+    aiVision_Back.set_color(redBlock);
+    aiVision_Back.set_color(blueBlock);
+    aiVision_Back.set_color(mlModel);
 
     robotInit();
 
@@ -94,8 +118,62 @@ void autonomous()
 
 void opcontrol() {
 // {
-    pros::screen::erase();
-    Controller.clear();
+    // Use the capitalized AIVision object type alias for tracking results
+    std::vector<pros::AIVision::Object> aiVision_front_objects;
+    std::vector<pros::AIVision::Object> aiVision_back_objects;
+
+    while (true) {
+        // Grab all currently tracked objects from the front sensor
+        aiVision_front_objects = aiVision_Front.get_all_objects();
+
+        for (auto &obj : aiVision_front_objects) {
+            // 1. Verify that this object is indeed a color detection type
+            if (pros::AIVision::is_type(obj, pros::AivisionDetectType::color)) {
+                if (teamColor == "RED") {
+                    // 2. Filter by your target signature ID (e.g., ID 1 for Red)
+                    if (obj.id == 1) { 
+                        
+                        // 3. Access the nested color struct data:
+                        // Top-left X coordinate of the bounding box
+                        int topLeftX = obj.object.color.xoffset; 
+                        // Width of the bounding box
+                        int blockWidth = obj.object.color.width; 
+                        
+                        // 4. Calculate the center X coordinate manually
+                        int blockX = topLeftX + (blockWidth / 2);
+                        
+                        pros::lcd::print(1, "Front Red Center X: %d", blockX);
+                    }
+                } else if (teamColor == "BLUE") {
+                    // 2. Filter by your target signature ID (e.g., ID 2 for Blue)
+                    if (obj.id == 2) { 
+                        
+                        // 3. Access the nested color struct data:
+                        // Top-left X coordinate of the bounding box
+                        int topLeftX = obj.object.color.xoffset; 
+                        // Width of the bounding box
+                        int blockWidth = obj.object.color.width; 
+                        
+                        // 4. Calculate the center X coordinate manually
+                        int blockX = topLeftX + (blockWidth / 2);
+                        
+                        pros::lcd::print(1, "Front Blue Center X: %d", blockX);
+                    }
+                }
+                if (obj.id==3) {
+                    // This is the ML model signature — access object data as needed
+                    int topLeftX = obj.object.color.xoffset; 
+                    int blockWidth = obj.object.color.width; 
+                    int blockX = topLeftX + (blockWidth / 2);
+                    pros::lcd::print(2, "ML Model Center X: %d", blockX);
+                }
+            }
+        }
+        
+        pros::delay(20);
+    }
+    // pros::screen::erase();
+    // Controller.clear();
     driverControl();
     // coordinateFinder();
 }
