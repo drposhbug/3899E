@@ -277,21 +277,21 @@ void autonSelector() {
 //             pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Running: %s", autonNames[autonMode]);
 //             pros::delay(300);
 
-            switch (autonMode) {
-                case 0:  setAllianceRed(true);  runAIMatchRoute();      break;
-                case 1:  setAllianceRed(false); runAIMatchRoute();      break;
-                case 2:  routeTest();                                   break;
-                case 3:  routeGridTest();                               break;
-                case 4:  systemTest();                                  break;
-                case 5:  coordinateFinder();  break;
-                case 6:  visionTest();        break;
-            }
-            break;
-        }
+        //     switch (autonMode) {
+        //         case 0:  setAllianceRed(true);  runAIMatchRoute();      break;
+        //         case 1:  setAllianceRed(false); runAIMatchRoute();      break;
+        //         case 2:  routeTest();                                   break;
+        //         case 3:  routeGridTest();                               break;
+        //         case 4:  systemTest();                                  break;
+        //         case 5:  coordinateFinder();  break;
+        //         case 6:  visionTest();        break;
+        //     }
+        //     break;
+        // }
 
 //         pros::delay(20);
 //     }
-// }
+}
 
 void autonLeft15(){
     startOdometryTask();
