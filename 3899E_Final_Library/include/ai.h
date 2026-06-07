@@ -26,6 +26,7 @@
 #include "jetson_comms.h"   // AI_RECORD, DETECTION_OBJECT, g_jetson
 #include "route_planner.h"  // RoutePath, routePlan, routeExecute
 #include "robot_geometry.h" // field constants
+#include "robot_config.h"   // aiVision_orangeCap, aiVision_redCube, aiVision_blueCube
 
 // ============================================================================
 // SECTION 1 — Strategy codes & class IDs
@@ -169,13 +170,9 @@ enum class NavResult {
 // ============================================================================
 
 /**
- * navigateToTarget — sequences all three navigation phases:
- *   Phase 1: route_planner + moveOdometry until near target and vision locked
- *   Phase 2: moveVisionOdometryAI for precision approach
- *   Phase 3: blind straight drive at reduced power until stall or timeout
- *
+ * navigateToTarget — low-level three-phase navigation to raw XY coordinates.
+ * Called internally by navigateTo() and strategy functions.
  * Can use a pre-planned RoutePath (pass count > 0) or plans internally.
- * Returns NavResult for the strategy function to act on.
  */
 NavResult navigateToTarget(double goalX, double goalY,
                            TargetType target,

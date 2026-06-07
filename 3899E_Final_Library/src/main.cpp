@@ -54,7 +54,8 @@ void initialize()
     //     pros::delay(100);
     // }
 
-    // Jetson diagnostic display — live packet stats on LCD at 10Hz
+    // Jetson diagnostic display — disabled during field targets debugging
+    // Uncomment after debugging is complete
     // pros::Task([]{
     //     while (true) {
     //         pros::lcd::print(0, "pkts:%d err:%d tmo:%d",
@@ -80,31 +81,42 @@ void competition_initialize() {
     // autonSelector();
 }
 
+static bool posDisplayRunning = true;
+
 void autonomous()
 {
     pros::screen::erase();
 
+    // PosDisplay disabled for routeGridTest — conflicts with routePrintGrid on line 0
+    // Restore after grid debugging is done
+    // pros::Task([]{
+    //     while (posDisplayRunning) {
+    //         pros::screen::print(pros::E_TEXT_MEDIUM, 0,
+    //             "X:%.1f Y:%.1f H:%.1f",
+    //             globalX, globalY, getContinuousStandardHeading());
+    //         pros::delay(100);
+    //     }
+    // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "PosDisplay");
+
     // DEBUG velocity display task — remove before competition
-    // Reads motor and encoder velocity every 50ms, holds last non-zero value on screen.
-    static double dispMotorRPM   = 0.0;
-    static double dispEncoderRPM = 0.0;
-    pros::Task([&]{
-        while (true) {
-            double mRPM = leftDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
-            double eRPM = globalLeftEncoderRPM * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-            // Only update display if robot is moving — holds last value when stopped
-            if (std::fabs(mRPM) > 1.0 || std::fabs(eRPM) > 0.1) {
-                dispMotorRPM   = mRPM;
-                dispEncoderRPM = eRPM;
-            }
-            pros::lcd::print(2, "mRPM:%7.1f eRPM:%7.2f", dispMotorRPM, dispEncoderRPM);
-            pros::lcd::print(3, "slip: mRPM/eRPM ratio");
-            pros::delay(50);
-        }
-    }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
+    // Comment back in after fieldTargetsTest debugging is done
+    // pros::Task([&]{
+    //     while (true) {
+    //         double mRPM = leftDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
+    //         double eRPM = globalLeftEncoderRPM * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+    //         if (std::fabs(mRPM) > 1.0 || std::fabs(eRPM) > 0.1) {
+    //             dispMotorRPM   = mRPM;
+    //             dispEncoderRPM = eRPM;
+    //         }
+    //         pros::lcd::print(2, "mRPM:%7.1f eRPM:%7.2f", dispMotorRPM, dispEncoderRPM);
+    //         pros::lcd::print(3, "slip: mRPM/eRPM ratio");
+    //         pros::delay(50);
+    //     }
+    // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
-    //visionTest();
+    //fieldTargetsTest();
+    // visionTest();
     //navTest();
     //runAIMatchRoute();
     //routeTest();
@@ -114,7 +126,11 @@ void autonomous()
     autonLeft15();
     //skills();
     // ─────────────────────────────────────────────────────────────────────────
-    
+
+    // Hold for remainder of autonomous period — prevents task cleanup killing the screen
+    while (true) {
+        pros::delay(100);
+    }
 }
 
 void opcontrol() {

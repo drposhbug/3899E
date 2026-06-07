@@ -22,6 +22,7 @@
 #include "autontasks.h"
 #include "pid.h"
 #include "utils.h"
+#include "field_targets.h"   // FIELD_TARGETS table, getTarget(), waitAndResetGPS()
 #include <cmath>
 #include <atomic>
 
@@ -432,6 +433,138 @@ NavResult navigateToTarget(double goalX, double goalY,
 }
 
 // ============================================================================
+// navigateTo — single-call navigation to a named field target
+//
+// Reads approach point, heading, and type from FIELD_TARGETS table.
+// Waypoint loop uses 25° threshold: turns before forwardToPoint only when
+// heading error exceeds what PID can safely correct in one 30cm cell.
+// ============================================================================
+
+NavResult navigateTo(TargetID id,
+                     pros::AIVision::Color matchLoaderSig) {
+
+    const NamedTarget& t = getTarget(id);
+
+    // ── Phase 1: A* to approach point with 25° turn threshold ────────────────
+    RoutePath path = routePlan(globalX, globalY, t.approachX, t.approachY);
+    if (path.count == 0) {
+        pros::lcd::print(2, "NO PATH to (%.0f,%.0f)", t.approachX, t.approachY);
+        return NavResult::BLOCKED_REROUTE;
+    }
+
+    pros::lcd::print(2, "%d WPs → (%.0f,%.0f)", path.count, t.approachX, t.approachY);
+
+    StraightProfile wpProfile = LOADED_MID_FWD_80;
+    wpProfile.kp_heading             = 0.4;
+    wpProfile.ki_heading             = 0.01;
+    wpProfile.kd_heading             = 0.05;
+    wpProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    wpProfile.accelHeadingScaling    = 0.2;
+    wpProfile.decelHeadingScaling    = 0.2;
+    wpProfile.approachHeadingScaling = 0.2;
+    wpProfile.headingLockDistance    = 8.0;
+    wpProfile.timeout                = 8.0;  // per-waypoint timeout — forwardToPoint enforces this
+
+    TurnProfile turnProfile = DEFAULT_TURN;
+    turnProfile.exitTolerance = 5.0;
+    turnProfile.maxSpeed      = 60.0;
+    turnProfile.breakDistance = 20.0;
+    turnProfile.maxCurrentA   = 5.0;
+
+    int lcdLine = 3;  // start waypoint log at line 3, increment per waypoint
+    for (int i = 0; i < path.count; i++) {
+        updateOdometry();
+
+        double wpDist, waypointHeading;
+        calculatePathToTarget(globalX, globalY, path.x[i], path.y[i],
+                              wpDist, waypointHeading);
+
+        double currentH = fmod(getContinuousStandardHeading(), 360.0);
+        if (currentH < 0) currentH += 360.0;
+
+        double error = waypointHeading - currentH;
+        if (error >  180.0) error -= 360.0;
+        if (error < -180.0) error += 360.0;
+        error = fabs(error);
+
+        if (lcdLine <= 7) {
+            pros::lcd::print(lcdLine++, "WP%d(%.0f,%.0f)e:%.0f %s",
+                             i, path.x[i], path.y[i], error,
+                             error > 25.0 ? "TRN" : "go");
+        }
+
+        if (error > 25.0)
+            turnToPoint(path.x[i], path.y[i], turnProfile);
+
+        uint32_t wpStart = pros::millis();
+        forwardToPoint(path.x[i], path.y[i], wpProfile);
+
+        // Timed out means forwardToPoint couldn't reach the waypoint — something blocked
+        if (pros::millis() - wpStart >= static_cast<uint32_t>(wpProfile.timeout * 1000.0 - 50.0))
+            return NavResult::BLOCKED_REROUTE;
+    }
+
+    // ── Parking: done ─────────────────────────────────────────────────────────
+    if (t.type == TargetType::PARK_ZONE) return NavResult::SUCCESS;
+
+    // ── Turn to face approach heading ─────────────────────────────────────────
+    // Heading pulled directly from field_targets table — not computed from position.
+    // currentHNorm normalized to [0,360) before delta: fmod preserves sign in C++
+    // so negative continuous headings corrupt the calculation without this fix.
+    {
+        double currentH     = getContinuousStandardHeading();
+        double currentHNorm = fmod(currentH, 360.0);
+        if (currentHNorm < 0) currentHNorm += 360.0;
+        double delta = fmod((t.approachHeading - currentHNorm) + 540.0, 360.0) - 180.0;
+        pros::lcd::print(1, "Ph2:%s cH:%.0f tH:%.0f d:%.0f",
+            t.type == TargetType::LONG_GOAL    ? "LG" :
+            t.type == TargetType::MATCH_LOADER ? "ML" : "CG",
+            currentH, t.approachHeading, delta);
+        if (fabs(delta) > 5.0)
+            turnOdometry(currentH + delta, turnProfile);  // continuous heading for turnOdometry
+    }
+    pros::delay(150);
+
+    // ── DEBUG: stop here — uncomment Phase 2+3 below when approach is confirmed ─
+    return NavResult::SUCCESS;
+
+    // ── Phase 2+3: sensor approach by target type ─────────────────────────────
+    // if (t.type == TargetType::LONG_GOAL) {
+    //     StraightProfile backProfile = BACKWARD_STRAIGHT;
+    //     backProfile.timeout = 3.0;
+    //     backwardToPoint(t.targetX, t.targetY, backProfile);
+    //     return blindApproach(t.type);
+    // }
+    // if (t.type == TargetType::MATCH_LOADER) {
+    //     VisionProfile vp = DEFAULT_VISION;
+    //     vp.drive.timeout = 3.0;
+    //     visionOnly(matchLoaderSig, vp.minObjectWidth, 10.0, vp);
+    //     return blindApproach(t.type);
+    // }
+    // if (t.type == TargetType::CENTER_GOAL) {
+    // #if ACTIVE_BOT == BOT_24INCH
+    //     uint32_t visionWaitStart = pros::millis();
+    //     while (!jetsonTargetTracked() && pros::millis() - visionWaitStart < 300)
+    //         pros::delay(10);
+    //     if (jetsonTargetTracked())
+    //         moveVisionOdometryAI(CLASS_FWD_GOAL, (float)BLIND_HANDOFF_DISTANCE_CM,
+    //                              t.targetX, t.targetY, 15.0,
+    //                              pros::E_MOTOR_BRAKE_COAST, 60.0);
+    //     return blindApproach(t.type);
+    // #else
+    //     waitAndResetGPS(500);
+    //     StraightProfile fwdProfile = DEFAULT_STRAIGHT;
+    //     fwdProfile.timeout = 3.0;
+    //     forwardToPoint(t.targetX, t.targetY, fwdProfile);
+    //     return blindApproach(t.type);
+    // #endif
+    // }
+    // return NavResult::BLOCKED_REROUTE;
+
+    return NavResult::BLOCKED_REROUTE;
+}
+
+// ============================================================================
 // SECTION 4 — Strategy functions
 // ============================================================================
 
@@ -475,38 +608,55 @@ static void doIntake()  { intakeHopperStart(3000, 80); }
 static void doNothing() {}
 
 void strategyScoreTopGoal() {
-    executeStrategy(0.0, LONG_GOAL_Y_TOP - 25.0, TargetType::LONG_GOAL, doScore);
+    const NamedTarget& t = getTarget(GOAL_NE);
+    executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doScore);
 }
 void strategyScoreBottomGoal() {
-    executeStrategy(0.0, LONG_GOAL_Y_BOT + 25.0, TargetType::LONG_GOAL, doScore);
+    const NamedTarget& t = getTarget(GOAL_SE);
+    executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doScore);
 }
 void strategyScoreCenterGoal() {
-    executeStrategy(0.0, -(CENTER_GOAL_HALF_EXTENT + ROBOT_DEPTH_CM/2.0 + 5.0),
-                    TargetType::CENTER_GOAL, doScore);
+    const NamedTarget& t = getTarget(CENTER_NE);  // default arm — change per route
+#if ACTIVE_BOT == BOT_15INCH
+    RoutePath path = routePlan(globalX, globalY, t.approachX, t.approachY);
+    if (path.count > 0) routeExecute(path);
+    turnOdometry(t.approachHeading);
+    waitAndResetGPS(500);
+    executeStrategy(t.targetX, t.targetY, TargetType::CENTER_GOAL, doScore);
+#else
+    executeStrategy(t.approachX, t.approachY, TargetType::CENTER_GOAL, doScore);
+#endif
 }
 void strategyDescoreTopGoal() {
-    executeStrategy(0.0, LONG_GOAL_Y_TOP - 25.0, TargetType::LONG_GOAL, doDescore);
+    const NamedTarget& t = getTarget(GOAL_NE);
+    executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doDescore);
 }
 void strategyDescoreBottomGoal() {
-    executeStrategy(0.0, LONG_GOAL_Y_BOT + 25.0, TargetType::LONG_GOAL, doDescore);
+    const NamedTarget& t = getTarget(GOAL_SE);
+    executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doDescore);
 }
 void strategyBlockTopGoal() {
-    executeStrategy(0.0, 61.0, TargetType::PARK_ZONE, doNothing);
+    const NamedTarget& t = getTarget(GOAL_NE);
+    executeStrategy(t.approachX, t.approachY, TargetType::PARK_ZONE, doNothing);
 }
 void strategyBlockBottomGoal() {
-    executeStrategy(0.0, -61.0, TargetType::PARK_ZONE, doNothing);
+    const NamedTarget& t = getTarget(GOAL_SE);
+    executeStrategy(t.approachX, t.approachY, TargetType::PARK_ZONE, doNothing);
 }
 void strategyUseMatchLoader() {
     updateOdometry();
-    double bestDist = 1e9, mlX = ML_POSTS[0].x, mlY = ML_POSTS[0].y;
-    for (int i = 0; i < NUM_ML_POSTS; i++) {
-        double d = sqrt(pow(ML_POSTS[i].x - globalX, 2) + pow(ML_POSTS[i].y - globalY, 2));
-        if (d < bestDist) { bestDist = d; mlX = ML_POSTS[i].x; mlY = ML_POSTS[i].y; }
+    double bestDist = 1e9;
+    TargetID bestID = LOADER_NE;
+    const TargetID loaderIDs[4] = { LOADER_NE, LOADER_SE, LOADER_SW, LOADER_NW };
+    for (int i = 0; i < 4; i++) {
+        const NamedTarget& t = getTarget(loaderIDs[i]);
+        double dx = t.targetX - globalX;
+        double dy = t.targetY - globalY;
+        double d  = sqrt(dx*dx + dy*dy);
+        if (d < bestDist) { bestDist = d; bestID = loaderIDs[i]; }
     }
-    double dx = mlX - globalX, dy = mlY - globalY, dist = sqrt(dx*dx + dy*dy);
-    double approachX = mlX - (dx/dist)*25.0;
-    double approachY = mlY - (dy/dist)*25.0;
-    executeStrategy(approachX, approachY, TargetType::MATCH_LOADER, doIntake);
+    const NamedTarget& best = getTarget(bestID);
+    executeStrategy(best.approachX, best.approachY, TargetType::MATCH_LOADER, doIntake);
 }
 void strategyPark() {
     NavResult result = navigateToTarget(getParkX(), PARK_Y, TargetType::PARK_ZONE);

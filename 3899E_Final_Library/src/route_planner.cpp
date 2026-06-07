@@ -363,8 +363,8 @@ bool routeExecute(const RoutePath& path,
 void routePrintGrid() {
     buildStaticGrid();
     pros::screen::erase();
-    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "Route grid  X=static D=dynamic .=open");
-    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Bot clearance: %.1fcm", ROBOT_CLEARANCE_CM);
+    pros::screen::print(pros::E_TEXT_SMALL, 0, "Route grid  X=static D=dynamic .=open");
+    pros::screen::print(pros::E_TEXT_SMALL, 1, "Bot clearance: %.1fcm", ROBOT_CLEARANCE_CM);
 
     for (int r = GRID_N - 1; r >= 0; r--) {
         char line[GRID_N + 1];
@@ -375,6 +375,6 @@ void routePrintGrid() {
         }
         line[GRID_N] = '\0';
         int screenRow = 2 + (GRID_N - 1 - r);
-        pros::screen::print(pros::E_TEXT_MEDIUM, screenRow, "%2d %s", r, line);
+        pros::screen::print(pros::E_TEXT_SMALL, screenRow, "%2d %s", r, line);
     }
 }

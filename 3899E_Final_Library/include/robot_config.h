@@ -86,10 +86,14 @@ extern bool scorePistonState;
 // Colors defined from VEX aivision::colordesc values and pushed to sensor in robotInit().
 // Detection type: AivisionModeType::colors (color blob detection).
 //
-// COLOR1 (id=1): red cube  — r=146 g=27  b=79  hue_range=21  sat=0.6
-// COLOR2 (id=2): blue cube — r=59  g=91  b=170 hue_range=19  sat=0.28
+// COLOR1 (id=1): red cube   — r=146 g=27  b=79  hue_range=21  sat=0.6
+// COLOR2 (id=2): blue cube  — r=59  g=91  b=170 hue_range=19  sat=0.28
+// COLOR3 (id=3): orange cap  — match loader cap; placeholder, tune on field
+// COLOR4 (id=4): orange base — long goal base; different shade, tune separately
 extern pros::AIVision::Color aiVision_redCube;
 extern pros::AIVision::Color aiVision_blueCube;
+extern pros::AIVision::Color aiVision_orangeCap;   // match loader cap
+extern pros::AIVision::Color aiVision_orangeBase;  // long goal base
 
 extern pros::AIVision aiVision_Front;
 extern pros::AIVision aiVision_Back;
