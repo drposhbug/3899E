@@ -16,27 +16,27 @@ void initialize()
     passiveEncoderRight.set_reversed(false);
     passiveEncoderX.set_reversed(true);
 
-    // Reset and enable color blob detection on the front camera
-    aiVision_Front.reset();
-    aiVision_Front.enable_detection_types(pros::AivisionModeType::colors);
+    // // Reset and enable color blob detection on the front camera
+    // aiVision_Front.reset();
+    // aiVision_Front.enable_detection_types(pros::AivisionModeType::colors);
 
-    // Re-create your VEXcode parameters inside the PROS struct format:
-    // (id, red/Cr, green/Cb, blue/hue, hue_range, sat_range)
-    pros::AIVision::Color redBlock  = {1, 167, 29, 70, 16, 0.38};
-    pros::AIVision::Color blueBlock = {2, 31, 69, 115, 17, 0.42};
-    pros::AIVision::Color mlModel   = {3, 223, 137, 51, 7, 0.45};
+    // // Re-create your VEXcode parameters inside the PROS struct format:
+    // // (id, red/Cr, green/Cb, blue/hue, hue_range, sat_range)
+    // pros::AIVision::Color redBlock  = {1, 167, 29, 70, 16, 0.38};
+    // pros::AIVision::Color blueBlock = {2, 31, 69, 115, 17, 0.42};
+    // pros::AIVision::Color mlModel   = {3, 223, 137, 51, 7, 0.45};
 
-    // Upload the signatures to the front camera hardware
-    aiVision_Front.set_color(redBlock);
-    aiVision_Front.set_color(blueBlock);
-    aiVision_Front.set_color(mlModel);
+    // // Upload the signatures to the front camera hardware
+    // aiVision_Front.set_color(redBlock);
+    // aiVision_Front.set_color(blueBlock);
+    // aiVision_Front.set_color(mlModel);
 
-    // If your back camera uses identical color tracking, send them there too:
-    aiVision_Back.reset();
-    aiVision_Back.enable_detection_types(pros::AivisionModeType::colors);
-    aiVision_Back.set_color(redBlock);
-    aiVision_Back.set_color(blueBlock);
-    aiVision_Back.set_color(mlModel);
+    // // If your back camera uses identical color tracking, send them there too:
+    // aiVision_Back.reset();
+    // aiVision_Back.enable_detection_types(pros::AivisionModeType::colors);
+    // aiVision_Back.set_color(redBlock);
+    // aiVision_Back.set_color(blueBlock);
+    // aiVision_Back.set_color(mlModel);
 
     robotInit();
 
@@ -116,14 +116,14 @@ void autonomous()
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
     //fieldTargetsTest();
-    // visionTest();
-    //navTest();
+    visionTest();
+    // navTest();
     //runAIMatchRoute();
     //routeTest();
     //routeGridTest();
     //systemTest();
     //coordinateFinder();
-    autonLeft15();
+    // autonLeft15();
     //skills();
     // ─────────────────────────────────────────────────────────────────────────
 
