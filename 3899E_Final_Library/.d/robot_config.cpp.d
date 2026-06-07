@@ -170,9 +170,9 @@ bin/robot_config.cpp.o: src/robot_config.cpp include/robot_config.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../misc/lv_event.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/lv_indev.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/lv_group.h \
- c:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h \
- c:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h \
- c:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h \
+ C:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h \
+ C:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h \
+ C:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_area.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_timer.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_event.h \
@@ -852,9 +852,9 @@ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_obj_ev
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../misc/lv_event.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/lv_indev.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../core/lv_group.h:
-c:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h:
-c:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h:
-c:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h:
+C:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h:
+C:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h:
+C:/Users/justi/OneDrive/Documents/GitHub/newBot/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_area.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_timer.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/../misc/lv_event.h:

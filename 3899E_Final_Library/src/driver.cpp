@@ -527,3 +527,101 @@ void driverControlTankTest() {
         pros::delay(10);
     }
 }
+
+void AITracking(std::pmr::string teamColor) {
+    std::vector<pros::AIVision::Object> aiVision_front_objects;
+    std::vector<pros::AIVision::Object> aiVision_back_objects;
+        // Grab all currently tracked objects from the front sensor
+    aiVision_front_objects = aiVision_Front.get_all_objects();
+    aiVision_back_objects = aiVision_Back.get_all_objects();
+
+    for (auto &obj : aiVision_front_objects) {
+        // 1. Verify that this object is indeed a color detection type
+        if (pros::AIVision::is_type(obj, pros::AivisionDetectType::color)) {
+            if (teamColor == "RED") {
+                // 2. Filter by your target signature ID (e.g., ID 1 for Red)
+                if (obj.id == 1) { 
+                    
+                    // 3. Access the nested color struct data:
+                    // Top-left X coordinate of the bounding box
+                    int topLeftX = obj.object.color.xoffset; 
+                    int topLeftY = obj.object.color.yoffset;
+                    // Width of the bounding box
+                    int blockWidth = obj.object.color.width; 
+                    int blockHeight = obj.object.color.height;
+
+                    // 4. Calculate the center X coordinate manually
+                    int blockX = topLeftX + (blockWidth / 2);
+                    // 5. Calculate the center Y coordinate manually
+                    int blockY = topLeftY + (blockHeight / 2);
+
+                    pros::lcd::print(1, "Front Red Center X: %d", blockX);
+                    pros::lcd::print(2, "Front Red Center Y: %d", blockY);
+                }
+            }
+            else if (teamColor == "BLUE") {
+                // 2. Filter by your target signature ID (e.g., ID 2 for Blue)
+                if (obj.id == 2) { 
+                    
+                    // 3. Access the nested color struct data:
+                    // Top-left X coordinate of the bounding box
+                    int topLeftX = obj.object.color.xoffset; 
+                    int topLeftY = obj.object.color.yoffset;
+                    // Width of the bounding box
+                    int blockWidth = obj.object.color.width; 
+                    int blockHeight = obj.object.color.height;
+
+                    // 4. Calculate the center X coordinate manually
+                    int blockX = topLeftX + (blockWidth / 2);
+                    // 5. Calculate the center Y coordinate manually
+                    int blockY = topLeftY + (blockHeight / 2);
+                    
+                    pros::lcd::print(1, "Front Blue Center X: %d", blockX);
+                    pros::lcd::print(2, "Front Blue Center Y: %d", blockY);
+                }
+            }
+            else {
+                pros::lcd::print(1, "Invalid team color: %s", teamColor.c_str());
+            }
+            if (obj.id==3) {
+                // This is the ML model signature — access object data as needed
+                int topLeftXml = obj.object.color.xoffset;
+                int topLeftYml = obj.object.color.yoffset;
+                int mlWidth = obj.object.color.width;
+                int mlHeight = obj.object.color.height;
+                int mlX = topLeftXml + (mlWidth / 2);
+                int mlY = topLeftYml + (mlHeight / 2);
+                pros::lcd::print(3, "ML Model Center X: %d", mlX);
+                pros::lcd::print(4, "ML Model Center Y: %d", mlY);
+            }
+        }
+    }
+    for (auto &obj : aiVision_back_objects) {
+        if (pros::AIVision::is_type(obj, pros::AivisionDetectType::color)) {
+            if (teamColor == "RED") {
+                if (obj.id == 1) {
+                    int topLeftX = obj.object.color.xoffset;
+                    int topLeftY = obj.object.color.yoffset;
+                    int blockWidth = obj.object.color.width;
+                    int blockHeight = obj.object.color.height;
+                    int blockX = topLeftX + (blockWidth / 2);
+                    int blockY = topLeftY + (blockHeight / 2);
+                    pros::lcd::print(5, "Back Red Center X: %d", blockX);
+                    pros::lcd::print(6, "Back Red Center Y: %d", blockY);
+                }
+            }
+            else if (teamColor == "BLUE") {
+                if (obj.id == 2) {
+                    int topLeftX = obj.object.color.xoffset;
+                    int topLeftY = obj.object.color.yoffset;
+                    int blockWidth = obj.object.color.width;
+                    int blockHeight = obj.object.color.height;
+                    int blockX = topLeftX + (blockWidth / 2);
+                    int blockY = topLeftY + (blockHeight / 2);
+                    pros::lcd::print(5, "Back Blue Center X: %d", blockX);
+                    pros::lcd::print(6, "Back Blue Center Y: %d", blockY);
+                }
+            }
+        }
+    }
+}

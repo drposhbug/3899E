@@ -53,11 +53,11 @@ std::int8_t colorSortMotorPort = 3;
 
 std::int8_t horizontalEncoderPort = 2;
 std::int8_t verticalEncoderPort = 4;
-std::int8_t imuPort = 8; 
+std::int8_t imuPort = 17; 
 std::int8_t colorSensorPort = 15;
 std::int8_t gpsSensorPort = 17; // not real
 std::int8_t aiVisionFrontPort = 12;
-std::int8_t aiVisionBackPort = 21;
+std::int8_t aiVisionBackPort = 8;
 std::int8_t aiVisionPort = 21;
 
 std::int8_t receiverPort = 6;
@@ -125,17 +125,18 @@ pros::GPS gpsSensor (gpsSensorPort);
 
 pros::AIVision aiVision_Front(aiVisionFrontPort);
 pros::AIVision aiVision_Back(aiVisionBackPort);
+pros::AIVision aiVision(aiVisionPort);
 
 // ── AI Vision Sensor ──────────────────────────────────────────────────────────
 // Color descriptors converted from VEX aivision::colordesc format:
 //   aivision::colordesc(id, r, g, b, hue_range, saturation)
 // PROS AIVision::Color uses identical fields in the same order.
-pros::AIVision::Color aiVision_redCube  = {.id=1, .red=146, .green=27,  .blue=79,  .hue_range=21.0, .saturation_range=0.6};
-pros::AIVision::Color aiVision_blueCube = {.id=2, .red=59,  .green=91,  .blue=170, .hue_range=19.0, .saturation_range=0.28};
+pros::AIVision::Color aiVision_redCube  = {.id=1, .red=167, .green=29,  .blue=70,  .hue_range=16.0, .saturation_range=0.38};
+pros::AIVision::Color aiVision_blueCube = {.id=2, .red=31,  .green=69,  .blue=115, .hue_range=17.0, .saturation_range=0.42};
 
 // AI Vision sensor — port 14.
 // Colors pushed to sensor and detection enabled in robotInit().
-pros::AIVision aiVision(14);
+// pros::AIVision aiVision(14);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE VARIABLES
@@ -244,9 +245,10 @@ void robotInit()
     pros::lcd::set_text(1, "IMU ready");
 
     // Push color descriptors to the AI Vision sensor and enable color detection.
-    aiVision.set_color(aiVision_redCube);
-    aiVision.set_color(aiVision_blueCube);
-    aiVision.enable_detection_types(pros::AivisionModeType::colors);
+    aiVision_Front.reset();
+    aiVision_Front.set_color(aiVision_redCube);
+    aiVision_Front.set_color(aiVision_blueCube);
+    aiVision_Front.enable_detection_types(pros::AivisionModeType::colors);
 
     pros::delay(500);
     pros::lcd::clear();

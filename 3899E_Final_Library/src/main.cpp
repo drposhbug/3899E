@@ -8,7 +8,7 @@
 #include "odometry.h"
 #include "ai.h"
 
-std::pmr::string teamColor = "RED";  // default to red, set to "BLUE" if blue alliance
+// std::pmr::string teamColor = "RED";  // default to red, set to "BLUE" if blue alliance
 
 void initialize()
 {
@@ -104,7 +104,7 @@ void autonomous()
     }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
-    visionTest();
+    //visionTest();
     //navTest();
     //runAIMatchRoute();
     //routeTest();
@@ -112,65 +112,17 @@ void autonomous()
     //systemTest();
     //coordinateFinder();
     autonLeft15();
+    //skills();
     // ─────────────────────────────────────────────────────────────────────────
     
 }
 
 void opcontrol() {
-// {
-    // Use the capitalized AIVision object type alias for tracking results
-    std::vector<pros::AIVision::Object> aiVision_front_objects;
-    std::vector<pros::AIVision::Object> aiVision_back_objects;
 
     while (true) {
-        // Grab all currently tracked objects from the front sensor
-        aiVision_front_objects = aiVision_Front.get_all_objects();
-
-        for (auto &obj : aiVision_front_objects) {
-            // 1. Verify that this object is indeed a color detection type
-            if (pros::AIVision::is_type(obj, pros::AivisionDetectType::color)) {
-                if (teamColor == "RED") {
-                    // 2. Filter by your target signature ID (e.g., ID 1 for Red)
-                    if (obj.id == 1) { 
-                        
-                        // 3. Access the nested color struct data:
-                        // Top-left X coordinate of the bounding box
-                        int topLeftX = obj.object.color.xoffset; 
-                        // Width of the bounding box
-                        int blockWidth = obj.object.color.width; 
-                        
-                        // 4. Calculate the center X coordinate manually
-                        int blockX = topLeftX + (blockWidth / 2);
-                        
-                        pros::lcd::print(1, "Front Red Center X: %d", blockX);
-                    }
-                } else if (teamColor == "BLUE") {
-                    // 2. Filter by your target signature ID (e.g., ID 2 for Blue)
-                    if (obj.id == 2) { 
-                        
-                        // 3. Access the nested color struct data:
-                        // Top-left X coordinate of the bounding box
-                        int topLeftX = obj.object.color.xoffset; 
-                        // Width of the bounding box
-                        int blockWidth = obj.object.color.width; 
-                        
-                        // 4. Calculate the center X coordinate manually
-                        int blockX = topLeftX + (blockWidth / 2);
-                        
-                        pros::lcd::print(1, "Front Blue Center X: %d", blockX);
-                    }
-                }
-                if (obj.id==3) {
-                    // This is the ML model signature — access object data as needed
-                    int topLeftX = obj.object.color.xoffset; 
-                    int blockWidth = obj.object.color.width; 
-                    int blockX = topLeftX + (blockWidth / 2);
-                    pros::lcd::print(2, "ML Model Center X: %d", blockX);
-                }
-            }
-        }
         
-        pros::delay(20);
+        AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        pros::delay(50);
     }
     // pros::screen::erase();
     // Controller.clear();

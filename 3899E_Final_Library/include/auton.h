@@ -16,4 +16,5 @@ void visionTest();          // test vision-based drive
 void autonSelector();
 
 void autonLeft15();
+void skills();
 #endif // AUTON_H
