@@ -34,7 +34,7 @@ namespace RobotGeometry {
         constexpr double WIDTH_CM     = 55.88;   // 22" — widest axis (E-W)
         constexpr double DEPTH_CM     = 35.56;   // 14" — front-to-back (N-S)
         // Diagonal half-extent: sqrt((22/2)^2 + (14/2)^2) = 32.9cm → 33.5cm with margin
-        constexpr double CLEARANCE_CM = 33.5;
+        constexpr double CLEARANCE_CM = 0.0;
     }
 
     namespace Bot15 {

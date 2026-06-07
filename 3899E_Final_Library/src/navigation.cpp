@@ -111,8 +111,8 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
     double headingError          = targetRotationHeading - currentHeading;
     double totalTurnDistance     = headingError;  // total degrees to travel
  
-    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Target Head: %.2f", targetHeading);
-    pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Curr Rotation: %.2f", currentHeading);
+    // pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Target Head: %.2f", targetHeading);
+    // pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Curr Rotation: %.2f", currentHeading);
  
     // copysign on voltage: positive headingError (CW turn) → negative maxSpeedVoltage,
     // which the motor output negation converts to a correct CW spin.
@@ -166,8 +166,8 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
         currentHeading = getContinuousStandardHeading();
         headingError   = targetRotationHeading - currentHeading;
  
-        pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Curr Rotation: %.2f", currentHeading);
-        pros::screen::print(pros::E_TEXT_MEDIUM, 7, "Target: %.2f", targetHeading);
+        // pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Curr Rotation: %.2f", currentHeading);
+        // pros::screen::print(pros::E_TEXT_MEDIUM, 7, "Target: %.2f", targetHeading);
  
         // Read speeds; MotorGroup get_actual_velocity() returns average across all motors
         double leftMotorRPM  = std::fabs(leftDrive.get_actual_velocity())  * DRIVE_MOTOR_RPM_ADJ * wheelCircumferenceCM / 60.0;

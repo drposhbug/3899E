@@ -142,10 +142,11 @@ struct VisionProfile {
 // Defined in motion_config.cpp. Import via extern — do not redefine.
 // These are the calibrated field defaults. Copy before modifying.
 // ══════════════════════════════════════════════════════════════════════════════
-extern const StraightProfile DEFAULT_STRAIGHT;   // general forward drive
-extern const StraightProfile BACKWARD_STRAIGHT;  // backward drive (softer gains)
-extern const TurnProfile     DEFAULT_TURN;        // point turn (both sides drive)
-extern const TurnProfile     DEFAULT_PIVOT;       // pivot turn (one side brakes)
-extern const VisionProfile   DEFAULT_VISION;      // vision-guided approach
+extern const StraightProfile DEFAULT_STRAIGHT;      // general forward drive
+extern const StraightProfile BACKWARD_STRAIGHT;     // backward drive (softer gains)
+extern const StraightProfile LOADED_MID_FWD_80;     // 24" bot loaded, forward, 80% speed
+extern const TurnProfile     DEFAULT_TURN;           // point turn (both sides drive)
+extern const TurnProfile     DEFAULT_PIVOT;          // pivot turn (one side brakes)
+extern const VisionProfile   DEFAULT_VISION;         // vision-guided approach
 
 #endif // MOTION_CONFIG_H

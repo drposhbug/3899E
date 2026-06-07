@@ -140,10 +140,9 @@ void updateOdometry() {
     globalY += deltaYPos;
     globalRotation = currentRotation;
 
-    // Debug: Print position to brain screen
-    // H shown as continuous heading — same value used by PID and motion functions
-    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "X: %.2f, Y: %.2f, H: %.2f",
-                        globalX, globalY, getContinuousStandardHeading());
+    // Debug: Print position to brain screen — commented out, use main.cpp PosDisplay task
+    // pros::screen::print(pros::E_TEXT_MEDIUM, 1, "X: %.2f, Y: %.2f, H: %.2f",
+    //                     globalX, globalY, getContinuousStandardHeading());
 }
 
 // ======================================================================
