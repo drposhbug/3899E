@@ -191,13 +191,13 @@ void fieldTargetsTest() {
     pros::screen::erase();
 
     startOdometryTask();
-    setStartPosition(-124.5, -54.5, 180.0);
+    setStartPosition(-124.5, -34.5, 180.0);
     pros::delay(200);
 
     pros::lcd::print(0, "START X:%.0f Y:%.0f H:%.0f",
                      globalX, globalY, getContinuousStandardHeading());
 
-    NavResult result = navigateTo(LONG_GOAL_NW);
+    NavResult result = navigateTo(LONG_GOAL_NE);
 
     const char* resultStr =
         result == NavResult::SUCCESS       ? "SUCCESS"  :

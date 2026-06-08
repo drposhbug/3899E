@@ -280,11 +280,11 @@ static int     g_cameFrom[GRID_CELLS];
 static bool    g_inClosed[GRID_CELLS];
 
 // ---------------------------------------------------------------------------
-// String pulling — line-of-sight check using DDA rasterization
+// lineOfSight — DDA rasterization obstacle check
 //
 // Returns true if the straight line from (c0,r0) to (c1,r1) passes through
-// only passable cells. Used post-A* to collapse staircase paths into fewer,
-// longer straight segments.
+// only passable cells. Used by the LOS forward scan to validate each proposed
+// merged leg against both static and dynamic obstacle grids.
 // ---------------------------------------------------------------------------
 
 static bool lineOfSight(int c0, int r0, int c1, int r1) {
@@ -401,26 +401,57 @@ RoutePath routePlan(double startX, double startY,
         rawCount++;
     }
 
-    // String pulling — walk forward; skip any waypoint with clear line-of-sight
-    // to a further one. Collapses staircase diagonals into clean straight legs.
+    // ── LOS forward scan — collapse A* path into minimum straight legs ────────
+    //
+    // Walk forward through raw waypoints extending a straight line from the
+    // current anchor as far as possible. As long as lineOfSight(anchor→candidate)
+    // is clear, keep going — no waypoint is emitted yet. The moment LOS blocks,
+    // the previous candidate was the farthest safe point: emit it, make it the
+    // new anchor, continue from there.
+    //
+    // Anchor is tracked in cm (not snapped to grid cell) so the first leg runs
+    // from the robot's actual position, not a cell centre. cmToCell is called
+    // only at check time for the Bresenham traversal.
+    //
+    // Result: one waypoint per genuine direction change or obstacle avoidance
+    // turn. Open-field cross-field routes collapse to a single waypoint.
+
+    // Prepend actual robot position as the scan origin so the first leg starts
+    // from where the robot is, not the first A* cell centre.
+    double allX[GRID_CELLS + 1], allY[GRID_CELLS + 1];
+    int allCount = 0;
+    allX[allCount] = startX;  allY[allCount] = startY;  allCount++;
+    for (int i = 0; i < rawCount; i++) {
+        allX[allCount] = rawX[i];  allY[allCount] = rawY[i];  allCount++;
+    }
+
     int writeIdx = 0;
-    int k = 0;
-    while (k < rawCount && writeIdx < ROUTE_MAX_WAYPOINTS) {
-        result.x[writeIdx] = rawX[k];
-        result.y[writeIdx] = rawY[k];
-        writeIdx++;
+    int anchor   = 0;
 
-        if (k >= rawCount - 1) break;
+    for (int candidate = 1; candidate < allCount; candidate++) {
+        int ac, ar, cc, cr;
+        cmToCell(allX[anchor],    allY[anchor],    ac, ar);
+        cmToCell(allX[candidate], allY[candidate], cc, cr);
 
-        // Find furthest waypoint reachable in a straight line from k
-        int skip = k + 1;
-        for (int check = rawCount - 1; check > k + 1; check--) {
-            int cc0, rr0, cc1, rr1;
-            cmToCell(rawX[k],     rawY[k],     cc0, rr0);
-            cmToCell(rawX[check], rawY[check], cc1, rr1);
-            if (lineOfSight(cc0, rr0, cc1, rr1)) { skip = check; break; }
+        if (!lineOfSight(ac, ar, cc, cr)) {
+            // LOS blocked — candidate-1 was the last safe endpoint.
+            // Emit it and restart the scan from there.
+            int safe = candidate - 1;
+            if (safe > anchor && writeIdx < ROUTE_MAX_WAYPOINTS) {
+                result.x[writeIdx] = allX[safe];
+                result.y[writeIdx] = allY[safe];
+                writeIdx++;
+            }
+            anchor = (safe > anchor) ? safe : anchor + 1;
         }
-        k = skip;
+        // LOS clear — keep extending, nothing emitted yet.
+    }
+
+    // Always emit the exact goal coordinate as the final waypoint.
+    if (writeIdx < ROUTE_MAX_WAYPOINTS) {
+        result.x[writeIdx] = allX[allCount - 1];
+        result.y[writeIdx] = allY[allCount - 1];
+        writeIdx++;
     }
     result.count = writeIdx;
 

@@ -504,8 +504,18 @@ NavResult navigateTo(TargetID id,
             return NavResult::BLOCKED_REROUTE;
     }
 
-    // ── Parking: done ─────────────────────────────────────────────────────────
-    if (t.type == TargetType::PARK_ZONE) return NavResult::SUCCESS;
+    // ── Parking: turn to face wall, then done ────────────────────────────────
+    // Approach heading from field_targets table: PARK_ALLIANCE=270° (west wall),
+    // PARK_OPPONENT=90° (east wall). Same turn logic as goal approach below.
+    if (t.type == TargetType::PARK_ZONE) {
+        double currentH     = getContinuousStandardHeading();
+        double currentHNorm = fmod(currentH, 360.0);
+        if (currentHNorm < 0) currentHNorm += 360.0;
+        double delta = fmod((t.approachHeading - currentHNorm) + 540.0, 360.0) - 180.0;
+        if (fabs(delta) > 5.0)
+            turnOdometry(currentH + delta, turnProfile);
+        return NavResult::SUCCESS;
+    }
 
     // ── Turn to face approach heading ─────────────────────────────────────────
     // Heading pulled directly from field_targets table — not computed from position.

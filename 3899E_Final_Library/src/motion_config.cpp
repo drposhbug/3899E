@@ -24,7 +24,7 @@ const StraightProfile DEFAULT_STRAIGHT = {
     .minSpeed               = 16.0,   // % — floor speed during approach phase
     .maxSpeed               = 100.0,  // % — peak cruise speed
     .distanceTolerance      = 2.0,    // cm — exit bubble radius
-    .timeout                = 3.0,    // seconds
+    .timeout                = 5.0,    // seconds
     .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
 
     // ── Heading PID ───────────────────────────────────────────────────────────
@@ -47,9 +47,9 @@ const StraightProfile DEFAULT_STRAIGHT = {
     // ── Internal motion constants ─────────────────────────────────────────────
     .launchVoltage          = 6.0,    // V — initial kick before traction ramp takes over
     .accelFactor            = 1.2,    // traction ramp multiplier per control cycle
-    .slipThreshold          = 20.0,   // RPM delta above which traction control intervenes
-    .decelStepPercent       = 0.45,   // % of absoluteMaxVoltage removed per ABS step
-    .lockThreshold          = 0.25,   // lockup ratio above which ABS switches to coast
+    .slipThreshold          = 0.3,   // RPM delta above which traction control intervenes
+    .decelStepPercent       = 0.75,   // % of absoluteMaxVoltage removed per ABS step
+    .lockThreshold          = 0.3,   // lockup ratio above which ABS switches to coast
     .maxCurrentA            = 12.0,   // amps — trip if sustained above this
     .overcurrentDurationMs  = 500,    // ms current must stay high before circuit trips
 };
@@ -108,8 +108,8 @@ const StraightProfile BACKWARD_STRAIGHT = {
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile LOADED_MID_FWD_80 = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance          = 85.0,   
-    .minSpeed               = 13.0,   
+    .breakDistance          = 45.0,   
+    .minSpeed               = 17.0,   
     .maxSpeed               = 80.0,   
     .distanceTolerance      = 1.0,    
     .timeout                = 5.0,    
@@ -134,7 +134,7 @@ const StraightProfile LOADED_MID_FWD_80 = {
     .slipThreshold          = 0.3,    
     .decelStepPercent       = 2.0,    
     .lockThreshold          = 0.3,    
-    .maxCurrentA            = 4.0,    
+    .maxCurrentA            = 8.0,    
     .overcurrentDurationMs  = 500,   
 };
 
@@ -145,20 +145,20 @@ const StraightProfile LOADED_MID_FWD_80 = {
 // ──────────────────────────────────────────────────────────────────────────────
 const TurnProfile DEFAULT_TURN = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance    = 5.0,    // degrees — short; turns have little momentum to shed
-    .minSpeed         = 25.0,   // %
-    .maxSpeed         = 100.0,  // %
-    .exitTolerance    = 0.5,    // degrees — tight; 16° default in turnOdometry was a bug
+    .breakDistance    = 25.0,   // % of total turn angle — 30% means a 90° turn breaks at 27°
+    .minSpeed         = 18.0,   // %
+    .maxSpeed         = 60.0,   // %
+    .exitTolerance    = 2.0,    // degrees
     .timeout          = 3.0,    // seconds
 
     // ── Internal motion constants ─────────────────────────────────────────────
-    // Intentionally different from StraightProfile values — turns require faster
-    // traction response because lateral slip develops more abruptly than linear slip.
-    .accelFactor      = 1.5,
-    .slipThreshold    = 10.0,   // RPM delta
-    .decelStepPercent = 20.0,   // % of absoluteMaxVoltage per ABS step
-    .lockThreshold    = 10.0,   // lockup ratio
-    .maxCurrentA      = 12.0,   // amps
+    // Traction control and ABS disabled for turns — not appropriate for rotational
+    // motion on carpet. Values set to never-trigger thresholds per profile convention.
+    .accelFactor      = 1.0,    // no ramp — hold voltage as-is
+    .slipThreshold    = 1.0,    // slip ratio max is 1.0 — never triggers
+    .decelStepPercent = 20.0,   // irrelevant — ABS never fires (lockThreshold = 1.0)
+    .lockThreshold    = 1.0,    // lockup ratio max is 1.0 — never triggers
+    .maxCurrentA      = 10.0,   // amps
     .overcurrentDurationMs = 500, // ms
 };
 
