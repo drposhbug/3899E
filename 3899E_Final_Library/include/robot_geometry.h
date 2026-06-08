@@ -31,10 +31,12 @@ namespace RobotGeometry {
     // ------------------------------------------------------------------
 
     namespace Bot24 {
-        constexpr double WIDTH_CM     = 55.88;   // 22" — widest axis (E-W)
-        constexpr double DEPTH_CM     = 35.56;   // 14" — front-to-back (N-S)
-        // Diagonal half-extent: sqrt((22/2)^2 + (14/2)^2) = 32.9cm → 33.5cm with margin
-        constexpr double CLEARANCE_CM = 0.0;
+        constexpr double WIDTH_CM     = 33.02;   // 13" — widest axis (E-W)
+        constexpr double DEPTH_CM     = 45.72;   // 18" — front-to-back (N-S)
+        // Diagonal half-extent: sqrt((13/2)^2 + (18/2)^2) = 28.2cm → 29.0cm clearance
+        // Rounded up from true diagonal. 6" cell discretization adds ~7.6cm
+        // implicit buffer on top, giving ~36.6cm effective physical clearance.
+        constexpr double CLEARANCE_CM = 29.0;
     }
 
     namespace Bot15 {
@@ -44,15 +46,13 @@ namespace RobotGeometry {
         constexpr double CLEARANCE_CM = 25.0;
     }
 
-    // Active robot — used by A* and navigation code
+    // Active robot — used by navigation code
 #if ACTIVE_BOT == BOT_24INCH
-    constexpr double ROBOT_WIDTH_CM     = Bot24::WIDTH_CM;
-    constexpr double ROBOT_DEPTH_CM     = Bot24::DEPTH_CM;
-    constexpr double ROBOT_CLEARANCE_CM = Bot24::CLEARANCE_CM;
+    constexpr double ROBOT_WIDTH_CM  = Bot24::WIDTH_CM;
+    constexpr double ROBOT_DEPTH_CM  = Bot24::DEPTH_CM;
 #else
-    constexpr double ROBOT_WIDTH_CM     = Bot15::WIDTH_CM;
-    constexpr double ROBOT_DEPTH_CM     = Bot15::DEPTH_CM;
-    constexpr double ROBOT_CLEARANCE_CM = Bot15::CLEARANCE_CM;
+    constexpr double ROBOT_WIDTH_CM  = Bot15::WIDTH_CM;
+    constexpr double ROBOT_DEPTH_CM  = Bot15::DEPTH_CM;
 #endif
 
     // ------------------------------------------------------------------
@@ -108,22 +108,56 @@ namespace RobotGeometry {
     constexpr double FIELD_HALF_CM = 182.88;   // ±axis extent
 
     // ------------------------------------------------------------------
-    // Long goals — Y=±122cm, X=±62cm ends, ~5cm thick
+    // A* grid obstacle layout — 24x24 grid, 15.24cm (6") cells
+    //
+    // All obstacles defined directly in cell coordinates.
+    // ROBOT_CLEARANCE_CM = 0 — buffering is baked into cell ranges below,
+    // not applied globally. This keeps corridors open for navigation.
+    //
+    // Grid orientation:
+    //   col 0  = west wall,  col 23 = east wall
+    //   row 0  = south wall, row 23 = north wall
+    //   outer ring (row/col 0 and 23) always blocked = 1-cell wall border
     // ------------------------------------------------------------------
 
-    constexpr double LONG_GOAL_HALF_W = 62.0;
-    constexpr double LONG_GOAL_HALF_H =  5.0;
-    constexpr double LONG_GOAL_Y_TOP  =  122.0;
+    constexpr double ROBOT_CLEARANCE_CM = 0.0;  // no global inflation — see note above
+
+    // ------------------------------------------------------------------
+    // Long goals
+    //   Physical: 50" long x 6" wide, centered at Y=±122cm
+    //   Grid:     10 cells wide x 4 cells tall
+    //             1 passable row left between outer edge and wall border
+    //   North: cols 7–16, rows 18–21  (row 22 = passable corridor, row 23 = wall)
+    //   South: cols 7–16, rows  2– 5  (row  1 = passable corridor, row  0 = wall)
+    // ------------------------------------------------------------------
+
+    constexpr double LONG_GOAL_Y_TOP  =  122.0;  // cm — kept for field_targets.cpp reference
     constexpr double LONG_GOAL_Y_BOT  = -122.0;
+    constexpr double LONG_GOAL_HALF_W =   62.0;  // cm half-length of goal bar — used by field_targets.cpp
+
+    // Cell ranges used by buildStaticGrid()
+    constexpr int LONG_GOAL_COL_MIN =  7;
+    constexpr int LONG_GOAL_COL_MAX = 16;
+    constexpr int LONG_GOAL_ROW_N_MIN = 18;  // north goal bottom row
+    constexpr int LONG_GOAL_ROW_N_MAX = 21;  // north goal top row
+    constexpr int LONG_GOAL_ROW_S_MIN =  2;  // south goal bottom row
+    constexpr int LONG_GOAL_ROW_S_MAX =  5;  // south goal top row
 
     // ------------------------------------------------------------------
-    // Center goals — X-shape, hub at (0,0), tips at (±20cm, ±20cm)
+    // Center goals — diagonal X crossing at (0,0)
+    //   Grid: 6x6 block (4x4 physical + 1 cell buffer all sides)
+    //   Cols 9–14, rows 9–14
     // ------------------------------------------------------------------
 
-    constexpr double CENTER_GOAL_HALF_EXTENT = 20.0;
+    constexpr double CENTER_GOAL_HALF_EXTENT = 45.72;  // 3 cells × 15.24cm — for reference only
+    constexpr int CENTER_GOAL_COL_MIN =  9;
+    constexpr int CENTER_GOAL_COL_MAX = 14;
+    constexpr int CENTER_GOAL_ROW_MIN =  9;
+    constexpr int CENTER_GOAL_ROW_MAX = 14;
 
     // ------------------------------------------------------------------
     // Match loader posts — ø10.6cm at (±183cm, ±122cm)
+    //   Physical radius only — no buffer added (robot approaches to score)
     // ------------------------------------------------------------------
 
     constexpr double ML_POST_RADIUS = 5.3;
@@ -138,22 +172,22 @@ namespace RobotGeometry {
     constexpr int NUM_ML_POSTS = 4;
 
     // ------------------------------------------------------------------
-    // Park zones — flush with east/west walls
-    //   47.9cm (N-S) x 42.8cm (E-W) + 1" ramp field-facing edge
-    //   Red: west wall, center (-159, 0)
-    //   Blue: east wall, center (+159, 0)
+    // Park zones — flush with east/west walls, centered at Y=0
+    //   Physical: 19" N-S (48.26cm) x 17" E-W depth (43.18cm)
+    //   No buffer — robot must enter these zones to park
+    //   Stored in dynamic grid, opened via routeOpenParkZones() at 20s mark
     // ------------------------------------------------------------------
 
     struct Zone { double xMin, yMin, xMax, yMax; };
     constexpr Zone PARK_ZONES[2] = {
-        { -183.0, -23.95, -140.2,  23.95 },  // Red  park (west wall)
-        {  140.2, -23.95,  183.0,  23.95 },  // Blue park (east wall)
+        { -183.0, -24.13, -137.16,  24.13 },  // Red  park (west wall) — cols 1-2
+        {  137.16, -24.13,  183.0,  24.13 },  // Blue park (east wall) — cols 21-22
     };
     constexpr int NUM_PARK_ZONES = 2;
 
     // Park zone center coordinates (used by strategy functions)
-    constexpr double RED_PARK_X  = -159.0;
-    constexpr double BLUE_PARK_X =  159.0;
+    constexpr double RED_PARK_X  = -161.41;  // midpoint of west park zone
+    constexpr double BLUE_PARK_X =  161.41;  // midpoint of east park zone
     constexpr double PARK_Y      =    0.0;
 
 } // namespace RobotGeometry

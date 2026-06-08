@@ -22,27 +22,27 @@
 // TARGET IDs
 //
 // Compass convention: direction = which side of the field element the robot
-// approaches from. East goal north end = GOAL_NE (robot comes from the north).
+// approaches from. East goal north end = LONG_GOAL_NE (robot comes from the north).
 //
-// Long goals:    GOAL_NE/SE (east goal)  GOAL_NW/SW (west goal)
-// Center goals:  CENTER_NE/SE/SW/NW      (diagonal X arms)
+// Long goals:    LONG_GOAL_NE/SE (east goal)  LONG_GOAL_NW/SW (west goal)
+// Center goals:  CENTER_GOAL_NE/SE/SW/NW      (diagonal X arms)
 // Match loaders: LOADER_NE/SE/SW/NW      (corner posts)
 // Parking:       PARK_ALLIANCE / PARK_OPPONENT
 // ══════════════════════════════════════════════════════════════════════════════
 enum TargetID : int {
-    // East long goal (X = +120cm)
-    GOAL_NE,        // north approach
-    GOAL_SE,        // south approach
+    // East long goal — approach from east corridor, face West
+    LONG_GOAL_NE,   // north end
+    LONG_GOAL_SE,   // south end
 
-    // West long goal (X = -120cm)
-    GOAL_NW,        // north approach
-    GOAL_SW,        // south approach
+    // West long goal — approach from west corridor, face East
+    LONG_GOAL_NW,   // north end
+    LONG_GOAL_SW,   // south end
 
     // Center goal — diagonal X structure
-    CENTER_NE,
-    CENTER_SE,
-    CENTER_SW,
-    CENTER_NW,
+    CENTER_GOAL_NE,
+    CENTER_GOAL_SE,
+    CENTER_GOAL_SW,
+    CENTER_GOAL_NW,
 
     // Match loader posts
     LOADER_NE,

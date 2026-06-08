@@ -608,15 +608,15 @@ static void doIntake()  { intakeHopperStart(3000, 80); }
 static void doNothing() {}
 
 void strategyScoreTopGoal() {
-    const NamedTarget& t = getTarget(GOAL_NE);
+    const NamedTarget& t = getTarget(LONG_GOAL_NE);
     executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doScore);
 }
 void strategyScoreBottomGoal() {
-    const NamedTarget& t = getTarget(GOAL_SE);
+    const NamedTarget& t = getTarget(LONG_GOAL_SE);
     executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doScore);
 }
 void strategyScoreCenterGoal() {
-    const NamedTarget& t = getTarget(CENTER_NE);  // default arm — change per route
+    const NamedTarget& t = getTarget(CENTER_GOAL_NE);  // default arm — change per route
 #if ACTIVE_BOT == BOT_15INCH
     RoutePath path = routePlan(globalX, globalY, t.approachX, t.approachY);
     if (path.count > 0) routeExecute(path);
@@ -628,19 +628,19 @@ void strategyScoreCenterGoal() {
 #endif
 }
 void strategyDescoreTopGoal() {
-    const NamedTarget& t = getTarget(GOAL_NE);
+    const NamedTarget& t = getTarget(LONG_GOAL_NE);
     executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doDescore);
 }
 void strategyDescoreBottomGoal() {
-    const NamedTarget& t = getTarget(GOAL_SE);
+    const NamedTarget& t = getTarget(LONG_GOAL_SE);
     executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doDescore);
 }
 void strategyBlockTopGoal() {
-    const NamedTarget& t = getTarget(GOAL_NE);
+    const NamedTarget& t = getTarget(LONG_GOAL_NE);
     executeStrategy(t.approachX, t.approachY, TargetType::PARK_ZONE, doNothing);
 }
 void strategyBlockBottomGoal() {
-    const NamedTarget& t = getTarget(GOAL_SE);
+    const NamedTarget& t = getTarget(LONG_GOAL_SE);
     executeStrategy(t.approachX, t.approachY, TargetType::PARK_ZONE, doNothing);
 }
 void strategyUseMatchLoader() {
@@ -710,7 +710,11 @@ void runAIMatch() {
 
     while (true) {
         // Priority 1 — timer (always wins)
-        if (shouldParkNow()) { strategyPark(); return; }
+        if (shouldParkNow()) {
+            routeOpenParkZones();  // clear D blocks so A* can route into park zone
+            strategyPark();
+            return;
+        }
 
         // Priority 2 — safety/rules
         int currentCode = getStrategyCode();

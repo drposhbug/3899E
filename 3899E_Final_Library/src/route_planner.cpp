@@ -1,26 +1,32 @@
 // ======================================================================
 // route_planner.cpp — Field path planner for VAIRC Push Back
 //
-// Implements 8-directional A* grid search on a 12x12 field grid.
-// Grid cells are 30.48cm (12") — one half-tile per cell.
+// Implements 8-directional A* grid search on a 24x24 field grid.
+// Grid cells are 15.24cm (6") — one half-tile per cell.
 //
 // All field geometry and robot dimensions from robot_geometry.h.
+//
+// Fixes applied vs original:
+//   - HEAP_CAPACITY = GRID_CELLS * 4 prevents MinHeap overflow on re-pushes
+//   - Octile distance heuristic replaces sqrtf (exact for 8-dir, faster)
+//   - String pulling (line-of-sight DDA) reduces waypoint count after A*
 // ======================================================================
 
 #include "route_planner.h"
 #include "robot_geometry.h"
 #include "navigation.h"    // forwardToPoint, StraightProfile
+#include "motion_config.h"  // DEFAULT_STRAIGHT — do not hardcode profile values here
 #include <cmath>
 #include <cfloat>
 
 using namespace RobotGeometry;
 
 // ---------------------------------------------------------------------------
-// Grid constants
+// Grid constants — 24x24 grid, 6" (15.24cm) cells
 // ---------------------------------------------------------------------------
 
-static const int    GRID_N       = 12;
-static const double CELL_SIZE_CM = 30.48;   // 12" per cell
+static const int    GRID_N       = 24;
+static const double CELL_SIZE_CM = 15.24;   // 6" per cell
 
 static const double CARDINAL_COST = 1.0;
 static const double DIAGONAL_COST = 1.41421356;
@@ -38,9 +44,9 @@ static const Direction DIRS[8] = {
 };
 
 // ---------------------------------------------------------------------------
-// Coordinate helpers (VEX GPS cm ↔ grid cell)
-//   col = X axis (East positive) — col 0 = west edge, col 11 = east edge
-//   row = Y axis (North positive) — row 0 = south edge, row 11 = north edge
+// Coordinate helpers (VEX GPS cm <-> grid cell)
+//   col = X axis (East positive)  — col  0 = west edge, col 23 = east edge
+//   row = Y axis (North positive) — row  0 = south edge, row 23 = north edge
 // ---------------------------------------------------------------------------
 
 static void cmToCell(double x, double y, int& col, int& row) {
@@ -57,8 +63,8 @@ static void cellToCm(int col, int row, double& x, double& y) {
 
 // ---------------------------------------------------------------------------
 // Two-layer obstacle grid
-//   g_staticGrid  — built once at startup from robot_geometry.h
-//   g_dynamicGrid — runtime temp obstacles, cleared by routeClearObstacles()
+//   g_staticGrid  — built once at startup from robot_geometry.h constants
+//   g_dynamicGrid — runtime obstacles, cleared by routeClearObstacles()
 // ---------------------------------------------------------------------------
 
 static bool g_staticBuilt  = false;
@@ -68,8 +74,6 @@ static bool g_dynamicGrid[GRID_N][GRID_N];
 static void buildStaticGrid() {
     if (g_staticBuilt) return;
 
-    const double clr = ROBOT_CLEARANCE_CM;
-
     for (int r = 0; r < GRID_N; r++)
         for (int c = 0; c < GRID_N; c++) {
             g_staticGrid [r][c] = false;
@@ -78,49 +82,71 @@ static void buildStaticGrid() {
 
     for (int r = 0; r < GRID_N; r++) {
         for (int c = 0; c < GRID_N; c++) {
-            double cx, cy;
-            cellToCm(c, r, cx, cy);
 
-            // Long goals — signed rectangle distance
-            for (int g = 0; g < 2; g++) {
-                double gy   = (g == 0) ? LONG_GOAL_Y_TOP : LONG_GOAL_Y_BOT;
-                double dx   = fabs(cx)      - LONG_GOAL_HALF_W;
-                double dy   = fabs(cy - gy) - LONG_GOAL_HALF_H;
-                double dist = (dx > 0 && dy > 0) ? sqrt(dx*dx + dy*dy)
-                            : (dx > 0)            ? dx
-                            : (dy > 0)            ? dy
-                            :                       fmax(dx, dy);
-                if (dist < clr) { g_staticGrid[r][c] = true; break; }
-            }
-            if (g_staticGrid[r][c]) continue;
-
-            // Center goal bounding box
-            if (fabs(cx) < CENTER_GOAL_HALF_EXTENT + clr &&
-                fabs(cy) < CENTER_GOAL_HALF_EXTENT + clr) {
-                g_staticGrid[r][c] = true; continue;
+            // ── 1. Wall border — outer ring always blocked ──────────────
+            // Keeps robot center ≥1 cell (15.24cm) from any field wall.
+            if (r == 0 || r == GRID_N-1 || c == 0 || c == GRID_N-1) {
+                g_staticGrid[r][c] = true;
+                continue;
             }
 
-            // Match loader posts
-            for (int p = 0; p < NUM_ML_POSTS; p++) {
-                double dx = cx - ML_POSTS[p].x;
-                double dy = cy - ML_POSTS[p].y;
-                if (sqrt(dx*dx + dy*dy) < ML_POST_RADIUS + clr) {
-                    g_staticGrid[r][c] = true; break;
+            // ── 2. Long goals ───────────────────────────────────────────
+            // 10 cells wide × 4 cells tall, 1 passable row between outer
+            // edge and wall border on both north and south sides.
+            // North: cols 7-16, rows 18-21
+            // South: cols 7-16, rows  2- 5
+            if (c >= LONG_GOAL_COL_MIN && c <= LONG_GOAL_COL_MAX) {
+                if ((r >= LONG_GOAL_ROW_N_MIN && r <= LONG_GOAL_ROW_N_MAX) ||
+                    (r >= LONG_GOAL_ROW_S_MIN && r <= LONG_GOAL_ROW_S_MAX)) {
+                    g_staticGrid[r][c] = true;
+                    continue;
                 }
             }
-            if (g_staticGrid[r][c]) continue;
 
-            // Park zones
-            for (int z = 0; z < NUM_PARK_ZONES; z++) {
-                if (cx >= PARK_ZONES[z].xMin - clr &&
-                    cx <= PARK_ZONES[z].xMax + clr &&
-                    cy >= PARK_ZONES[z].yMin - clr &&
-                    cy <= PARK_ZONES[z].yMax + clr) {
-                    g_staticGrid[r][c] = true; break;
+            // ── 3. Center goals ─────────────────────────────────────────
+            // 6×6 block (4×4 physical X + 1 cell buffer all sides)
+            // Cols 9-14, rows 9-14
+            if (c >= CENTER_GOAL_COL_MIN && c <= CENTER_GOAL_COL_MAX &&
+                r >= CENTER_GOAL_ROW_MIN && r <= CENTER_GOAL_ROW_MAX) {
+                g_staticGrid[r][c] = true;
+                continue;
+            }
+
+            // ── 4. Match loader posts ───────────────────────────────────
+            // Physical radius only — robot approaches these to score.
+            // Circle check against cell center in cm.
+            {
+                double cx, cy;
+                cellToCm(c, r, cx, cy);
+                for (int p = 0; p < NUM_ML_POSTS; p++) {
+                    double dx = cx - ML_POSTS[p].x;
+                    double dy = cy - ML_POSTS[p].y;
+                    if (dx*dx + dy*dy <= ML_POST_RADIUS * ML_POST_RADIUS) {
+                        g_staticGrid[r][c] = true;
+                        break;
+                    }
                 }
             }
         }
     }
+
+    // ── 5. Park zones — dynamic layer ──────────────────────────────────
+    // Blocked from match start. Opened at 20s mark via routeOpenParkZones().
+    // Dynamic grid only — robot must be able to enter to park.
+    // Skip outer wall ring — those cells are already statically blocked.
+    for (int r = 1; r < GRID_N-1; r++) {
+        for (int c = 1; c < GRID_N-1; c++) {
+            double cx, cy;
+            cellToCm(c, r, cx, cy);
+            for (int z = 0; z < NUM_PARK_ZONES; z++) {
+                if (cx >= PARK_ZONES[z].xMin && cx <= PARK_ZONES[z].xMax &&
+                    cy >= PARK_ZONES[z].yMin && cy <= PARK_ZONES[z].yMax) {
+                    g_dynamicGrid[r][c] = true;
+                }
+            }
+        }
+    }
+
     g_staticBuilt = true;
 }
 
@@ -151,7 +177,7 @@ void routeAddObstacle(double x, double y) {
     buildStaticGrid();
     int col, row;
     cmToCell(x, y, col, row);
-    // Mark a 2-cell (~24") block — conservative robot-sized footprint
+    // Mark a 3-cell (~18") block — conservative robot-sized footprint at 6" resolution
     for (int dr = -1; dr <= 1; dr++)
         for (int dc = -1; dc <= 1; dc++) {
             int nc = col + dc, nr = row + dr;
@@ -166,22 +192,59 @@ void routeClearObstacles() {
             g_dynamicGrid[r][c] = false;
 }
 
+void routeInitParkZones() {
+    // Call once at match start — blocks park zones in dynamic grid so A*
+    // routes around them during normal play.
+    buildStaticGrid();
+    for (int r = 1; r < GRID_N-1; r++) {
+        for (int c = 1; c < GRID_N-1; c++) {
+            double cx, cy;
+            cellToCm(c, r, cx, cy);
+            for (int z = 0; z < NUM_PARK_ZONES; z++) {
+                if (cx >= PARK_ZONES[z].xMin && cx <= PARK_ZONES[z].xMax &&
+                    cy >= PARK_ZONES[z].yMin && cy <= PARK_ZONES[z].yMax) {
+                    g_dynamicGrid[r][c] = true;
+                }
+            }
+        }
+    }
+}
+
+void routeOpenParkZones() {
+    // Call at 20-second mark — clears park zones so robot can navigate into them.
+    for (int r = 1; r < GRID_N-1; r++) {
+        for (int c = 1; c < GRID_N-1; c++) {
+            double cx, cy;
+            cellToCm(c, r, cx, cy);
+            for (int z = 0; z < NUM_PARK_ZONES; z++) {
+                if (cx >= PARK_ZONES[z].xMin && cx <= PARK_ZONES[z].xMax &&
+                    cy >= PARK_ZONES[z].yMin && cy <= PARK_ZONES[z].yMax) {
+                    g_dynamicGrid[r][c] = false;
+                }
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Grid search — fixed-size working memory (no heap allocation on V5 Brain)
 // ---------------------------------------------------------------------------
 
-static const int GRID_CELLS = GRID_N * GRID_N;  // 144
+static const int GRID_CELLS    = GRID_N * GRID_N;   // 576 (24x24 @ 6" cells)
+static const int HEAP_CAPACITY = GRID_CELLS * 4;     // nodes re-pushed on cost improvement;
+                                                      // 4x headroom covers worst-case 8-dir
 
 static inline int idx(int col, int row) { return row * GRID_N + col; }
 
 struct MinHeap {
-    int   cells[GRID_CELLS];
-    float fval[GRID_CELLS];
+    int   cells[HEAP_CAPACITY];  // queue slots — larger than GRID_CELLS; nodes pushed multiple times
+    float fval [GRID_CELLS];     // indexed by cell id (not heap position) — stays at GRID_CELLS
     int   size;
 
     void clear() { size = 0; }
 
     void push(int cell, float f) {
+        if (size >= HEAP_CAPACITY) return;   // circuit breaker — never write out of bounds
         int i = size++;
         cells[i] = cell;
         fval[cell] = f;
@@ -217,19 +280,21 @@ static int     g_cameFrom[GRID_CELLS];
 static bool    g_inClosed[GRID_CELLS];
 
 // ---------------------------------------------------------------------------
-// hasLineOfSight — Bresenham line traversal on grid, returns true if no
-// blocked cell lies between (c0,r0) and (c1,r1) inclusive.
-// Uses the two-layer grid so dynamic obstacles are respected.
+// String pulling — line-of-sight check using DDA rasterization
+//
+// Returns true if the straight line from (c0,r0) to (c1,r1) passes through
+// only passable cells. Used post-A* to collapse staircase paths into fewer,
+// longer straight segments.
 // ---------------------------------------------------------------------------
 
-static bool hasLineOfSight(int c0, int r0, int c1, int r1) {
+static bool lineOfSight(int c0, int r0, int c1, int r1) {
     int dc = abs(c1 - c0);
     int dr = abs(r1 - r0);
     int sc = (c0 < c1) ? 1 : -1;
     int sr = (r0 < r1) ? 1 : -1;
     int err = dc - dr;
-    int c = c0, r = r0;
 
+    int c = c0, r = r0;
     while (true) {
         if (!passable(c, r)) return false;
         if (c == c1 && r == r1) break;
@@ -238,57 +303,6 @@ static bool hasLineOfSight(int c0, int r0, int c1, int r1) {
         if (e2 <  dc) { err += dc; r += sr; }
     }
     return true;
-}
-
-// ---------------------------------------------------------------------------
-// stringPull — reduces raw A* path to only necessary turning waypoints.
-//
-// For each kept point, scans forward to find the farthest point reachable
-// in a straight line with no obstacles (line-of-sight check). Skips all
-// intermediate points on that straight run.
-//
-// Does NOT break early on first blocked point — a later point may come back
-// into line-of-sight if the path curves. All candidates are checked.
-//
-// No heap allocation — operates on RoutePath fixed arrays directly.
-// ---------------------------------------------------------------------------
-
-static RoutePath stringPull(const RoutePath& raw) {
-    if (raw.count <= 2) return raw;
-
-    // Convert cm waypoints to grid cells for line-of-sight checks
-    int cols[ROUTE_MAX_WAYPOINTS];
-    int rows[ROUTE_MAX_WAYPOINTS];
-    for (int i = 0; i < raw.count; i++)
-        cmToCell(raw.x[i], raw.y[i], cols[i], rows[i]);
-
-    RoutePath out;
-    out.estimatedTimeSec = raw.estimatedTimeSec;
-    out.count = 0;
-
-    // Always keep first waypoint
-    out.x[out.count] = raw.x[0];
-    out.y[out.count] = raw.y[0];
-    out.count++;
-
-    int current = 0;
-    while (current < raw.count - 1) {
-        int farthest = current + 1;
-
-        // Check all remaining points — don't break on blocked, a later
-        // point may come back into line-of-sight as path curves
-        for (int i = current + 2; i < raw.count; i++) {
-            if (hasLineOfSight(cols[current], rows[current], cols[i], rows[i]))
-                farthest = i;
-        }
-
-        out.x[out.count] = raw.x[farthest];
-        out.y[out.count] = raw.y[farthest];
-        out.count++;
-        current = farthest;
-    }
-
-    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -329,11 +343,12 @@ RoutePath routePlan(double startX, double startY,
     g_heap.clear();
     g_gScore[startIdx] = 0.0f;
 
-    // Euclidean heuristic
+    // Octile distance heuristic — exact for 8-directional grid, no sqrtf needed
     auto h = [&](int col, int row) -> float {
-        float dc = (float)(goalCol - col);
-        float dr = (float)(goalRow - row);
-        return sqrtf(dc*dc + dr*dr);
+        float dx = fabsf((float)(goalCol - col));
+        float dy = fabsf((float)(goalRow - row));
+        return (dx > dy) ? ((float)DIAGONAL_COST * dy + (float)CARDINAL_COST * (dx - dy))
+                         : ((float)DIAGONAL_COST * dx + (float)CARDINAL_COST * (dy - dx));
     };
 
     g_heap.push(startIdx, h(startCol, startRow));
@@ -364,64 +379,77 @@ RoutePath routePlan(double startX, double startY,
 
     if (g_cameFrom[goalIdx] == -1 && goalIdx != startIdx) return result;
 
-    // Reconstruct path
+    // Reconstruct raw path (goal -> start, then reverse)
     int pathCells[GRID_CELLS];
     int pathLen = 0;
     int current = goalIdx;
     while (current != startIdx && pathLen < GRID_CELLS)
         pathCells[pathLen++] = current, current = g_cameFrom[current];
 
-    int writeIdx = 0;
-    for (int i = pathLen - 1; i >= 0 && writeIdx < ROUTE_MAX_WAYPOINTS; i--) {
+    // Reverse into forward order; store raw waypoints
+    double rawX[GRID_CELLS], rawY[GRID_CELLS];
+    int rawCount = 0;
+    for (int i = pathLen - 1; i >= 0 && rawCount < GRID_CELLS; i--) {
         int c  = pathCells[i] % GRID_N;
         int rr = pathCells[i] / GRID_N;
         if (pathCells[i] == goalIdx) {
-            result.x[writeIdx] = goalX;
-            result.y[writeIdx] = goalY;
+            rawX[rawCount] = goalX;
+            rawY[rawCount] = goalY;
         } else {
-            cellToCm(c, rr, result.x[writeIdx], result.y[writeIdx]);
+            cellToCm(c, rr, rawX[rawCount], rawY[rawCount]);
         }
+        rawCount++;
+    }
+
+    // String pulling — walk forward; skip any waypoint with clear line-of-sight
+    // to a further one. Collapses staircase diagonals into clean straight legs.
+    int writeIdx = 0;
+    int k = 0;
+    while (k < rawCount && writeIdx < ROUTE_MAX_WAYPOINTS) {
+        result.x[writeIdx] = rawX[k];
+        result.y[writeIdx] = rawY[k];
         writeIdx++;
+
+        if (k >= rawCount - 1) break;
+
+        // Find furthest waypoint reachable in a straight line from k
+        int skip = k + 1;
+        for (int check = rawCount - 1; check > k + 1; check--) {
+            int cc0, rr0, cc1, rr1;
+            cmToCell(rawX[k],     rawY[k],     cc0, rr0);
+            cmToCell(rawX[check], rawY[check], cc1, rr1);
+            if (lineOfSight(cc0, rr0, cc1, rr1)) { skip = check; break; }
+        }
+        k = skip;
     }
     result.count = writeIdx;
 
-    // Estimated travel time: path cost in cells × cm/cell ÷ cruise speed
+    // Estimated travel time: path cost in cells x cm/cell / cruise speed
     result.estimatedTimeSec =
         (g_gScore[goalIdx] * CELL_SIZE_CM) / ROBOT_CRUISE_SPEED_CMS;
-
-    // String pull — reduce to only necessary turning waypoints,
-    // skipping intermediate points where line-of-sight is clear
-    result = stringPull(result);
 
     return result;
 }
 
 // ---------------------------------------------------------------------------
 // routeExecute — drives path waypoint-by-waypoint using forwardToPoint
-// Returns true if all waypoints reached, false if any timed out (blocked)
+//
+// Profile selection uses DEFAULT_STRAIGHT from motion_config.h — all tuning
+// belongs there, not here. Do not hardcode profile values in this file.
+//
+// TODO (post field validation): select profile based on leg distance and
+// heading delta between waypoints:
+//   short legs  (<30cm)  → tighter breakDistance, lower maxSpeed
+//   long legs   (>90cm)  → full cruise profile
+//   sharp turns (>45deg) → insert turnOdometry between waypoints
+//
+// Returns true if all waypoints reached, false if any timed out (blocked).
 // ---------------------------------------------------------------------------
 
-bool routeExecute(const RoutePath& path,
-                  double breakDistance,
-                  double minSpeed,
-                  double distanceTolerance,
-                  double maxSpeed,
-                  double timeout) {
+bool routeExecute(const RoutePath& path) {
 
-    StraightProfile wpProfile = DEFAULT_STRAIGHT;
-    wpProfile.breakDistance          = breakDistance;
-    wpProfile.minSpeed               = minSpeed;
-    wpProfile.distanceTolerance      = distanceTolerance;
-    wpProfile.kp_heading             = 0.4;
-    wpProfile.ki_heading             = 0.01;
-    wpProfile.kd_heading             = 0.05;
-    wpProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-    wpProfile.accelHeadingScaling    = 0.2;
-    wpProfile.decelHeadingScaling    = 0.2;
-    wpProfile.approachHeadingScaling = 0.2;
-    wpProfile.maxSpeed               = maxSpeed;
-    wpProfile.headingLockDistance    = 8.0;
-    wpProfile.timeout                = timeout;
+    // Use calibrated default — tuned in motion_config.cpp, not here
+    const StraightProfile& wpProfile = DEFAULT_STRAIGHT;
 
     for (int i = 0; i < path.count; i++) {
         uint32_t wpStart = pros::millis();
@@ -429,7 +457,8 @@ bool routeExecute(const RoutePath& path,
         forwardToPoint(path.x[i], path.y[i], wpProfile);
 
         // Timeout means waypoint wasn't reached — something blocked the path
-        if (pros::millis() - wpStart >= static_cast<uint32_t>(timeout * 1000.0 - 50.0))
+        uint32_t elapsed = pros::millis() - wpStart;
+        if (elapsed >= static_cast<uint32_t>(wpProfile.timeout * 1000.0 - 50.0))
             return false;
     }
     return true;
@@ -437,12 +466,13 @@ bool routeExecute(const RoutePath& path,
 
 // ---------------------------------------------------------------------------
 // routePrintGrid — debug display on V5 Brain screen
+// 24 rows x 24 cols — uses E_TEXT_SMALL to fit on screen
 // ---------------------------------------------------------------------------
 
 void routePrintGrid() {
     buildStaticGrid();
     pros::screen::erase();
-    pros::screen::print(pros::E_TEXT_SMALL, 0, "Route grid  X=static D=dynamic .=open");
+    pros::screen::print(pros::E_TEXT_SMALL, 0, "Grid 24x24 6\" X=static D=dyn .=open");
     pros::screen::print(pros::E_TEXT_SMALL, 1, "Bot clearance: %.1fcm", ROBOT_CLEARANCE_CM);
 
     for (int r = GRID_N - 1; r >= 0; r--) {
