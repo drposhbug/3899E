@@ -143,7 +143,7 @@ const double RED_HUE_MIN_2 =   0.0;
 const double RED_HUE_MAX_2 =  15.0;
 const double BLUE_HUE_MIN  = 218.0;
 const double BLUE_HUE_MAX  = 245.0;
-const double MIN_BRIGHTNESS =  5.0;  // ignore readings below this brightness
+const double MIN_BRIGHTNESS =  0.0;  // 0.0-1.0 scale — low threshold for channel mounting
 
 // Turn on the optical sensor's illumination LED at full power.
 void initializeOpticalSensor() {
@@ -217,31 +217,71 @@ void MotorControlThread(void* params) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// COLOR DETECTION TASK
-// Monitors the optical sensor continuously and ejects a wrong-color ring.
-// ══════════════════════════════════════════════════════════════════════════════
+// COLOR SORT TASK
+// Monitors opticalSensor (port 3) and drives the sort flipper motor (port 16).
+// Red  detected → flipper CW  +45 degrees (move_relative positive)
+// Blue detected → flipper CCW -45 degrees (move_relative negative)
+// Flipper holds position after each move via HOLD brake mode.
+// p->targetColor is unused here — both colours are always sorted.
+// p->delayMs = settle time between detection and flipper fire (tune on field).
 void colorDetectionTask(void* params) {
     ColorTaskParams* p = static_cast<ColorTaskParams*>(params);
 
+    int redConsecutive  = 0;
+    int blueConsecutive = 0;
+    const int    REQUIRED_CONSECUTIVE = 2;    // 2 x 10 ms = 20 ms confirmation
+    const double FLIPPER_DEGREES      = 45.0;
+    const int    FLIPPER_RPM          = 100;  // half of 200 RPM max — controlled move
+
     while (p->isRunning) {
-        double hue = opticalSensor.get_hue();
+        double hue        = opticalSensor.get_hue();
+        double brightness = opticalSensor.get_brightness();
+        double proximity  = opticalSensor.get_proximity();  // 0-255; 0 = far
+
+        // Gate on proximity only — brightness unreliable at close range with this mount.
+        // prx:255 = touching, prx:0 = nothing. Threshold of 10 gives ~3-5cm range.
+        if (proximity < 10) {
+            redConsecutive  = 0;
+            blueConsecutive = 0;
+            pros::lcd::set_text(0, "SORT: waiting prx:" + std::to_string((int)proximity));
+            pros::delay(10);
+            continue;
+        }
 
         bool redSeen  = (hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
                         (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2);
         bool blueSeen = (hue >= BLUE_HUE_MIN  && hue <= BLUE_HUE_MAX);
 
-        if (redSeen  && p->targetColor == Color::RED) {
-            pros::lcd::set_text(0, "DETECT: RED");
-            pros::delay(p->delayMs);
-            intakeMotor1.move(0);         // stop
-            pros::delay(50);
-            intakeMotor1.move(-100);      // reverse to eject (negative = reverse in PROS)
-        } else if (blueSeen && p->targetColor == Color::BLUE) {
-            pros::lcd::set_text(0, "DETECT: BLUE");
-            pros::delay(p->delayMs);
-            intakeMotor1.move(0);
-            pros::delay(50);
-            intakeMotor1.move(-100);
+        if (redSeen) {
+            redConsecutive++;
+            blueConsecutive = 0;
+        } else if (blueSeen) {
+            blueConsecutive++;
+            redConsecutive  = 0;
+        } else {
+            redConsecutive  = 0;
+            blueConsecutive = 0;
+        }
+
+        // Brain screen debug — hue + proximity visible during field testing.
+        pros::lcd::set_text(0, "hue:" + std::to_string((int)hue) +
+                               " prx:" + std::to_string((int)proximity) +
+                               " r:" + std::to_string(redConsecutive) +
+                               " b:" + std::to_string(blueConsecutive));
+
+        if (redConsecutive >= REQUIRED_CONSECUTIVE) {
+            redConsecutive  = 0;
+            blueConsecutive = 0;
+            pros::lcd::set_text(1, "SORT: RED -> CW");
+            if (p->delayMs > 0) pros::delay(p->delayMs);
+            sortMotor.move_relative(FLIPPER_DEGREES, FLIPPER_RPM);
+
+        } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
+            redConsecutive  = 0;
+            blueConsecutive = 0;
+            pros::lcd::set_text(1, "SORT: BLUE -> CCW");
+            if (p->delayMs > 0) pros::delay(p->delayMs);
+            sortMotor.move_relative(-FLIPPER_DEGREES, FLIPPER_RPM);
         }
 
         pros::delay(10);  // ~100 Hz loop

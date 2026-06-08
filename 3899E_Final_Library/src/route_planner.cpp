@@ -217,6 +217,81 @@ static int     g_cameFrom[GRID_CELLS];
 static bool    g_inClosed[GRID_CELLS];
 
 // ---------------------------------------------------------------------------
+// hasLineOfSight — Bresenham line traversal on grid, returns true if no
+// blocked cell lies between (c0,r0) and (c1,r1) inclusive.
+// Uses the two-layer grid so dynamic obstacles are respected.
+// ---------------------------------------------------------------------------
+
+static bool hasLineOfSight(int c0, int r0, int c1, int r1) {
+    int dc = abs(c1 - c0);
+    int dr = abs(r1 - r0);
+    int sc = (c0 < c1) ? 1 : -1;
+    int sr = (r0 < r1) ? 1 : -1;
+    int err = dc - dr;
+    int c = c0, r = r0;
+
+    while (true) {
+        if (!passable(c, r)) return false;
+        if (c == c1 && r == r1) break;
+        int e2 = 2 * err;
+        if (e2 > -dr) { err -= dr; c += sc; }
+        if (e2 <  dc) { err += dc; r += sr; }
+    }
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// stringPull — reduces raw A* path to only necessary turning waypoints.
+//
+// For each kept point, scans forward to find the farthest point reachable
+// in a straight line with no obstacles (line-of-sight check). Skips all
+// intermediate points on that straight run.
+//
+// Does NOT break early on first blocked point — a later point may come back
+// into line-of-sight if the path curves. All candidates are checked.
+//
+// No heap allocation — operates on RoutePath fixed arrays directly.
+// ---------------------------------------------------------------------------
+
+static RoutePath stringPull(const RoutePath& raw) {
+    if (raw.count <= 2) return raw;
+
+    // Convert cm waypoints to grid cells for line-of-sight checks
+    int cols[ROUTE_MAX_WAYPOINTS];
+    int rows[ROUTE_MAX_WAYPOINTS];
+    for (int i = 0; i < raw.count; i++)
+        cmToCell(raw.x[i], raw.y[i], cols[i], rows[i]);
+
+    RoutePath out;
+    out.estimatedTimeSec = raw.estimatedTimeSec;
+    out.count = 0;
+
+    // Always keep first waypoint
+    out.x[out.count] = raw.x[0];
+    out.y[out.count] = raw.y[0];
+    out.count++;
+
+    int current = 0;
+    while (current < raw.count - 1) {
+        int farthest = current + 1;
+
+        // Check all remaining points — don't break on blocked, a later
+        // point may come back into line-of-sight as path curves
+        for (int i = current + 2; i < raw.count; i++) {
+            if (hasLineOfSight(cols[current], rows[current], cols[i], rows[i]))
+                farthest = i;
+        }
+
+        out.x[out.count] = raw.x[farthest];
+        out.y[out.count] = raw.y[farthest];
+        out.count++;
+        current = farthest;
+    }
+
+    return out;
+}
+
+// ---------------------------------------------------------------------------
 // routePlan
 // ---------------------------------------------------------------------------
 
@@ -313,6 +388,10 @@ RoutePath routePlan(double startX, double startY,
     // Estimated travel time: path cost in cells × cm/cell ÷ cruise speed
     result.estimatedTimeSec =
         (g_gScore[goalIdx] * CELL_SIZE_CM) / ROBOT_CRUISE_SPEED_CMS;
+
+    // String pull — reduce to only necessary turning waypoints,
+    // skipping intermediate points where line-of-sight is clear
+    result = stringPull(result);
 
     return result;
 }

@@ -38,12 +38,12 @@ int applyCustomCurve(int input, double exponent) {
 // All four fire together on every intake/score/outtake binding.
 // ══════════════════════════════════════════════════════════════════════════════
 void driverControl() {
-    initializeOpticalSensor();
-
-    // Ensure rudder is in default position and optical LEDs are on at full brightness
-    rudderPneumatics.set_value(true);
-    leftLaneOptical.set_led_pwm(100);   // turn LED on at 100% power
-    rightLaneOptical.set_led_pwm(100);
+    // Launch colour sort task — runs for the full match, owns the sort motor and optical sensor.
+    // delayMs = 0 for now; increase if flipper fires before block reaches it.
+    static ColorTaskParams sortParams;
+    sortParams.isRunning = true;
+    sortParams.delayMs   = 0;
+    pros::Task(colorDetectionTask, &sortParams, "colourSort");
 
     // Motor power arrays (one entry per motor per side)
     double motorPowerLeft[3]  = {0};
@@ -59,7 +59,6 @@ void driverControl() {
     bool wasR2Pressed    = false;
     bool wasL1Pressed    = false;
     bool wasL2Pressed    = false;
-    bool wasXPressed     = false;
     bool wasRightPressed = false;
     bool wasYPressed     = false;
     bool wasUpPressed    = false;
@@ -72,15 +71,6 @@ void driverControl() {
     bool rudderOpen                 = true;
     bool intakeRunning              = false;
     int  intakeDirection            = 0;  // 1=forward, -1=reverse, 0=off
-
-    // Consecutive-read counters for Octoball colour sort.
-    // Persists across loop iterations; resets are handled inside the R1 block.
-    int redConsecutive  = 0;
-    int blueConsecutive = 0;
-
-    // Consecutive reads required before the rudder fires (~20 ms at 20 ms loop rate).
-    // Tune up to 3 if false triggers occur, down to 1 if detections are missed.
-    const int REQUIRED_CONSECUTIVE = 1;
 
     // Close both lane gates at start (all balls travel through the full path)
     leftGatePneumatics.set_value(true);
@@ -129,60 +119,9 @@ void driverControl() {
         motorPowerRight[2] = targetSpeedRight;
 
         // ─────────────────────────────────────────────────────────────────────
-        // BUTTON R1  —  normal intake with colour-sort
+        // BUTTON R1  —  intake (colour sort handled by background task)
         // ─────────────────────────────────────────────────────────────────────
         if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-            // Octoball is 8-sided — a single hue read can land on a facet edge and
-            // return noise. Requiring consecutive reads before firing the rudder
-            // filters edge-reads without adding meaningful delay.
-            // Counters reset only when the lane is confirmed empty so stale counts
-            // don't carry over between balls.
-            double leftHue  = leftLaneOptical.get_hue();
-            double rightHue = rightLaneOptical.get_hue();
-
-            // Red wraps near 0°/360° — needs two detection bands
-            bool redThisCycle =
-                ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
-                 (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
-                ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
-                 (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
-
-            // Blue sits mid-wheel (~215–225°) — one band only
-            bool blueThisCycle =
-                (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
-                (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
-
-            // Increment matching colour counter; reset the opposite
-            if (redThisCycle) {
-                redConsecutive++;
-                blueConsecutive = 0;
-            } else if (blueThisCycle) {
-                blueConsecutive++;
-                redConsecutive = 0;
-            } else {
-                // Reset counters only when the lane is confirmed empty
-                bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
-                bool nearRight = rightLaneOptical.get_proximity() > 50;
-                if (!nearLeft && !nearRight) {
-                    redConsecutive  = 0;
-                    blueConsecutive = 0;
-                }
-            }
-
-            // Debug: show live hue readings on the Brain screen
-            pros::screen::print(pros::E_TEXT_SMALL, 1, "L:%.0f R:%.0f          ", leftHue, rightHue);
-
-            // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
-            if (redConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(true);   // route to right lane
-                redConsecutive = 0;
-                pros::screen::print(pros::E_TEXT_SMALL, 2, "RED  L:%.0f R:%.0f          ", leftHue, rightHue);
-            } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(false);  // route to left lane
-                blueConsecutive = 0;
-                pros::screen::print(pros::E_TEXT_SMALL, 2, "BLUE L:%.0f R:%.0f          ", leftHue, rightHue);
-            }
-
             // Configure pneumatics only once on the initial press (not every frame)
             if (!wasR1Pressed) {
                 frontHoodPneumatics.set_value(false);  // close front hood for intake
@@ -191,10 +130,10 @@ void driverControl() {
             }
 
             spinForInProgress = false;
-            intakeMotor1.move_voltage(-12000);   // full forward voltage
+            intakeMotor1.move_voltage(-12000);
             intakeMotor2.move_voltage(-12000);
-            hoodMotor.move_voltage(-12000);      // 5.5W hood motor — same direction, capped at 200 RPM by hardware
-            upperIndexerMotor.move_voltage(-12000); // 5.5W upper indexer — physically reversed, pulls opposite to hood
+            hoodMotor.move_voltage(-12000);
+            upperIndexerMotor.move_voltage(-12000);
         } else {
             // Button released — stop all three intake/hood motors
             if (wasR1Pressed) {
@@ -207,60 +146,9 @@ void driverControl() {
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // BUTTON R2  —  match-loader scoring (mirrors R1 with colour-sort)
+        // BUTTON R2  —  match-loader scoring (colour sort handled by background task)
         // ─────────────────────────────────────────────────────────────────────
         if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-            // Octoball is 8-sided — a single hue read can land on a facet edge and
-            // return noise. Requiring consecutive reads before firing the rudder
-            // filters edge-reads without adding meaningful delay.
-            // Counters reset only when the lane is confirmed empty so stale counts
-            // don't carry over between balls.
-            double leftHue  = leftLaneOptical.get_hue();
-            double rightHue = rightLaneOptical.get_hue();
-
-            // Red wraps near 0°/360° — needs two detection bands
-            bool redThisCycle =
-                ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
-                 (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
-                ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
-                 (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
-
-            // Blue sits mid-wheel (~215–225°) — one band only
-            bool blueThisCycle =
-                (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
-                (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
-
-            // Increment matching colour counter; reset the opposite
-            if (redThisCycle) {
-                redConsecutive++;
-                blueConsecutive = 0;
-            } else if (blueThisCycle) {
-                blueConsecutive++;
-                redConsecutive = 0;
-            } else {
-                // Reset counters only when the lane is confirmed empty
-                bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
-                bool nearRight = rightLaneOptical.get_proximity() > 50;
-                if (!nearLeft && !nearRight) {
-                    redConsecutive  = 0;
-                    blueConsecutive = 0;
-                }
-            }
-
-            // Debug: show live hue readings on the Brain screen
-            pros::screen::print(pros::E_TEXT_SMALL, 1, "L:%.0f R:%.0f          ", leftHue, rightHue);
-
-            // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
-            if (redConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(true);   // route to right lane
-                redConsecutive = 0;
-                pros::screen::print(pros::E_TEXT_SMALL, 2, "RED  L:%.0f R:%.0f          ", leftHue, rightHue);
-            } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(false);  // route to left lane
-                blueConsecutive = 0;
-                pros::screen::print(pros::E_TEXT_SMALL, 2, "BLUE L:%.0f R:%.0f          ", leftHue, rightHue);
-            }
-
             // Configure pneumatics only once on the initial press (not every frame)
             if (!wasR2Pressed) {
                 frontHoodPneumatics.set_value(false);  // close front hood for intake
@@ -269,10 +157,10 @@ void driverControl() {
             }
 
             spinForInProgress = false;
-            intakeMotor1.move_voltage(-12000);  // reversed — same as R1
+            intakeMotor1.move_voltage(-12000);
             intakeMotor2.move_voltage(-12000);
-            hoodMotor.move_voltage(-12000);      // 5.5W hood motor — same direction, capped at 200 RPM by hardware
-            upperIndexerMotor.move_voltage(12000); // 5.5W upper indexer — physically reversed, pulls opposite to hood
+            hoodMotor.move_voltage(-12000);
+            upperIndexerMotor.move_voltage(12000);
         } else {
             // Button released — stop all motors
             if (wasR2Pressed) {

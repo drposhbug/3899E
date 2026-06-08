@@ -165,7 +165,6 @@ static double g_intakeTimeMs          = 0;
 static double g_intakePct             = 100;
 static bool   g_intakePistonState     = false;
 static bool   g_matchLoadState        = false;
-static bool   g_enableColourDetection = false;
 
 void intakeTaskEntry(void*) {
     g_intakeTaskRunning.store(true);
@@ -177,64 +176,12 @@ void intakeTaskEntry(void*) {
     uint32_t startTime = pros::millis();
     int32_t  voltage   = static_cast<int32_t>((g_intakePct / 8.34) * 1000);
 
-    // Consecutive-read counters for Octoball colour sort (noise rejection).
-    // Octoball is 8-sided — a single hue read can land on a facet edge and
-    // return noise.  Requiring N consecutive reads in range before firing the
-    // rudder filters edge-reads without adding meaningful latency.
-    int redConsecutive  = 0;
-    int blueConsecutive = 0;
-    const int REQUIRED_CONSECUTIVE = 2;  // 2 × 10 ms ≈ 20 ms confirmation window
-
+    // Colour sort is handled by the background colorDetectionTask (sortMotor + opticalSensor).
+    // intakeTaskEntry just runs the intake motors for the requested duration.
     while (g_intakeTaskRunning.load() &&
            pros::millis() - startTime < static_cast<uint32_t>(g_intakeTimeMs)) {
         intakeMotor1.move_voltage(voltage);
         intakeMotor2.move_voltage(voltage);
-
-        // Only run colour sort logic when explicitly enabled for this routine
-        if (g_enableColourDetection) {
-            double leftHue  = leftLaneOptical.get_hue();
-            double rightHue = rightLaneOptical.get_hue();
-
-            // Red wraps near 0°/360° on the hue wheel — requires two detection bands
-            bool redThisCycle =
-                ((leftHue  >= RED_HUE_MIN_1 && leftHue  <= RED_HUE_MAX_1) ||
-                 (leftHue  >= RED_HUE_MIN_2 && leftHue  <= RED_HUE_MAX_2)) ||
-                ((rightHue >= RED_HUE_MIN_1 && rightHue <= RED_HUE_MAX_1) ||
-                 (rightHue >= RED_HUE_MIN_2 && rightHue <= RED_HUE_MAX_2));
-
-            // Blue sits mid-wheel (~215–225°) — one band only
-            bool blueThisCycle =
-                (leftHue  >= BLUE_HUE_MIN && leftHue  <= BLUE_HUE_MAX) ||
-                (rightHue >= BLUE_HUE_MIN && rightHue <= BLUE_HUE_MAX);
-
-            // Increment the matching colour counter; reset the opposite
-            if (redThisCycle) {
-                redConsecutive++;
-                blueConsecutive = 0;
-            } else if (blueThisCycle) {
-                blueConsecutive++;
-                redConsecutive = 0;
-            } else {
-                // Neither colour — only reset counters when the lane is confirmed empty
-                // (avoids resetting mid-ball when a facet edge produces a momentary miss)
-                bool nearLeft  = leftLaneOptical.get_proximity()  > 50;
-                bool nearRight = rightLaneOptical.get_proximity() > 50;
-                if (!nearLeft && !nearRight) {
-                    redConsecutive  = 0;
-                    blueConsecutive = 0;
-                }
-            }
-
-            // Fire rudder once colour is confirmed by REQUIRED_CONSECUTIVE reads
-            if (redConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(true);   // route to right lane
-                redConsecutive = 0;
-            } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
-                rudderPneumatics.set_value(false);  // route to left lane
-                blueConsecutive = 0;
-            }
-        }
-
         pros::delay(10);
     }
 
@@ -244,7 +191,6 @@ void intakeTaskEntry(void*) {
     frontHoodPneumatics.set_value(false);
     matchLoadPneumatics.set_value(false);
     ptoPneumatics.set_value(false);
-    g_enableColourDetection = false;
     g_intakeTaskRunning.store(false);
 }
 
@@ -261,18 +207,10 @@ void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLo
     pros::Task(intakeTaskEntry, nullptr, "intakeTask");
 }
 
-// Same as intakeStart but enables the colour-sort rudder logic
+// Colour sort is now always-on via the background colorDetectionTask.
+// intakeColourStart forwards to intakeStart — kept for auton call-site compatibility.
 void intakeColourStart(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
-    if (g_intakeTaskRunning.load()) {
-        g_intakeTaskRunning.store(false);
-        pros::delay(20);
-    }
-    g_intakeTimeMs          = timeMs;
-    g_intakePistonState     = pistonState;
-    g_intakePct             = intakePct;
-    g_matchLoadState        = matchLoad;
-    g_enableColourDetection = true;
-    pros::Task(intakeTaskEntry, nullptr, "intakeTask");
+    intakeStart(timeMs, intakePct, pistonState, matchLoad);
 }
 
 // Signal the running intake task to stop early

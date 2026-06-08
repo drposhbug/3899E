@@ -191,7 +191,7 @@ void fieldTargetsTest() {
     pros::screen::erase();
 
     startOdometryTask();
-    setStartPosition(0.0, 0.0, 0.0);
+    setStartPosition(60.0, 150.0, 0.0);
     pros::delay(200);
 
     pros::lcd::print(0, "START X:%.0f Y:%.0f H:%.0f",

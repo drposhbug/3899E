@@ -71,10 +71,11 @@ extern pros::Rotation passiveEncoderLeft;
 extern pros::Rotation passiveEncoderRight;
 extern pros::Rotation passiveEncoderX;   // lateral (strafing) encoder
 
-// Optical sensors — ring/ball color detection and lane tracking.
+// Colour sort optical sensor — port 3, single sensor for initial testing.
 extern pros::Optical opticalSensor;
-extern pros::Optical leftLaneOptical;
-extern pros::Optical rightLaneOptical;
+
+// Colour sort flipper motor — port 16, 5.5W, fixed 200 RPM, HOLD brake.
+extern pros::Motor sortMotor;
 
 // GPS Sensor — port 3, left side mount
 // Offset from tracking center: x = -0.1524m (6" left), y = 0.0m (centered)
@@ -185,3 +186,4 @@ extern ArmPosition armstat;
 void robotInit();
 
 #endif // ROBOT_CONFIG_H
+
