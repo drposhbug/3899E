@@ -218,9 +218,9 @@ void visionTest() {
     vp.drive.distanceTolerance      = 1.0;    // cm exit bubble
     vp.drive.timeout                = 5.0;    // seconds
     vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-    vp.drive.kp_heading             = 0.1;    // low gain — vision correction is noisy
+    vp.drive.kp_heading             = 0.4;    // low gain — vision correction is noisy
     vp.drive.ki_heading             = 0.0;
-    vp.drive.kd_heading             = 0.0;
+    vp.drive.kd_heading             = 0.1;
     vp.drive.accelHeadingScaling    = 0.2;    // correction weight during accel
     vp.drive.decelHeadingScaling    = 0.1;    // correction weight during decel
     vp.drive.approachHeadingScaling = 0.1;    // correction weight during approach
@@ -258,21 +258,43 @@ void visionTest() {
     visionOnly(aiVision_redCube, 40, 200.0, vp);
 }
 
-void colorSortTest() {
+void redColorSortTest() {
     opticalSensor.set_led_pwm(100);
-    intakeMotor.move(127);
+    intakeMotor.move(100);
     colorSortMotor.move(127);
     while (true) {
-        if (opticalSensor.get_hue() < 10 || opticalSensor.get_hue() > 350) {
-            colorSortMotor.move(-127);
-            pros::delay(100);
+        if (opticalSensor.get_hue() < 60) { // blue is > 150 to 230
+            colorSortMotor.move(-100);
+            intakeMotor.move(127);
+            pros::delay(20);
+            intakeMotor.move(100);
+            pros::delay(10);
         } else {
+            intakeMotor.move(100);
             colorSortMotor.move(127);
         }
-        pros::delay(50);
+        pros::delay(10);
     }
 }
 
+void blueColorSortTest() {
+    opticalSensor.set_led_pwm(100);
+    intakeMotor.move(100);
+    colorSortMotor.move(127);
+    while (true) {
+        if (opticalSensor.get_hue() < 240 && opticalSensor.get_hue() > 140) { // blue is > 150 to 230
+            colorSortMotor.move(-100);
+            intakeMotor.move(127);
+            pros::delay(20);
+            intakeMotor.move(100);
+            pros::delay(10);
+        } else {
+            intakeMotor.move(100);
+            colorSortMotor.move(127);
+        }
+        pros::delay(10);
+    }
+}
 
 // Prints the route planner obstacle grid to brain screen.
 // Use before competition to verify goal and park zone positions are correct.

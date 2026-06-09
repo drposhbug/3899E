@@ -86,6 +86,7 @@ static bool posDisplayRunning = true;
 void autonomous()
 {
     pros::screen::erase();
+    // matchloader.set_value(true);
 
     // PosDisplay disabled for routeGridTest — conflicts with routePrintGrid on line 0
     // Restore after grid debugging is done
@@ -116,9 +117,9 @@ void autonomous()
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
     //fieldTargetsTest();
-    // visionTest();
+    visionTest();
     // navTest();
-    colorSortTest();
+    // blueColorSortTest();
     //runAIMatchRoute();
     //routeTest();
     //routeGridTest();

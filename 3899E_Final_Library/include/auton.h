@@ -13,6 +13,8 @@ void navTest();            // test odometry-based straight drive
 void visionTest();         // test vision-based drive
 void colorSortTest();      // test color sort with optical sensor
 void fieldTargetsTest();   // test navigateTo() end-to-end for a named target
+void redColorSortTest();   // test color sort with red cubes
+void blueColorSortTest();  // test color sort with blue cubes
 
 // ── Selector — called from autonomous() in main.cpp ──────────────────────────
 void autonSelector();

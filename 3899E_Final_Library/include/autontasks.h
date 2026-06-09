@@ -3,6 +3,10 @@
 
 #include "utils.h"   // Color enum, arm helpers, task param structs
 
+// color sort tasks
+void redColorSortStart(void* params);
+void blueColorSortStart(void* params);
+
 // ══════════════════════════════════════════════════════════════════════════════
 // INTAKE / HOPPER TASKS
 // These functions start a timed motor burst and optionally return immediately

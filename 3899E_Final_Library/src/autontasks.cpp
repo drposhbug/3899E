@@ -27,6 +27,50 @@ struct AsyncTaskParams {
     double power   = 100;
 };
 
+void redColorSortTaskfn() {
+    while (true) {
+        if (opticalSensor.get_hue() < 60) { // blue is > 150 to 230
+            int colorSortPower = colorSortMotor.get_power();
+            int intakePower = intakeMotor.get_power();
+            colorSortMotor.move(-100);
+            intakeMotor.move(127);
+            pros::delay(20);
+            intakeMotor.move(100);
+            pros::delay(10);
+            colorSortMotor.move(colorSortPower);
+            intakeMotor.move(intakePower);
+        } else {
+            pros::delay(10);
+        }
+    }
+}
+
+void redColorSortStart(void* params) {
+    pros::Task redColorSortTask(redColorSortTaskfn);
+}
+
+void blueColorSortTaskfn() {
+    while (true) {
+        if (opticalSensor.get_hue() < 240 && opticalSensor.get_hue() > 140) { // blue is > 150 to 230
+            int colorSortPower = colorSortMotor.get_power();
+            int intakePower = intakeMotor.get_power();
+            colorSortMotor.move(-100);
+            intakeMotor.move(127);
+            pros::delay(20);
+            intakeMotor.move(100);
+            pros::delay(10);
+            colorSortMotor.move(colorSortPower);
+            intakeMotor.move(intakePower);
+        } else {
+            pros::delay(10);
+        }
+    }
+}
+
+void blueColorSortStart(void* params) {
+    pros::Task blueColorSortTask(blueColorSortTaskfn);
+}
+
 // // ══════════════════════════════════════════════════════════════════════════════
 // // INTAKE HOPPER TASK  (intake motors + front hood)
 // // ══════════════════════════════════════════════════════════════════════════════
