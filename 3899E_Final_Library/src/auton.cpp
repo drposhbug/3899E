@@ -214,7 +214,7 @@ void visionTest() {
     VisionProfile vp = DEFAULT_VISION;
     vp.drive.breakDistance          = 90.0;   // cm before target to begin decel
     vp.drive.minSpeed               = 20.0;   // % minimum approach speed
-    vp.drive.maxSpeed               = 40.0;   // % peak cruise speed
+    vp.drive.maxSpeed               = 80.0;   // % peak cruise speed
     vp.drive.distanceTolerance      = 1.0;    // cm exit bubble
     vp.drive.timeout                = 5.0;    // seconds
     vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
@@ -227,18 +227,20 @@ void visionTest() {
     vp.drive.headingLockDistance    = 3.0;   // cm — wider than odom; vision may shift near target
     vp.drive.launchVoltage          = 3.0;    // V — initial kick voltage
     vp.drive.accelFactor            = 1.2;    // traction ramp multiplier
-    vp.drive.slipThreshold          = 20.0;    // RPM slip before traction cuts in
+    vp.drive.slipThreshold          = 0.3;    // RPM slip before traction cuts in
     vp.drive.decelStepPercent       = 0.30;    // ABS voltage reduction per step
     vp.drive.lockThreshold          = 0.3;    // wheel lockup ratio
     vp.drive.maxCurrentA            = 4.0;    // amps — wall stall trip threshold
     vp.drive.overcurrentDurationMs  = 300;    // ms — how long before breaker fires
-    vp.kp_distToHeadScaling         = 2.0;    // vision correction aggressiveness
+    vp.kp_distToHeadScaling         = 1.75;    // vision correction aggressiveness
     vp.minObjectWidth               = 10;     // pixels — ignore detections smaller than this
     vp.minX                         = 0;      // detection zone left bound (pixels)
     vp.maxX                         = 320;    // detection zone right bound (pixels)
     vp.minY                         = 0;      // detection zone top bound (pixels)
     vp.maxY                         = 240;    // detection zone bottom bound (pixels)
 
+    intakeMotor.move(127);
+    colorSortMotor.move(127);
     // ── Stage 1: visionDriveForward — open-loop encoder distance + vision steering ──
     // Robot drives 150 cm forward; vision steers once target acquired.
     // visionDriveForward(aiVision_blueCube, 40, 150.0, 0.0, vp);
@@ -254,6 +256,21 @@ void visionTest() {
     // ── Stage 4: visionOnly — pure vision approach, no odometry position updates ──
     // Robot drives toward target until pixel width >= 80, encoder safety, or timeout.
     visionOnly(aiVision_redCube, 40, 200.0, vp);
+}
+
+void colorSortTest() {
+    opticalSensor.set_led_pwm(100);
+    intakeMotor.move(127);
+    colorSortMotor.move(127);
+    while (true) {
+        if (opticalSensor.get_hue() < 10 || opticalSensor.get_hue() > 350) {
+            colorSortMotor.move(-127);
+            pros::delay(100);
+        } else {
+            colorSortMotor.move(127);
+        }
+        pros::delay(50);
+    }
 }
 
 
