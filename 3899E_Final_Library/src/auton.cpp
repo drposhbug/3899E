@@ -106,12 +106,12 @@ void visionTest() {
 
     VisionProfile vp = DEFAULT_VISION;
     vp.drive.breakDistance          = 85.0;
-    vp.drive.minSpeed               = 10.0;
-    vp.drive.maxSpeed               = 60.0;
+    vp.drive.minSpeed               = 15.0;
+    vp.drive.maxSpeed               = 30.0;
     vp.drive.distanceTolerance      = 1.0;
     vp.drive.timeout                = 5.0;
     vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-    vp.drive.kp_heading             = .1;
+    vp.drive.kp_heading             = .05;
     vp.drive.ki_heading             = 0.0;
     vp.drive.kd_heading             = 0.0;
     vp.drive.accelHeadingScaling    = 0.2;
@@ -125,15 +125,15 @@ void visionTest() {
     vp.drive.lockThreshold          = 0.3;
     vp.drive.maxCurrentA            = 4.0;
     vp.drive.overcurrentDurationMs  = 500;
-    vp.kp_distToHeadScaling         = 2.0;
+    vp.kp_distToHeadScaling         = 5.0;
     vp.minObjectWidth               = 10;
     vp.minX                         = 0;
     vp.maxX                         = 320;
     vp.minY                         = 0;
     vp.maxY                         = 240;
 
-    //visionDriveForward(aiVision_blueCube, 80, 150.0, 0.0, vp);
-    forwardToPoint(0.0, 150.0, vp.drive);
+    visionDriveForward(aiVision_orangeBase, 200, 40.0, 0.0, vp);
+    
 }
 
 // Prints the route planner obstacle grid to brain screen.
