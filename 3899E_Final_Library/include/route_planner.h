@@ -7,6 +7,10 @@
 // Plans obstacle-avoiding routes across the Push Back field using an
 // 8-directional grid search (A* algorithm internally).
 //
+// Grid: 24x24 cells, 15.24cm (6") per cell. ROUTE_MAX_WAYPOINTS=48.
+// String pulling reduces staircase paths to clean straight legs.
+// MinHeap sized at GRID_CELLS*4 to prevent overflow on node re-pushes.
+//
 // Coordinate system: VEX GPS — origin (0,0) at field center,
 //   X east positive, Y north positive (cm). Matches V5 GPS sensor exactly.
 //
@@ -25,8 +29,8 @@
 
 #include "main.h"
 
-// Max waypoints a path can hold
-static const int ROUTE_MAX_WAYPOINTS = 24;
+// Max waypoints a path can hold — 48 for 24x24 grid (worst-case path length)
+static const int ROUTE_MAX_WAYPOINTS = 48;
 
 // Path returned by routePlan()
 struct RoutePath {
@@ -45,14 +49,14 @@ RoutePath routePlan(double startX, double startY,
 
 // ── Execution ─────────────────────────────────────────────────────────
 
-// Drive through a planned route waypoint-by-waypoint using moveOdometry.
+// Drive through a planned route waypoint-by-waypoint using forwardToPoint.
+// Profile comes from DEFAULT_STRAIGHT in motion_config.h — no overrides here.
+//
+// TODO (post field validation): smart profile selection based on leg distance
+// and heading delta — short legs, long cruise legs, sharp turn insertion.
+//
 // Returns true if all waypoints reached, false if any timed out (blocked).
-bool routeExecute(const RoutePath& path,
-                  double breakDistance     = 20.0,
-                  double minSpeed          = 16.0,
-                  double distanceTolerance = 3.0,
-                  double maxSpeed          = 80.0,
-                  double timeout           = 4.0);
+bool routeExecute(const RoutePath& path);
 
 // ── Dynamic obstacles ─────────────────────────────────────────────────
 
@@ -64,6 +68,14 @@ void routeAddObstacle(double x, double y);
 // Clear all temporary obstacles.
 // Call after replanning — robots move, stale obstacles corrupt future routes.
 void routeClearObstacles();
+
+// Block park zones in the dynamic grid at match start so A* routes around them.
+// Called automatically by buildStaticGrid() — no manual call needed.
+void routeInitParkZones();
+
+// Open park zones in the dynamic grid so A* can route into them.
+// Call once when parking is triggered (~20s remaining).
+void routeOpenParkZones();
 
 // ── Utilities ─────────────────────────────────────────────────────────
 

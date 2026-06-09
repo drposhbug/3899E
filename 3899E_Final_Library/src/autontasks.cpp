@@ -551,8 +551,7 @@ void coordinateFinderTask(void* params) {
     CoordinateFinderParams* p = static_cast<CoordinateFinderParams*>(params);
 
     while (p->isRunning) {
-        updateOdometry();  // refresh globalX/Y from encoder and IMU readings
-
+        // globalX/Y updated by background odometry task — read directly here
         pros::screen::erase();
         pros::screen::set_pen(0xFFFFFF);  // white
 

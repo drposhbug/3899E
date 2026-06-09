@@ -30,8 +30,8 @@
 
 // Full VAIRC match — Jetson drives strategy, V5 executes via ai.cpp
 void runAIMatchRoute() {
-    startOdometryTask();
     setStartPosition(0.0, 0.0, 0.0);  // update start coords before competition
+    startOdometryTask();
     setAllianceRed(true);              // set to false for blue alliance
     runAIMatch();
 }
@@ -42,9 +42,8 @@ void routeTest() {
     pros::screen::erase();
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Route Test");
 
-    startOdometryTask();
     setStartPosition(0.0, 0.0, 0.0);
-    pros::delay(200);
+    startOdometryTask();
 
     // Plan route from center field to top long goal approach
     RoutePath path = routePlan(globalX, globalY, 0.0, 97.0);  // 25cm short of goal face
@@ -91,14 +90,13 @@ void fieldTargetsTest() {
     for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
     pros::screen::erase();
 
+    setStartPosition(-124.5, -34.5, 180.0);
     startOdometryTask();
-    setStartPosition(0.0, 0.0, 0.0);
-    pros::delay(200);
 
     pros::lcd::print(0, "START X:%.0f Y:%.0f H:%.0f",
                      globalX, globalY, getContinuousStandardHeading());
 
-    NavResult result = navigateTo(GOAL_SE);
+    NavResult result = navigateTo(LONG_GOAL_NE);
 
     const char* resultStr =
         result == NavResult::SUCCESS       ? "SUCCESS"  :

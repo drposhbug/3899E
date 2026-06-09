@@ -70,7 +70,6 @@ void driverControl() {
     bool wasR2Pressed    = false;
     bool wasL1Pressed    = false;
     bool wasL2Pressed    = false;
-    bool wasXPressed     = false;
     bool wasRightPressed = false;
     bool wasYPressed     = false;
     bool wasUpPressed    = false;

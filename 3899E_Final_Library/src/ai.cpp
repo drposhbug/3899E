@@ -504,8 +504,18 @@ NavResult navigateTo(TargetID id,
             return NavResult::BLOCKED_REROUTE;
     }
 
-    // ── Parking: done ─────────────────────────────────────────────────────────
-    if (t.type == TargetType::PARK_ZONE) return NavResult::SUCCESS;
+    // ── Parking: turn to face wall, then done ────────────────────────────────
+    // Approach heading from field_targets table: PARK_ALLIANCE=270° (west wall),
+    // PARK_OPPONENT=90° (east wall). Same turn logic as goal approach below.
+    if (t.type == TargetType::PARK_ZONE) {
+        double currentH     = getContinuousStandardHeading();
+        double currentHNorm = fmod(currentH, 360.0);
+        if (currentHNorm < 0) currentHNorm += 360.0;
+        double delta = fmod((t.approachHeading - currentHNorm) + 540.0, 360.0) - 180.0;
+        if (fabs(delta) > 5.0)
+            turnOdometry(currentH + delta, turnProfile);
+        return NavResult::SUCCESS;
+    }
 
     // ── Turn to face approach heading ─────────────────────────────────────────
     // Heading pulled directly from field_targets table — not computed from position.
@@ -608,15 +618,15 @@ static void doIntake()  { intakeHopperStart(3000, 80); }
 static void doNothing() {}
 
 void strategyScoreTopGoal() {
-    const NamedTarget& t = getTarget(GOAL_NE);
+    const NamedTarget& t = getTarget(LONG_GOAL_NE);
     executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doScore);
 }
 void strategyScoreBottomGoal() {
-    const NamedTarget& t = getTarget(GOAL_SE);
+    const NamedTarget& t = getTarget(LONG_GOAL_SE);
     executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doScore);
 }
 void strategyScoreCenterGoal() {
-    const NamedTarget& t = getTarget(CENTER_NE);  // default arm — change per route
+    const NamedTarget& t = getTarget(CENTER_GOAL_NE);  // default arm — change per route
 #if ACTIVE_BOT == BOT_15INCH
     RoutePath path = routePlan(globalX, globalY, t.approachX, t.approachY);
     if (path.count > 0) routeExecute(path);
@@ -628,19 +638,19 @@ void strategyScoreCenterGoal() {
 #endif
 }
 void strategyDescoreTopGoal() {
-    const NamedTarget& t = getTarget(GOAL_NE);
+    const NamedTarget& t = getTarget(LONG_GOAL_NE);
     executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doDescore);
 }
 void strategyDescoreBottomGoal() {
-    const NamedTarget& t = getTarget(GOAL_SE);
+    const NamedTarget& t = getTarget(LONG_GOAL_SE);
     executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doDescore);
 }
 void strategyBlockTopGoal() {
-    const NamedTarget& t = getTarget(GOAL_NE);
+    const NamedTarget& t = getTarget(LONG_GOAL_NE);
     executeStrategy(t.approachX, t.approachY, TargetType::PARK_ZONE, doNothing);
 }
 void strategyBlockBottomGoal() {
-    const NamedTarget& t = getTarget(GOAL_SE);
+    const NamedTarget& t = getTarget(LONG_GOAL_SE);
     executeStrategy(t.approachX, t.approachY, TargetType::PARK_ZONE, doNothing);
 }
 void strategyUseMatchLoader() {
@@ -710,7 +720,11 @@ void runAIMatch() {
 
     while (true) {
         // Priority 1 — timer (always wins)
-        if (shouldParkNow()) { strategyPark(); return; }
+        if (shouldParkNow()) {
+            routeOpenParkZones();  // clear D blocks so A* can route into park zone
+            strategyPark();
+            return;
+        }
 
         // Priority 2 — safety/rules
         int currentCode = getStrategyCode();

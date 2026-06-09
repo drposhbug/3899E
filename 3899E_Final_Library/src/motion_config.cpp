@@ -20,7 +20,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile DEFAULT_STRAIGHT = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance          = 35.0,   // cm — distance from target at which decel begins
+    .breakDistance          = 30.0,   // % of leg distance — 30% means a 150cm leg breaks at 45cm
     .minSpeed               = 16.0,   // % — floor speed during approach phase
     .maxSpeed               = 100.0,  // % — peak cruise speed
     .distanceTolerance      = 2.0,    // cm — exit bubble radius
@@ -61,7 +61,7 @@ const StraightProfile DEFAULT_STRAIGHT = {
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile BACKWARD_STRAIGHT = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance          = 30.0,   // cm
+    .breakDistance          = 30.0,   // % of leg distance
     .minSpeed               = 16.0,   // %
     .maxSpeed               = 80.0,   // % — derated; reverse is less stable at full power
     .distanceTolerance      = 2.0,    // cm
@@ -108,7 +108,7 @@ const StraightProfile BACKWARD_STRAIGHT = {
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile LOADED_MID_FWD_80 = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance          = 85.0,   
+    .breakDistance          = 30.0,   // % of leg distance — was 85cm fixed; now scales with leg length
     .minSpeed               = 13.0,   
     .maxSpeed               = 80.0,   
     .distanceTolerance      = 1.0,    
@@ -134,7 +134,7 @@ const StraightProfile LOADED_MID_FWD_80 = {
     .slipThreshold          = 0.3,    
     .decelStepPercent       = 2.0,    
     .lockThreshold          = 0.3,    
-    .maxCurrentA            = 4.0,    
+    .maxCurrentA            = 8.0,    
     .overcurrentDurationMs  = 500,   
 };
 
@@ -145,19 +145,19 @@ const StraightProfile LOADED_MID_FWD_80 = {
 // ──────────────────────────────────────────────────────────────────────────────
 const TurnProfile DEFAULT_TURN = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance    = 5.0,    // degrees — short; turns have little momentum to shed
-    .minSpeed         = 25.0,   // %
-    .maxSpeed         = 100.0,  // %
-    .exitTolerance    = 0.5,    // degrees — tight; 16° default in turnOdometry was a bug
-    .timeout          = 3.0,    // seconds
+    .breakDistance    = 30.0,   // % of total turn angle — 30% means a 90° turn breaks at 27°
+    .minSpeed         = 15.0,   // %
+    .maxSpeed         = 60.0,   // %
+    .exitTolerance    = 2.0,    // degrees
+    .timeout          = 5.0,    // seconds
 
     // ── Internal motion constants ─────────────────────────────────────────────
-    // Intentionally different from StraightProfile values — turns require faster
-    // traction response because lateral slip develops more abruptly than linear slip.
-    .accelFactor      = 1.5,
-    .slipThreshold    = 10.0,   // RPM delta
-    .decelStepPercent = 20.0,   // % of absoluteMaxVoltage per ABS step
-    .lockThreshold    = 10.0,   // lockup ratio
+    // Traction control and ABS disabled for turns — not appropriate for rotational
+    // motion on carpet. Values set to never-trigger thresholds per profile convention.
+    .accelFactor      = 1.0,    // no ramp — hold voltage as-is
+    .slipThreshold    = 1.0,    // slip ratio max is 1.0 — never triggers
+    .decelStepPercent = 20.0,   // irrelevant — ABS never fires (lockThreshold = 1.0)
+    .lockThreshold    = 1.0,    // lockup ratio max is 1.0 — never triggers
     .maxCurrentA      = 12.0,   // amps
     .overcurrentDurationMs = 500, // ms
 };
@@ -201,7 +201,7 @@ const TurnProfile DEFAULT_PIVOT = {
 // ──────────────────────────────────────────────────────────────────────────────
 const VisionProfile DEFAULT_VISION = {
     .drive = {
-        .breakDistance          = 85.0,
+    .breakDistance          = 30.0,   // % of leg distance
         .minSpeed               = 13.0,
         .maxSpeed               = 80.0,
         .distanceTolerance      = 1.0,

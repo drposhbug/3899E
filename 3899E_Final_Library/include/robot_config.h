@@ -56,7 +56,7 @@ extern pros::Rotation passiveEncoderLeft;
 extern pros::Rotation passiveEncoderRight;
 extern pros::Rotation passiveEncoderX;   // lateral (strafing) encoder
 
-// Optical sensors — ring/ball color detection and lane tracking.
+// Colour sort optical sensor — port 3, single sensor for initial testing.
 extern pros::Optical opticalSensor;
 
 // GPS Sensor — port 3, left side mount
@@ -180,3 +180,4 @@ extern ArmPosition armstat;
 void robotInit();
 
 #endif // ROBOT_CONFIG_H
+

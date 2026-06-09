@@ -16,13 +16,14 @@
 //    11   Hood Motor        (200 RPM, 5.5W — fixed speed, no cartridge, forward)
 //    15   Upper Indexer     (200 RPM, 5.5W — fixed speed, no cartridge, reversed)
 //     3   GPS Sensor        (left side mount)
+//    16   Sort Motor        (200 RPM, 5.5W — colour sort flipper, no cartridge, forward)
 //    17   IMU
 //    20   Left  Encoder     (reversed)
 //    13   Right Encoder     (not reversed)
-//    12   X-axis Encoder    (reversed)
-//     4   Optical Sensor    (sorting)
-//    16   Left  Lane Optical
-//    11   Right Lane Optical
+//    12   X-axis Encoder    (not reversed — set_reversed(false) in initialize())
+//     4   Optical Sensor    (colour sort — port 3, single sensor for testing)
+//    16   Left  Lane Optical  [REMOVED — port now used by sort motor]
+//    11   Right Lane Optical  [REMOVED — port conflict with hood motor]
 //    14   AI Vision Sensor
 //
 //  ADI (3-wire) Ports:
@@ -140,7 +141,7 @@ pros::AIVision::Color aiVision_blueCube = {.id=2, .red=59,  .green=91,  .blue=17
 // false matches on other field elements. Adjust all values after testing.
 pros::AIVision::Color aiVision_orangeCap  = {.id=3, .red=210, .green=100, .blue=10,  .hue_range=15.0, .saturation_range=0.7};
 // Long goal base — different shade of orange from the cap; tune RGB separately on field.
-pros::AIVision::Color aiVision_orangeBase = {.id=4, .red=200, .green=80,  .blue=5,   .hue_range=15.0, .saturation_range=0.7};
+pros::AIVision::Color aiVision_orangeBase = {.id=4, .red=198, .green=151,  .blue=133,   .hue_range=40, .saturation_range=0.29};
 
 // AI Vision sensor — port 14.
 // Colors pushed to sensor and detection enabled in robotInit().
@@ -251,6 +252,13 @@ void robotInit()
     pros::delay(500);  // wait for tare to settle
     gyroReadingAtStart = InertialSensor.get_rotation();     // capture baseline
     pros::lcd::set_text(1, "IMU ready");
+
+    // Colour sort motor — hold position after each sort move.
+    sortMotor.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    sortMotor.tare_position();
+
+    // Colour sort optical — LED on at full power for reliable hue reads.
+    opticalSensor.set_led_pwm(100);
 
     // Push color descriptors to the AI Vision sensor and enable color detection.
     aiVision_Front.reset();

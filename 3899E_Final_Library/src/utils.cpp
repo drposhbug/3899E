@@ -143,7 +143,7 @@ const double RED_HUE_MIN_2 =   0.0;
 const double RED_HUE_MAX_2 =  15.0;
 const double BLUE_HUE_MIN  = 218.0;
 const double BLUE_HUE_MAX  = 245.0;
-const double MIN_BRIGHTNESS =  5.0;  // ignore readings below this brightness
+const double MIN_BRIGHTNESS =  0.0;  // 0.0-1.0 scale — low threshold for channel mounting
 
 // Turn on the optical sensor's illumination LED at full power.
 void initializeOpticalSensor() {

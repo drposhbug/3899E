@@ -31,9 +31,19 @@ using namespace RobotGeometry;
 // APPROACH STANDOFF DISTANCES (cm)
 // Tune after field testing — must clear A* obstacle buffer + robot half-depth.
 // ══════════════════════════════════════════════════════════════════════════════
-static const double LONG_GOAL_STANDOFF_CM    = 50.0;
-static const double CENTER_GOAL_STANDOFF_CM  = 55.0;
-static const double MATCH_LOADER_STANDOFF_CM = 45.0;
+static const double LONG_GOAL_STANDOFF_CM    = 50.0;   // unused — goals share approach with ML
+static const double CENTER_GOAL_STANDOFF_CM  = 80.0;   // 80/√2=56.57cm, 1 cell beyond 6x6 block edge
+static const double MATCH_LOADER_STANDOFF_CM = 45.0;   // unused — ML shares approach with goals
+
+// Shared approach point for long goals and match loaders.
+// X=±122cm is the midpoint between goal end (±62cm) and ML post (±183cm).
+// Goals face inward (toward field center), ML posts face the wall.
+static const double SHARED_APPROACH_X = 122.0;
+
+// Park zone approach: 3 cells (45.72cm) infield of park target center.
+// RED_PARK_X=-161.41 → approach at -161.41+45.72=-115.69cm
+// BLUE_PARK_X=+161.41 → approach at +161.41-45.72=+115.69cm
+static const double PARK_APPROACH_X   = 45.72;  // offset from target center
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FIELD ELEMENT COORDINATES — from robot_geometry.h (authoritative)
@@ -79,86 +89,94 @@ static const double CG_DIAG = CENTER_GOAL_STANDOFF_CM * 0.70710678;
 #if ACTIVE_BOT == BOT_24INCH
 
 // ── 24" BOT TABLE ─────────────────────────────────────────────────────────────
-// Long goals: robot approaches from infield (center side), front faces into opening.
-//   GOAL_NE/NW — north end of goal, approach from south (infield), face South (180°)
-//   GOAL_SE/SW — south end of goal, approach from north (infield), face North (0°)
+// Long goals: robot scores by pushing blocks east→west (or west→east) into the
+// side face of the goal bar. Approach from outside the goal end on X axis.
+//   East goals → approach from east (X=+114), face West (270°)
+//   West goals → approach from west (X=−114), face East  (90°)
+//
+// Approach X=±114cm is just outside the long goal block (col 17/6, passable).
+// Standoff from goal end (X=±62): 114−62 = 52cm.
 //
 // Match loaders: front faces post.
 //   East posts  → face East  (90°)
 //   West posts  → face West  (270°)
 const NamedTarget FIELD_TARGETS[TARGET_COUNT] = {
 
-    // ── East long goal ────────────────────────────────────────────────────────
-    {   // GOAL_NE — north end, approach from south (infield), face South into opening
-        GOAL_NE, TargetType::LONG_GOAL,
-        LONG_GOAL_X_EAST, LONG_GOAL_Y_NORTH - LONG_GOAL_STANDOFF_CM, 180.0,
+    // ── East long goal — shared approach with LOADER_NE/SE ──────────────────────
+    // Approach X=+122cm (midpoint between goal end +62 and ML post +183).
+    // Goal faces West (into field), ML faces East (toward post). Same XY, diff heading.
+    {   // LONG_GOAL_NE — approach from east corridor, face West into goal
+        LONG_GOAL_NE, TargetType::LONG_GOAL,
+        SHARED_APPROACH_X, ML_Y_NORTH, 270.0,
         LONG_GOAL_X_EAST, LONG_GOAL_Y_NORTH
     },
-    {   // GOAL_SE — south end, approach from north (infield), face North into opening
-        GOAL_SE, TargetType::LONG_GOAL,
-        LONG_GOAL_X_EAST, LONG_GOAL_Y_SOUTH + LONG_GOAL_STANDOFF_CM, 0.0,
+    {   // LONG_GOAL_SE — approach from east corridor, face West into goal
+        LONG_GOAL_SE, TargetType::LONG_GOAL,
+        SHARED_APPROACH_X, ML_Y_SOUTH, 270.0,
         LONG_GOAL_X_EAST, LONG_GOAL_Y_SOUTH
     },
 
-    // ── West long goal ────────────────────────────────────────────────────────
-    {   // GOAL_NW — north end, approach from south (infield), face South into opening
-        GOAL_NW, TargetType::LONG_GOAL,
-        LONG_GOAL_X_WEST, LONG_GOAL_Y_NORTH - LONG_GOAL_STANDOFF_CM, 180.0,
+    // ── West long goal — shared approach with LOADER_NW/SW ───────────────────
+    {   // LONG_GOAL_NW — approach from west corridor, face East into goal
+        LONG_GOAL_NW, TargetType::LONG_GOAL,
+        -SHARED_APPROACH_X, ML_Y_NORTH, 90.0,
         LONG_GOAL_X_WEST, LONG_GOAL_Y_NORTH
     },
-    {   // GOAL_SW — south end, approach from north (infield), face North into opening
-        GOAL_SW, TargetType::LONG_GOAL,
-        LONG_GOAL_X_WEST, LONG_GOAL_Y_SOUTH + LONG_GOAL_STANDOFF_CM, 0.0,
+    {   // LONG_GOAL_SW — approach from west corridor, face East into goal
+        LONG_GOAL_SW, TargetType::LONG_GOAL,
+        -SHARED_APPROACH_X, ML_Y_SOUTH, 90.0,
         LONG_GOAL_X_WEST, LONG_GOAL_Y_SOUTH
     },
 
-    // ── Center goals — diagonal approach, Jetson steers ──────────────────────
-    {   // CENTER_NE
-        CENTER_NE, TargetType::CENTER_GOAL,
-        CG_DIAG,  CG_DIAG, 45.0,
+    // ── Center goals — diagonal approach, face origin (0,0) ──────────────────
+    // Approach 1 cell beyond 6x6 block edge. Face SW/NW/NE/SE toward center.
+    {   // CENTER_GOAL_NE — approach from NE, face SW (225°) toward origin
+        CENTER_GOAL_NE, TargetType::CENTER_GOAL,
+        CG_DIAG,  CG_DIAG, 225.0,
         CENTER_GOAL_HALF_EXTENT * 0.70710678,  CENTER_GOAL_HALF_EXTENT * 0.70710678
     },
-    {   // CENTER_SE
-        CENTER_SE, TargetType::CENTER_GOAL,
-        CG_DIAG, -CG_DIAG, 135.0,
+    {   // CENTER_GOAL_SE — approach from SE, face NW (315°) toward origin
+        CENTER_GOAL_SE, TargetType::CENTER_GOAL,
+        CG_DIAG, -CG_DIAG, 315.0,
         CENTER_GOAL_HALF_EXTENT * 0.70710678, -CENTER_GOAL_HALF_EXTENT * 0.70710678
     },
-    {   // CENTER_SW
-        CENTER_SW, TargetType::CENTER_GOAL,
-        -CG_DIAG, -CG_DIAG, 225.0,
+    {   // CENTER_GOAL_SW — approach from SW, face NE (45°) toward origin
+        CENTER_GOAL_SW, TargetType::CENTER_GOAL,
+        -CG_DIAG, -CG_DIAG, 45.0,
         -CENTER_GOAL_HALF_EXTENT * 0.70710678, -CENTER_GOAL_HALF_EXTENT * 0.70710678
     },
-    {   // CENTER_NW
-        CENTER_NW, TargetType::CENTER_GOAL,
-        -CG_DIAG,  CG_DIAG, 315.0,
+    {   // CENTER_GOAL_NW — approach from NW, face SE (135°) toward origin
+        CENTER_GOAL_NW, TargetType::CENTER_GOAL,
+        -CG_DIAG,  CG_DIAG, 135.0,
         -CENTER_GOAL_HALF_EXTENT * 0.70710678,  CENTER_GOAL_HALF_EXTENT * 0.70710678
     },
 
-    // ── Match loaders — front faces post ─────────────────────────────────────
-    {   // LOADER_NE — east post, north
+    // ── Match loaders — shared approach with long goals ───────────────────────
+    // Same XY as corresponding goal approach. Faces wall (toward post).
+    {   // LOADER_NE — east post north, face East toward post
         LOADER_NE, TargetType::MATCH_LOADER,
-        ML_X_EAST - MATCH_LOADER_STANDOFF_CM, ML_Y_NORTH, 90.0,
+        SHARED_APPROACH_X, ML_Y_NORTH, 90.0,
         ML_X_EAST, ML_Y_NORTH
     },
-    {   // LOADER_SE — east post, south
+    {   // LOADER_SE — east post south, face East toward post
         LOADER_SE, TargetType::MATCH_LOADER,
-        ML_X_EAST - MATCH_LOADER_STANDOFF_CM, ML_Y_SOUTH, 90.0,
+        SHARED_APPROACH_X, ML_Y_SOUTH, 90.0,
         ML_X_EAST, ML_Y_SOUTH
     },
-    {   // LOADER_SW — west post, south
+    {   // LOADER_SW — west post south, face West toward post
         LOADER_SW, TargetType::MATCH_LOADER,
-        ML_X_WEST + MATCH_LOADER_STANDOFF_CM, ML_Y_SOUTH, 270.0,
+        -SHARED_APPROACH_X, ML_Y_SOUTH, 270.0,
         ML_X_WEST, ML_Y_SOUTH
     },
-    {   // LOADER_NW — west post, north
+    {   // LOADER_NW — west post north, face West toward post
         LOADER_NW, TargetType::MATCH_LOADER,
-        ML_X_WEST + MATCH_LOADER_STANDOFF_CM, ML_Y_NORTH, 270.0,
+        -SHARED_APPROACH_X, ML_Y_NORTH, 270.0,
         ML_X_WEST, ML_Y_NORTH
     },
 
-    // ── Parking ───────────────────────────────────────────────────────────────
-    {   PARK_ALLIANCE, TargetType::PARK_ZONE, RED_PARK_X,  PARK_Y, 270.0, RED_PARK_X,  PARK_Y },
-    {   PARK_OPPONENT, TargetType::PARK_ZONE, BLUE_PARK_X, PARK_Y,  90.0, BLUE_PARK_X, PARK_Y },
+    // ── Parking — approach 1 cell outside park zone, face wall ───────────────
+    {   PARK_ALLIANCE, TargetType::PARK_ZONE, RED_PARK_X  + 45.72, PARK_Y, 270.0, RED_PARK_X,  PARK_Y },
+    {   PARK_OPPONENT, TargetType::PARK_ZONE, BLUE_PARK_X - 45.72, PARK_Y,  90.0, BLUE_PARK_X, PARK_Y },
 
 };  // FIELD_TARGETS — 24" bot
 
@@ -174,34 +192,34 @@ const NamedTarget FIELD_TARGETS[TARGET_COUNT] = {
 const NamedTarget FIELD_TARGETS[TARGET_COUNT] = {
 
     // ── East long goal — approach from west, face West so rear faces East ─────
-    {   // GOAL_NE
-        GOAL_NE, TargetType::LONG_GOAL,
+    {   // LONG_GOAL_NE
+        LONG_GOAL_NE, TargetType::LONG_GOAL,
         LONG_GOAL_X_EAST - LONG_GOAL_STANDOFF_CM, LONG_GOAL_Y_NORTH, 270.0,
         LONG_GOAL_X_EAST, LONG_GOAL_Y_NORTH
     },
-    {   // GOAL_SE
-        GOAL_SE, TargetType::LONG_GOAL,
+    {   // LONG_GOAL_SE
+        LONG_GOAL_SE, TargetType::LONG_GOAL,
         LONG_GOAL_X_EAST - LONG_GOAL_STANDOFF_CM, LONG_GOAL_Y_SOUTH, 270.0,
         LONG_GOAL_X_EAST, LONG_GOAL_Y_SOUTH
     },
 
     // ── West long goal — approach from east, face East so rear faces West ─────
-    {   // GOAL_NW
-        GOAL_NW, TargetType::LONG_GOAL,
+    {   // LONG_GOAL_NW
+        LONG_GOAL_NW, TargetType::LONG_GOAL,
         LONG_GOAL_X_WEST + LONG_GOAL_STANDOFF_CM, LONG_GOAL_Y_NORTH, 90.0,
         LONG_GOAL_X_WEST, LONG_GOAL_Y_NORTH
     },
-    {   // GOAL_SW
-        GOAL_SW, TargetType::LONG_GOAL,
+    {   // LONG_GOAL_SW
+        LONG_GOAL_SW, TargetType::LONG_GOAL,
         LONG_GOAL_X_WEST + LONG_GOAL_STANDOFF_CM, LONG_GOAL_Y_SOUTH, 90.0,
         LONG_GOAL_X_WEST, LONG_GOAL_Y_SOUTH
     },
 
     // ── Center goals — diagonal approach, GPS reset + odometry ───────────────
-    {   CENTER_NE, TargetType::CENTER_GOAL,  CG_DIAG,  CG_DIAG,  45.0,  CENTER_GOAL_HALF_EXTENT * 0.70710678,  CENTER_GOAL_HALF_EXTENT * 0.70710678 },
-    {   CENTER_SE, TargetType::CENTER_GOAL,  CG_DIAG, -CG_DIAG, 135.0,  CENTER_GOAL_HALF_EXTENT * 0.70710678, -CENTER_GOAL_HALF_EXTENT * 0.70710678 },
-    {   CENTER_SW, TargetType::CENTER_GOAL, -CG_DIAG, -CG_DIAG, 225.0, -CENTER_GOAL_HALF_EXTENT * 0.70710678, -CENTER_GOAL_HALF_EXTENT * 0.70710678 },
-    {   CENTER_NW, TargetType::CENTER_GOAL, -CG_DIAG,  CG_DIAG, 315.0, -CENTER_GOAL_HALF_EXTENT * 0.70710678,  CENTER_GOAL_HALF_EXTENT * 0.70710678 },
+    {   CENTER_GOAL_NE, TargetType::CENTER_GOAL,  CG_DIAG,  CG_DIAG,  45.0,  CENTER_GOAL_HALF_EXTENT * 0.70710678,  CENTER_GOAL_HALF_EXTENT * 0.70710678 },
+    {   CENTER_GOAL_SE, TargetType::CENTER_GOAL,  CG_DIAG, -CG_DIAG, 135.0,  CENTER_GOAL_HALF_EXTENT * 0.70710678, -CENTER_GOAL_HALF_EXTENT * 0.70710678 },
+    {   CENTER_GOAL_SW, TargetType::CENTER_GOAL, -CG_DIAG, -CG_DIAG, 225.0, -CENTER_GOAL_HALF_EXTENT * 0.70710678, -CENTER_GOAL_HALF_EXTENT * 0.70710678 },
+    {   CENTER_GOAL_NW, TargetType::CENTER_GOAL, -CG_DIAG,  CG_DIAG, 315.0, -CENTER_GOAL_HALF_EXTENT * 0.70710678,  CENTER_GOAL_HALF_EXTENT * 0.70710678 },
 
     // ── Match loaders — front faces post (same as 24" bot) ───────────────────
     {   LOADER_NE, TargetType::MATCH_LOADER, ML_X_EAST - MATCH_LOADER_STANDOFF_CM, ML_Y_NORTH,  90.0, ML_X_EAST, ML_Y_NORTH },
@@ -210,8 +228,8 @@ const NamedTarget FIELD_TARGETS[TARGET_COUNT] = {
     {   LOADER_NW, TargetType::MATCH_LOADER, ML_X_WEST + MATCH_LOADER_STANDOFF_CM, ML_Y_NORTH, 270.0, ML_X_WEST, ML_Y_NORTH },
 
     // ── Parking ───────────────────────────────────────────────────────────────
-    {   PARK_ALLIANCE, TargetType::PARK_ZONE, RED_PARK_X,  PARK_Y, 270.0, RED_PARK_X,  PARK_Y },
-    {   PARK_OPPONENT, TargetType::PARK_ZONE, BLUE_PARK_X, PARK_Y,  90.0, BLUE_PARK_X, PARK_Y },
+    {   PARK_ALLIANCE, TargetType::PARK_ZONE, RED_PARK_X  + 45.72, PARK_Y, 270.0, RED_PARK_X,  PARK_Y },
+    {   PARK_OPPONENT, TargetType::PARK_ZONE, BLUE_PARK_X - 45.72, PARK_Y,  90.0, BLUE_PARK_X, PARK_Y },
 
 };  // FIELD_TARGETS — 15" bot
 
