@@ -1339,6 +1339,11 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
     double pathVectorX     = targetX - startCoordinateX;
     double pathVectorY     = targetY - startCoordinateY;
 
+    // breakDistance as percentage of total leg distance — profile stores % (e.g. 30.0 = 30%).
+    // Scales decel runway with leg length: a 150cm leg at 30% breaks at 45cm.
+    double initialDistance = std::hypot(pathVectorX, pathVectorY);
+    double breakDistance   = initialDistance * (p.breakDistance / 100.0);
+
     PID headingPID(p.kp_heading, p.ki_heading, p.kd_heading);
     headingPID.pidReset();
 
@@ -1378,8 +1383,6 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
 
     while (true)
     {
-        updateOdometry();
-
         // ── 1. STATE CALCULATION ───────────────────────────────────────
         double currentDistanceToTarget, odometryTargetHeading;
         calculatePathToTarget(globalX, globalY, targetX, targetY, currentDistanceToTarget, odometryTargetHeading);
@@ -1442,7 +1445,7 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
         // ── 6. MOTION PHASES ───────────────────────────────────────────
 
         // PHASE 1: LAUNCH
-        if (currentDistanceToTarget > p.breakDistance && !accelCompleted && !decel)
+        if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel)
         {
             currentDrivePhase = PHASE_LAUNCH;
             // Update traction state independently — heading correction does not feed back in
@@ -1465,7 +1468,7 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
         }
 
         // PHASE 2: CRUISE
-        else if (currentDistanceToTarget > p.breakDistance && accelCompleted)
+        else if (currentDistanceToTarget > breakDistance && accelCompleted)
         {
             currentDrivePhase = PHASE_CRUISE;
             motorVoltageLeft  = maxSpeedVoltage + headingCorrection;
@@ -1473,7 +1476,7 @@ void forwardToPoint(double targetX, double targetY, const StraightProfile& p)
         }
 
         // PHASE 3: DECELERATION
-        else if (currentDistanceToTarget <= p.breakDistance && !decelCompleted)
+        else if (currentDistanceToTarget <= breakDistance && !decelCompleted)
         {
             currentDrivePhase = PHASE_DECEL;
             if (!decel) {
@@ -1566,6 +1569,10 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
     double pathVectorX     = targetX - startCoordinateX;
     double pathVectorY     = targetY - startCoordinateY;
 
+    // breakDistance as percentage of total leg distance — profile stores % (e.g. 30.0 = 30%).
+    double initialDistance = std::hypot(pathVectorX, pathVectorY);
+    double breakDistance   = initialDistance * (p.breakDistance / 100.0);
+
     PID headingPID(p.kp_heading, p.ki_heading, p.kd_heading);
     headingPID.pidReset();
 
@@ -1606,8 +1613,6 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
 
     while (true)
     {
-        updateOdometry();
-
         // ── 1. STATE CALCULATION ───────────────────────────────────────
         double currentDistanceToTarget, odometryTargetHeading;
         calculatePathToTarget(globalX, globalY, targetX, targetY, currentDistanceToTarget, odometryTargetHeading);
@@ -1677,7 +1682,7 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
         // base voltage naturally produces correct backward steering.
 
         // PHASE 1: LAUNCH
-        if (currentDistanceToTarget > p.breakDistance && !accelCompleted && !decel)
+        if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel)
         {
             currentDrivePhase = PHASE_LAUNCH;
             // Update traction state independently — heading correction does not feed back in
@@ -1700,7 +1705,7 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
         }
 
         // PHASE 2: CRUISE
-        else if (currentDistanceToTarget > p.breakDistance && accelCompleted)
+        else if (currentDistanceToTarget > breakDistance && accelCompleted)
         {
             currentDrivePhase = PHASE_CRUISE;
             motorVoltageLeft  = maxSpeedVoltage + headingCorrection;
@@ -1708,7 +1713,7 @@ void backwardToPoint(double targetX, double targetY, const StraightProfile& p)
         }
 
         // PHASE 3: DECELERATION
-        else if (currentDistanceToTarget <= p.breakDistance && !decelCompleted)
+        else if (currentDistanceToTarget <= breakDistance && !decelCompleted)
         {
             currentDrivePhase = PHASE_DECEL;
             if (!decel) {
@@ -1879,8 +1884,6 @@ void visionForwardToPoint(pros::AIVision::Color targetSignature,
     // ═══════════════════════════════════════════════════════════════════
     while (true)
     {
-        updateOdometry();
-
         // ───────────────────────────────────────────────────────────────
         // 1. STATE CALCULATION
         // ───────────────────────────────────────────────────────────────

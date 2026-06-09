@@ -20,11 +20,11 @@
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile DEFAULT_STRAIGHT = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance          = 35.0,   // cm — distance from target at which decel begins
+    .breakDistance          = 30.0,   // % of leg distance — 30% means a 150cm leg breaks at 45cm
     .minSpeed               = 16.0,   // % — floor speed during approach phase
     .maxSpeed               = 100.0,  // % — peak cruise speed
     .distanceTolerance      = 2.0,    // cm — exit bubble radius
-    .timeout                = 5.0,    // seconds
+    .timeout                = 3.0,    // seconds
     .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
 
     // ── Heading PID ───────────────────────────────────────────────────────────
@@ -47,9 +47,9 @@ const StraightProfile DEFAULT_STRAIGHT = {
     // ── Internal motion constants ─────────────────────────────────────────────
     .launchVoltage          = 6.0,    // V — initial kick before traction ramp takes over
     .accelFactor            = 1.2,    // traction ramp multiplier per control cycle
-    .slipThreshold          = 0.3,   // RPM delta above which traction control intervenes
-    .decelStepPercent       = 0.75,   // % of absoluteMaxVoltage removed per ABS step
-    .lockThreshold          = 0.3,   // lockup ratio above which ABS switches to coast
+    .slipThreshold          = 20.0,   // RPM delta above which traction control intervenes
+    .decelStepPercent       = 0.45,   // % of absoluteMaxVoltage removed per ABS step
+    .lockThreshold          = 0.25,   // lockup ratio above which ABS switches to coast
     .maxCurrentA            = 12.0,   // amps — trip if sustained above this
     .overcurrentDurationMs  = 500,    // ms current must stay high before circuit trips
 };
@@ -61,7 +61,7 @@ const StraightProfile DEFAULT_STRAIGHT = {
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile BACKWARD_STRAIGHT = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance          = 30.0,   // cm
+    .breakDistance          = 30.0,   // % of leg distance
     .minSpeed               = 16.0,   // %
     .maxSpeed               = 80.0,   // % — derated; reverse is less stable at full power
     .distanceTolerance      = 2.0,    // cm
@@ -108,8 +108,8 @@ const StraightProfile BACKWARD_STRAIGHT = {
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile LOADED_MID_FWD_80 = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance          = 45.0,   
-    .minSpeed               = 17.0,   
+    .breakDistance          = 30.0,   // % of leg distance — was 85cm fixed; now scales with leg length
+    .minSpeed               = 13.0,   
     .maxSpeed               = 80.0,   
     .distanceTolerance      = 1.0,    
     .timeout                = 5.0,    
@@ -145,11 +145,11 @@ const StraightProfile LOADED_MID_FWD_80 = {
 // ──────────────────────────────────────────────────────────────────────────────
 const TurnProfile DEFAULT_TURN = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance    = 25.0,   // % of total turn angle — 30% means a 90° turn breaks at 27°
-    .minSpeed         = 18.0,   // %
+    .breakDistance    = 30.0,   // % of total turn angle — 30% means a 90° turn breaks at 27°
+    .minSpeed         = 15.0,   // %
     .maxSpeed         = 60.0,   // %
     .exitTolerance    = 2.0,    // degrees
-    .timeout          = 3.0,    // seconds
+    .timeout          = 5.0,    // seconds
 
     // ── Internal motion constants ─────────────────────────────────────────────
     // Traction control and ABS disabled for turns — not appropriate for rotational
@@ -158,7 +158,7 @@ const TurnProfile DEFAULT_TURN = {
     .slipThreshold    = 1.0,    // slip ratio max is 1.0 — never triggers
     .decelStepPercent = 20.0,   // irrelevant — ABS never fires (lockThreshold = 1.0)
     .lockThreshold    = 1.0,    // lockup ratio max is 1.0 — never triggers
-    .maxCurrentA      = 10.0,   // amps
+    .maxCurrentA      = 12.0,   // amps
     .overcurrentDurationMs = 500, // ms
 };
 
@@ -201,7 +201,7 @@ const TurnProfile DEFAULT_PIVOT = {
 // ──────────────────────────────────────────────────────────────────────────────
 const VisionProfile DEFAULT_VISION = {
     .drive = {
-        .breakDistance          = 85.0,
+    .breakDistance          = 30.0,   // % of leg distance
         .minSpeed               = 13.0,
         .maxSpeed               = 80.0,
         .distanceTolerance      = 1.0,

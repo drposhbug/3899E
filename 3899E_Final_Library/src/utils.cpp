@@ -359,6 +359,7 @@ void intakeStallTask(void* params) {
 
 // Starts the intake and launches the stall-detection task.
 void startIntakeStallDetection() {
+    if (intakeStallParams.isRunning) return;  // guard — prevent duplicate task spawn
     intakeStallParams.isRunning       = true;
     intakeStallParams.stallThreshold  = 1.0;   // % velocity below which a stall is declared
     intakeStallParams.reverseRotation = 210;   // degrees to reverse to clear jam
@@ -393,6 +394,7 @@ void simpleArmTask(void* params) {
 
 // Queues an arm move by filling simpleArmParams and launching the task.
 void moveArm(ArmPosition position, int adjustment, int delayMs) {
+    if (simpleArmParams.isRunning) return;  // guard — prevent duplicate task spawn
     simpleArmParams.isRunning   = true;
     simpleArmParams.position    = position;
     simpleArmParams.adjustment  = adjustment;

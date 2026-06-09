@@ -19,7 +19,7 @@
 //    17   IMU
 //    20   Left  Encoder     (reversed)
 //    13   Right Encoder     (not reversed)
-//    12   X-axis Encoder    (reversed)
+//    12   X-axis Encoder    (not reversed — set_reversed(false) in initialize())
 //     4   Optical Sensor    (colour sort — port 3, single sensor for testing)
 //    16   Left  Lane Optical  [REMOVED — port now used by sort motor]
 //    11   Right Lane Optical  [REMOVED — port conflict with hood motor]
@@ -72,7 +72,7 @@ pros::Motor hoodMotor(11, pros::MotorGears::green);      // port 11, forward (ne
 // Runs in the OPPOSITE direction to hoodMotor (port negated) so both motors
 // pull game objects through the indexer path together.
 pros::Motor upperIndexerMotor(-15, pros::MotorGears::green); // port 15, reversed
-
+pros::Motor lowerIndexerMotor(16, pros::MotorGears::green); // port 16, reversed
 // ── Pneumatics ────────────────────────────────────────────────────────────────
 // set_value(true) = solenoid extended, set_value(false) = retracted.
 pros::adi::DigitalOut frontHoodPneumatics ('G');
@@ -94,11 +94,11 @@ pros::Imu InertialSensor(17);
 pros::Gps gpsSensor(3, -0.1524, 0.0);
 
 // Passive odometry tracking wheels.
-// Reversal is applied via set_reversed() in initialize() — the pros::Rotation
-// constructor only accepts a port number in PROS 4.
+// Left/Right reversal set via set_reversed() in initialize().
+// X encoder reversal set here in constructor — reversed=true corrects physical mounting direction.
 pros::Rotation passiveEncoderLeft (20);
 pros::Rotation passiveEncoderRight(13);
-pros::Rotation passiveEncoderX    (12);
+pros::Rotation passiveEncoderX    (12);  
 
 // Colour sort optical sensor — port 3.
 // Single-sensor configuration for initial field testing.

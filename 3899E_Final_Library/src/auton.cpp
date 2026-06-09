@@ -30,8 +30,8 @@
 
 // Full VAIRC match — Jetson drives strategy, V5 executes via ai.cpp
 void runAIMatchRoute() {
-    startOdometryTask();
     setStartPosition(0.0, 0.0, 0.0);  // update start coords before competition
+    startOdometryTask();
     setAllianceRed(true);              // set to false for blue alliance
     runAIMatch();
 }
@@ -42,9 +42,8 @@ void routeTest() {
     pros::screen::erase();
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Route Test");
 
-    startOdometryTask();
     setStartPosition(0.0, 0.0, 0.0);
-    pros::delay(200);
+    startOdometryTask();
 
     // Plan route from center field to top long goal approach
     RoutePath path = routePlan(globalX, globalY, 0.0, 97.0);  // 25cm short of goal face
@@ -65,31 +64,30 @@ void routeTest() {
 }
 
 void navTest() {
-    startOdometryTask();
     setStartPosition(0.0, 0.0, 0.0);
-    pros::delay(200);
+    startOdometryTask();
 
-    StraightProfile driveProfile = DEFAULT_STRAIGHT;
-    driveProfile.breakDistance          = 85.0;
-    driveProfile.minSpeed               = 13.0;
-    driveProfile.maxSpeed               = 80.0;
-    driveProfile.distanceTolerance      = 1.0;
+    StraightProfile driveProfile = LOADED_MID_FWD_80;
+    driveProfile.breakDistance          = 60.0;
+    driveProfile.minSpeed               = 15.0;
+    driveProfile.maxSpeed               = 100.0;
+    driveProfile.distanceTolerance      = 2.0;
     driveProfile.timeout                = 5.0;
     driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-    driveProfile.kp_heading             = 1.0;
-    driveProfile.ki_heading             = 0.0;
+    driveProfile.kp_heading             = 0.5;
+    driveProfile.ki_heading             = 0.01;
     driveProfile.kd_heading             = 0.0;
-    driveProfile.accelHeadingScaling    = 0.2;
-    driveProfile.decelHeadingScaling    = 0.1;
-    driveProfile.approachHeadingScaling = 0.1;
-    driveProfile.headingLockDistance    = 3.0;
+    driveProfile.accelHeadingScaling    = 0.1;
+    driveProfile.decelHeadingScaling    = 0.075;
+    driveProfile.approachHeadingScaling = 0.075;
+    driveProfile.headingLockDistance    = 5.0;
     driveProfile.launchVoltage          = 6.0;
     driveProfile.accelFactor            = 1.2;
     driveProfile.slipThreshold          = 0.3;
     driveProfile.decelStepPercent       = 2.0;
-    driveProfile.lockThreshold          = 0.3;
-    driveProfile.maxCurrentA            = 4.0;
-    driveProfile.overcurrentDurationMs  = 300;
+    driveProfile.lockThreshold          = 0.50;
+    driveProfile.maxCurrentA            = 8.0;
+    driveProfile.overcurrentDurationMs  = 500;
 
     TurnProfile turnProfile = DEFAULT_TURN;
     turnProfile.breakDistance  = 5.0;
@@ -97,12 +95,14 @@ void navTest() {
     turnProfile.maxSpeed       = 20.0;
     turnProfile.exitTolerance  = 3;
     turnProfile.timeout        = 3.0;
+
+   forwardToPoint(0.0, 80.0, driveProfile);
+   // driveForward(150.0, 0.0, LOADED_MID_FWD_80);
 }
 
 void visionTest() {
-    startOdometryTask();
     setStartPosition(0.0, 0.0, 0.0);
-    pros::delay(200);
+    startOdometryTask();
 
     VisionProfile vp = DEFAULT_VISION;
     vp.drive.breakDistance          = 85.0;
@@ -132,7 +132,8 @@ void visionTest() {
     vp.minY                         = 0;
     vp.maxY                         = 240;
 
-    visionDriveForward(aiVision_blueCube, 80, 150.0, 0.0, vp);
+    //visionDriveForward(aiVision_blueCube, 80, 150.0, 0.0, vp);
+    forwardToPoint(0.0, 150.0, vp.drive);
 }
 
 // Prints the route planner obstacle grid to brain screen.
@@ -178,8 +179,8 @@ void systemTest() {
 
 // Push robot around and watch live GPS/odometry coordinates on brain screen.
 void coordinateFinder() {
-    startOdometryTask();
     setStartPosition(0.0, 0.0, 0.0);
+    startOdometryTask();
     startCoordinateFinder();
 }
 
@@ -190,9 +191,8 @@ void fieldTargetsTest() {
     for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
     pros::screen::erase();
 
-    startOdometryTask();
     setStartPosition(-124.5, -34.5, 180.0);
-    pros::delay(200);
+    startOdometryTask();
 
     pros::lcd::print(0, "START X:%.0f Y:%.0f H:%.0f",
                      globalX, globalY, getContinuousStandardHeading());

@@ -44,8 +44,8 @@ extern pros::Motor hoodMotor;     // port  8, forward
 // Same hardware config as hoodMotor — fixed 200 RPM, pros::MotorGears::green.
 // Runs opposite direction to hoodMotor so both 5.5W motors pull together through
 // the indexer path.  Always commanded in lock-step with the other intake motors.
-extern pros::Motor upperIndexerMotor;  // port  4, reversed
-
+extern pros::Motor upperIndexerMotor;  // port  16, reversed
+extern pros::Motor lowerIndexerMotor;  // port 16
 // ══════════════════════════════════════════════════════════════════════════════
 // PNEUMATICS
 // ══════════════════════════════════════════════════════════════════════════════

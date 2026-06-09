@@ -21,7 +21,7 @@ double prevXEncoder = 0.0;
 double prevRotation = 0.0;
 
 // Flag to enable/disable lateral tracking wheel
-bool xEncoderEnabled = true;
+bool xEncoderEnabled = true;  
 
 // Motion states for context-aware encoder interpretation
 enum RobotState { STATIONARY, TURNING, STRAIGHT };
@@ -50,11 +50,13 @@ void setStartPosition(double startX, double startY, double startHeading) {
     // Snapshot current IMU rotation — odometry treats this as the zero reference
     gyroReadingAtStart = InertialSensor.get_rotation();
 
-    // 5. Reset encoders — all subsequent distance tracking is relative to this snapshot
-    passiveEncoderLeft.reset();
-    passiveEncoderRight.reset();
-    passiveEncoderX.reset();
-    
+    // 5. Reset encoders — set_position(0) zeroes the accumulated position counter.
+    // reset() only resets the angle within one revolution, not get_position().
+    passiveEncoderLeft.set_position(0);
+    passiveEncoderRight.set_position(0);
+    passiveEncoderX.set_position(0);
+    pros::delay(50);  // allow set_position to propagate before odometry task reads
+
     // Initialize previous readings to 0
     prevLeftEncoder = 0;
     prevRightEncoder = 0;

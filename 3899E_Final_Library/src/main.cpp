@@ -12,7 +12,7 @@ void initialize()
 {
     passiveEncoderLeft.set_reversed(true);
     passiveEncoderRight.set_reversed(false);
-    passiveEncoderX.set_reversed(true);
+    passiveEncoderX.set_reversed(false);
 
     robotInit();
 
@@ -63,8 +63,7 @@ void autonomous()
 {
     pros::screen::erase();
 
-    // PosDisplay disabled for routeGridTest — conflicts with routePrintGrid on line 0
-    // Restore after grid debugging is done
+    // PosDisplay — uncomment to show live position during testing
     // pros::Task([]{
     //     while (posDisplayRunning) {
     //         pros::screen::print(pros::E_TEXT_MEDIUM, 0,
@@ -91,9 +90,9 @@ void autonomous()
     // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
-    fieldTargetsTest();
+    //fieldTargetsTest();
     //visionTest();
-    //navTest();
+    navTest();
     //runAIMatchRoute();
     //routeTest();
     //routeGridTest();

@@ -161,6 +161,7 @@ void driverControl() {
             intakeMotor2.move_voltage(-12000);
             hoodMotor.move_voltage(-12000);
             upperIndexerMotor.move_voltage(12000);
+            lowerIndexerMotor.move_voltage(12000);
         } else {
             // Button released — stop all motors
             if (wasR2Pressed) {
@@ -168,6 +169,7 @@ void driverControl() {
                 intakeMotor2.move(0);
                 hoodMotor.move(0);
                 upperIndexerMotor.move(0);
+                lowerIndexerMotor.move(0);
                 wasR2Pressed = false;
             }
         }
