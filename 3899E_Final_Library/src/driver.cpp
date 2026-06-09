@@ -625,3 +625,148 @@ void AITracking(std::pmr::string teamColor) {
         }
     }
 }
+
+int blockCount;
+std::pmr::string teamColorGlobal = "";
+int hue;
+bool wasColor;
+
+void blockCountTask() {
+    if (teamColorGlobal == "RED") {
+        if (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2) {
+            wasColor = true;
+        } else {
+            if (wasColor) {
+                blockCount++;
+                wasColor = false; // Reset for next detection
+            }
+        }
+    } else if (teamColorGlobal == "BLUE") {
+        if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
+            wasColor = true;
+        } else {
+            if (wasColor) {
+                blockCount++;
+                wasColor = false; // Reset for next detection
+            }
+        }
+    }
+}
+
+void opScoring(std::pmr::string teamColor) {
+    teamColorGlobal = teamColor;
+    startOdometryTask();
+    intakeMotor.move(127);
+    colorSortMotor.move(127);
+    opticalSensor.set_led_pwm(100); // Ensure the LED is on for accurate readings
+    blockCount = 0;
+    hue = opticalSensor.get_hue();
+    wasColor = false;
+    bool intakeFull = false;
+    VisionProfile vp = DEFAULT_VISION;
+    vp.drive.breakDistance          = 90.0;   // cm before target to begin decel
+    vp.drive.minSpeed               = 20.0;   // % minimum approach speed
+    vp.drive.maxSpeed               = 80.0;   // % peak cruise speed
+    vp.drive.distanceTolerance      = 1.0;    // cm exit bubble
+    vp.drive.timeout                = 5.0;    // seconds
+    vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    vp.drive.kp_heading             = 0.4;    // low gain — vision correction is noisy
+    vp.drive.ki_heading             = 0.0;
+    vp.drive.kd_heading             = 0.1;
+    vp.drive.accelHeadingScaling    = 0.2;    // correction weight during accel
+    vp.drive.decelHeadingScaling    = 0.1;    // correction weight during decel
+    vp.drive.approachHeadingScaling = 0.1;    // correction weight during approach
+    vp.drive.headingLockDistance    = 3.0;   // cm — wider than odom; vision may shift near target
+    vp.drive.launchVoltage          = 3.0;    // V — initial kick voltage
+    vp.drive.accelFactor            = 1.2;    // traction ramp multiplier
+    vp.drive.slipThreshold          = 0.3;    // RPM slip before traction cuts in
+    vp.drive.decelStepPercent       = 0.30;    // ABS voltage reduction per step
+    vp.drive.lockThreshold          = 0.3;    // wheel lockup ratio
+    vp.drive.maxCurrentA            = 4.0;    // amps — wall stall trip threshold
+    vp.drive.overcurrentDurationMs  = 300;    // ms — how long before breaker fires
+    vp.kp_distToHeadScaling         = 1.75;    // vision correction aggressiveness
+    vp.minObjectWidth               = 10;     // pixels — ignore detections smaller than this
+    vp.minX                         = 0;      // detection zone left bound (pixels)
+    vp.maxX                         = 320;    // detection zone right bound (pixels)
+    vp.minY                         = 0;      // detection zone top bound (pixels)
+    vp.maxY                         = 240;    // detection zone bottom bound (pixels)
+    // int proximity = opticalSensor.get_proximity();
+
+
+    pros::Task blockCounter(blockCountTask);
+
+    if (teamColor == "RED") {
+        blueColorSortStart();
+    } else {
+        redColorSortStart();
+    }
+
+    while (!intakeFull) {
+        intakeMotor.move(127);
+        colorSortMotor.move(127);
+        hue = opticalSensor.get_hue();
+        pros::lcd::print(1, "Blocks in Intake: %d", blockCount);
+        visionOnly((teamColor == "RED") ? aiVision_redCube : aiVision_blueCube, 40, 200.0, vp);
+        driveForward(10, globalRotation, DEFAULT_STRAIGHT);
+        if (blockCount >= 6) {
+            // Detected a blue ball — trigger scoring mechanism
+            intakeFull = true;
+            blockCount = 0; // Reset count after scoring
+        }
+    }
+    // // Only count if an object is close enough to the sensor
+    // if (proximity > 50) {
+    //     if (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2) {
+    //         redCount++;
+    //         pros::lcd::print(7, "Red Count: %d", redCount);
+    //     } else if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
+    //         blueCount++;
+    //         pros::lcd::print(8, "Blue Count: %d", blueCount);
+    //     }
+    // }
+    if (intakeFull) {
+        // Trigger scoring mechanism here (e.g., activate pneumatics, run motors)
+        //gps reset
+        float gpsXOffset = 0.0; // Adjust based on your robot's design
+        float gpsYOffset = 0.0; // Adjust based on your robot's design
+        float xPos = gpsSensor.get_position().x - gpsXOffset;
+        float yPos = gpsSensor.get_position().y - gpsYOffset;
+        float heading = gpsSensor.get_heading();
+        setStartPosition(xPos, yPos, heading);
+        int xMultiplier, yMultiplier;
+        if (xPos > 0) {
+            int xMultiplier = 1;
+            if (yPos > 0) {
+                // Quadrant 1
+                int yMultiplier = 1;
+                
+            } else {
+                // Quadrant 4
+                int yMultiplier = -1;
+            }
+        } else {
+            int xMultiplier = -1;
+            if (yPos > 0) {
+                // Quadrant 2
+                int yMultiplier = 1;
+            } else {
+                // Quadrant 3
+                int yMultiplier = -1;
+            }
+        }
+        xPos = gpsSensor.get_position().x - gpsXOffset;
+        yPos = gpsSensor.get_position().y - gpsYOffset;
+        backwardToPoint(47 * xMultiplier, 47 * yMultiplier, DEFAULT_STRAIGHT);
+        turnToPoint(xPos+(10 * xMultiplier), yPos, DEFAULT_TURN);
+        //score
+        lever.move(127);
+        pros::delay(500);
+        lever.move(-127);
+        pros::delay(500);
+        lever.move(0);
+        //reset lever
+        pros::lcd::print(9, "Scoring Red Ball!");
+        intakeFull = false; // Reset for next ball
+    }
+    blockCounter.remove();
+}

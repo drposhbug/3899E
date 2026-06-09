@@ -15,6 +15,7 @@ void initialize()
     passiveEncoderLeft.set_reversed(true);
     passiveEncoderRight.set_reversed(false);
     passiveEncoderX.set_reversed(true);
+    opticalSensor.set_led_pwm(100);
 
     // // Reset and enable color blob detection on the front camera
     // aiVision_Front.reset();
@@ -138,9 +139,9 @@ void autonomous()
 void opcontrol() {
 
     while (true) {
-        
-        AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
-        pros::delay(50);
+        opScoring("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        // AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        pros::delay(20);
     }
     // pros::screen::erase();
     // Controller.clear();

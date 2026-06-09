@@ -4,8 +4,8 @@
 #include "utils.h"   // Color enum, arm helpers, task param structs
 
 // color sort tasks
-void redColorSortStart(void* params);
-void blueColorSortStart(void* params);
+void redColorSortStart();
+void blueColorSortStart();
 
 // ══════════════════════════════════════════════════════════════════════════════
 // INTAKE / HOPPER TASKS

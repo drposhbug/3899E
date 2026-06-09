@@ -45,7 +45,7 @@ void redColorSortTaskfn() {
     }
 }
 
-void redColorSortStart(void* params) {
+void redColorSortStart() {
     pros::Task redColorSortTask(redColorSortTaskfn);
 }
 
@@ -67,7 +67,7 @@ void blueColorSortTaskfn() {
     }
 }
 
-void blueColorSortStart(void* params) {
+void blueColorSortStart() {
     pros::Task blueColorSortTask(blueColorSortTaskfn);
 }
 

@@ -9,5 +9,6 @@ void driverControl();
 void driverControlTankTest();
 
 void AITracking(std::pmr::string teamColor);
+void opScoring(std::pmr::string teamColor);
 
 #endif // DRIVER_H

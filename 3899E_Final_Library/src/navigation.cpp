@@ -2604,6 +2604,10 @@ void visionOnly(pros::AIVision::Color targetSignature,
     bool     isOvercurrent      = false;
     uint32_t overcurrentStartTime = 0;
 
+    // int timeSinceNew = pros::millis();
+    // int timeoutDuration = 5000; // ms after last new detection to wait before timeout
+    // int timeoutTracking = 0;
+
     while (true)
     {
         // Encoder distance — counts down to 0 as robot closes on target
@@ -2704,9 +2708,29 @@ void visionOnly(pros::AIVision::Color targetSignature,
         double rotationsDifference = std::round((currentGyroHeading - preAcqHeading) / 360.0);
         preAcqHeading += rotationsDifference * 360.0;
 
+        // timeoutTracking = pros::millis() - timeSinceNew;
+        // if (timeoutTracking > timeoutDuration) {
+        //     driveBackward(10, globalRotation, DEFAULT_STRAIGHT);
+
+        //     timeSinceNew = pros::millis();
+        //     if (preAcqHeading + 30 > 360) {
+        //         turnRight((preAcqHeading + 30) - 360, DEFAULT_TURN);
+        //     } else {
+        //         turnRight((preAcqHeading + 30), DEFAULT_TURN);
+        //     }
+        //     pros::delay(500);
+        //     continue;
+        // }
+
         double fusedTargetHeading;
         if (!visionEverTracked) {
-            fusedTargetHeading = preAcqHeading;
+            if (preAcqHeading + 30 > 360) {
+                turnRight((preAcqHeading + 30) - 360, DEFAULT_TURN);
+            } else {
+                turnRight((preAcqHeading + 30), DEFAULT_TURN);
+            }
+            pros::delay(500);
+            continue;
         } else {
             double visualTruthHeading = currentGyroHeading + (lastVisionHorizontalOffset * 25.5);
             fusedTargetHeading        = currentGyroHeading +

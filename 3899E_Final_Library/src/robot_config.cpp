@@ -88,7 +88,7 @@ pros::Motor RightMotor3(rightMotor3Port,  pros::MotorGears::blue);
 
 // Drive motor groups — port signs must mirror individual motor definitions above.
 pros::MotorGroup leftDrive ({leftMotor1Port, leftMotor2Port, leftMotor3Port}, pros::MotorGears::blue);
-pros::MotorGroup rightDrive({ rightMotor1Port, rightMotor2Port,  rightMotor3Port}, pros::MotorGears::blue);
+pros::MotorGroup rightDrive({ rightMotor1Port, rightMotor2Port, rightMotor3Port}, pros::MotorGears::blue);
 
 // ── Mechanism motors (600 RPM blue cartridge) ─────────────────────────────────
 pros::Motor intakeMotor(intakeMotorPort, pros::MotorGears::blue);  // reversed
