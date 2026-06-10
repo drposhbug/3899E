@@ -28,7 +28,7 @@ struct AsyncTaskParams {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// INTAKE HOPPER TASK  (intake motors + front hood)
+// INTAKE HOPPER TASK  (intake motors)
 // ══════════════════════════════════════════════════════════════════════════════
 static AsyncTaskParams intakeHopperParams;
 
@@ -39,8 +39,6 @@ void intakeHopperTask(void*) {
     if (intakeHopperParams.delayMs > 0) {
         pros::delay(static_cast<uint32_t>(intakeHopperParams.delayMs));
     }
-
-    frontHoodPneumatics.set_value(false);  // close front hood for intake
 
     // Convert power % to millivolts (100 % ≈ 12 V, so /8.34 gives volts × 1000 = mV)
     int32_t  voltage   = static_cast<int32_t>((intakeHopperParams.power / 8.34) * 1000);
@@ -83,10 +81,9 @@ void intakeHopperStop() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MATCHLOAD TASK  (intake motors + front hood + match-load piston)
+// MATCHLOAD TASK  (intake motors)
 // ══════════════════════════════════════════════════════════════════════════════
 static AsyncTaskParams matchloadParams;
-static double matchloadRetractDelay = 200;  // ms to hold piston before retracting
 
 void matchloadTask(void*) {
     matchloadParams.running.store(true);
@@ -96,14 +93,10 @@ void matchloadTask(void*) {
         pros::delay(static_cast<uint32_t>(matchloadParams.delayMs));
     }
 
-    frontHoodPneumatics.set_value(false);  // close front hood for intake
-
     int32_t voltage = static_cast<int32_t>((matchloadParams.power / 8.34) * 1000);
 
-    // Begin spinning the intake and drop the match-load piston simultaneously
     intakeMotor1.move_voltage(voltage);
     intakeMotor2.move_voltage(voltage);
-    matchLoadPneumatics.set_value(true);
 
     uint32_t startTime = pros::millis();
     while (matchloadParams.running.load() &&
@@ -114,11 +107,8 @@ void matchloadTask(void*) {
         intakeMotor2.move_voltage(voltage);
     }
 
-    // Stop intake first, then retract piston after a brief hold
     intakeMotor1.move(0);
     intakeMotor2.move(0);
-    pros::delay(static_cast<uint32_t>(matchloadRetractDelay));
-    matchLoadPneumatics.set_value(false);
 
     matchloadParams.running.store(false);
 }
@@ -143,9 +133,9 @@ void matchloadStart(double timeMs, double power, double delayMs, bool async) {
 // LEGACY BLOCKING INTAKE
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Spin intake in reverse for 'time' ms.  pistonState=true opens the front hood.
+// Spin intake in reverse for 'time' ms.
 void intake(double time, bool pistonState) {
-    frontHoodPneumatics.set_value(pistonState);  // open/close front hood per arg
+    (void)pistonState;  // pistonState unused — front hood removed
 
     uint32_t startTime = pros::millis();
     while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
@@ -161,17 +151,13 @@ void intake(double time, bool pistonState) {
 // ASYNC INTAKE TASK  (shared state + optional colour-sort)
 // ══════════════════════════════════════════════════════════════════════════════
 static std::atomic<bool> g_intakeTaskRunning(false);
-static double g_intakeTimeMs          = 0;
-static double g_intakePct             = 100;
-static bool   g_intakePistonState     = false;
-static bool   g_matchLoadState        = false;
+static double g_intakeTimeMs      = 0;
+static double g_intakePct         = 100;
+static bool   g_intakePistonState = false;
+static bool   g_matchLoadState    = false;
 
 void intakeTaskEntry(void*) {
     g_intakeTaskRunning.store(true);
-
-    // Configure pneumatics per caller's request
-    matchLoadPneumatics.set_value(g_matchLoadState);
-    frontHoodPneumatics.set_value(g_intakePistonState);
 
     uint32_t startTime = pros::millis();
     int32_t  voltage   = static_cast<int32_t>((g_intakePct / 8.34) * 1000);
@@ -185,25 +171,22 @@ void intakeTaskEntry(void*) {
         pros::delay(10);
     }
 
-    // Cleanup: stop motors and reset all mechanism pneumatics
     intakeMotor1.move(0);
     intakeMotor2.move(0);
-    frontHoodPneumatics.set_value(false);
-    matchLoadPneumatics.set_value(false);
-    ptoPneumatics.set_value(false);
     g_intakeTaskRunning.store(false);
 }
 
 void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad) {
+    (void)pistonState;  // unused — front hood removed
+    (void)matchLoad;    // unused — match load pneumatic removed
+
     // Stop any running intake task before launching a new one
     if (g_intakeTaskRunning.load()) {
         g_intakeTaskRunning.store(false);
         pros::delay(20);
     }
-    g_intakeTimeMs      = timeMs;
-    g_intakePistonState = pistonState;
-    g_intakePct         = intakePct;
-    g_matchLoadState    = matchLoad;
+    g_intakeTimeMs   = timeMs;
+    g_intakePct      = intakePct;
     pros::Task(intakeTaskEntry, nullptr, "intakeTask");
 }
 
@@ -221,14 +204,11 @@ void intakeStop() {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // BLOCKING SCORING HELPERS
-// Open hood, engage PTO, run intake motors for 'time' ms, then clean up.
+// Run intake motors for 'time' ms.
 // ══════════════════════════════════════════════════════════════════════════════
 
 void score(double time, double power) {
     uint32_t startTime = pros::millis();
-    frontHoodPneumatics.set_value(true);  // open front hood for scoring
-    ptoPneumatics.set_value(true);        // engage PTO
-
     int32_t voltage = static_cast<int32_t>((power / 8.34) * 1000);
 
     while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
@@ -237,17 +217,13 @@ void score(double time, double power) {
         pros::delay(10);
     }
 
-    frontHoodPneumatics.set_value(false);  // close hood after scoring
     intakeMotor1.move(0);
     intakeMotor2.move(0);
-    ptoPneumatics.set_value(false);        // disengage PTO
 }
 
 // Score through the left lane only (right gate blocks the right lane)
 void leftScore(double time, double power) {
     uint32_t startTime = pros::millis();
-    frontHoodPneumatics.set_value(true);
-    ptoPneumatics.set_value(true);
     rightGatePneumatics.set_value(true);   // block right lane
     leftGatePneumatics.set_value(false);   // open left lane
 
@@ -259,17 +235,14 @@ void leftScore(double time, double power) {
         pros::delay(10);
     }
 
-    frontHoodPneumatics.set_value(false);
+    leftGatePneumatics.set_value(true);   // close left lane when done
     intakeMotor1.move(0);
     intakeMotor2.move(0);
-    ptoPneumatics.set_value(false);
 }
 
 // Score through the right lane only (left gate blocks the left lane)
 void rightScore(double time, double power) {
     uint32_t startTime = pros::millis();
-    frontHoodPneumatics.set_value(true);
-    ptoPneumatics.set_value(true);
     rightGatePneumatics.set_value(false);  // open right lane
     leftGatePneumatics.set_value(true);    // block left lane
 
@@ -281,10 +254,9 @@ void rightScore(double time, double power) {
         pros::delay(10);
     }
 
-    frontHoodPneumatics.set_value(false);
+    rightGatePneumatics.set_value(true);  // close right lane when done
     intakeMotor1.move(0);
     intakeMotor2.move(0);
-    ptoPneumatics.set_value(false);
 }
 
 void stopScore() {
@@ -298,8 +270,6 @@ void stopScore() {
 
 void outtake(double time, double power) {
     uint32_t startTime = pros::millis();
-    ptoPneumatics.set_value(true);         // engage PTO
-    frontHoodPneumatics.set_value(false);  // close front hood for outtake
 
     while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
         int32_t voltage = static_cast<int32_t>((power / 8.34) * 1000);
@@ -308,7 +278,6 @@ void outtake(double time, double power) {
         pros::delay(10);
     }
 
-    ptoPneumatics.set_value(false);  // disengage PTO
     intakeMotor1.move(0);
     intakeMotor2.move(0);
 }
@@ -337,17 +306,10 @@ void headingDisplayTask(void* params) {
         double leftCM   = leftEnc   * encoderWheelCircumferenceCM / 360.0;
         double rightCM  = rightEnc  * encoderWheelCircumferenceCM / 360.0;
         double centerCM = centerEnc * encoderWheelCircumferenceCM / 360.0;
-        double avgCM    = (leftCM + rightCM) / 2.0;
         double heading  = getNormalizedHeading();
 
-        // Line 0: encoder distances (L=left, R=right, X=lateral)
-        // %.0f strips decimals to fit within the controller's 15-char line width
         Controller.print(0, 0, "L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
-
-        // Line 1: average distance and current heading
-        Controller.print(1, 0, "Avg:%.0f  H:%.1f   ", avgCM, heading);
-
-        // Line 2: current navigation targets (updated by motion functions)
+        Controller.print(1, 0, "Avg:%.0f  H:%.1f   ", (leftCM + rightCM) / 2.0, heading);
         Controller.print(2, 0, "Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
 
         pros::delay(500);
@@ -357,32 +319,22 @@ void headingDisplayTask(void* params) {
 }
 
 // Driver display: shows LeftMotor3 diagnostics for troubleshooting.
-// Reads all six drive motor RPMs, but only displays LeftMotor3 detail.
 void driverDisplayTask(void* params) {
     HeadingDisplayParams* p = static_cast<HeadingDisplayParams*>(params);
 
     while (p->isRunning) {
-        // Read current RPM from all six drivetrain motors
-        double leftRpm1  = LeftMotor1.get_actual_velocity();
-        double leftRpm2  = LeftMotor2.get_actual_velocity();
-        double leftRpm3  = LeftMotor3.get_actual_velocity();
-        double rightRpm1 = RightMotor1.get_actual_velocity();
-        double rightRpm2 = RightMotor2.get_actual_velocity();
-        double rightRpm3 = RightMotor3.get_actual_velocity();
+        double leftRpm3 = LeftMotor3.get_actual_velocity();
 
         Controller.clear();
 
-        // Line 0: LeftMotor3 RPM and installed status (1=connected, 0=missing)
         Controller.print(0, 0, "L3 RPM:%.0f OK:%d",
             leftRpm3,
             LeftMotor3.is_installed() ? 1 : 0);
 
-        // Line 1: voltage (PROS returns mV → /1000 for V) and current (mA → /1000 for A)
         Controller.print(1, 0, "V:%.1f A:%.2f",
-            LeftMotor3.get_voltage()       / 1000.0,
-            LeftMotor3.get_current_draw()  / 1000.0);
+            LeftMotor3.get_voltage()      / 1000.0,
+            LeftMotor3.get_current_draw() / 1000.0);
 
-        // Line 2: motor temperature in °C (PROS reports Celsius, not %)
         Controller.print(2, 0, "Temp:%.0fC",
             LeftMotor3.get_temperature());
 
@@ -402,9 +354,6 @@ static double g_scoringPower  = 100;
 void scoringTaskEntry(void*) {
     g_scoringTaskRunning.store(true);
 
-    frontHoodPneumatics.set_value(false);  // ensure hood is closed before engaging PTO
-    ptoPneumatics.set_value(true);         // engage PTO for scoring
-
     uint32_t startTime = pros::millis();
     int32_t  voltage   = static_cast<int32_t>((g_scoringPower / 8.34) * 1000);
 
@@ -415,10 +364,8 @@ void scoringTaskEntry(void*) {
         pros::delay(10);
     }
 
-    frontHoodPneumatics.set_value(false);  // close hood after scoring
     intakeMotor1.move(0);
     intakeMotor2.move(0);
-    ptoPneumatics.set_value(false);        // disengage PTO
     g_scoringTaskRunning.store(false);
 }
 
@@ -434,8 +381,6 @@ void scoreStart(double timeMs, double power) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // COORDINATE FINDER TASK
-// Prints live (X, Y, heading) to the Brain screen so the programmer can push
-// the robot around the field and record coordinates for autonomous path planning.
 // ══════════════════════════════════════════════════════════════════════════════
 
 struct CoordinateFinderParams { bool isRunning; };
@@ -445,21 +390,16 @@ void coordinateFinderTask(void* params) {
     CoordinateFinderParams* p = static_cast<CoordinateFinderParams*>(params);
 
     while (p->isRunning) {
-        // globalX/Y updated by background odometry task — read directly here
         pros::screen::erase();
-        pros::screen::set_pen(0xFFFFFF);  // white
+        pros::screen::set_pen(0xFFFFFF);
 
-        // Title bar (medium text, line 1)
         pros::screen::print(pros::E_TEXT_MEDIUM, 1, "=== COORDINATE FINDER ===");
+        pros::screen::print(pros::E_TEXT_LARGE,  3, "X: %.1f cm", globalX);
+        pros::screen::print(pros::E_TEXT_LARGE,  5, "Y: %.1f cm", globalY);
+        pros::screen::print(pros::E_TEXT_LARGE,  7, "H: %.1f deg", getNormalizedHeading());
 
-        // Large position readout — easy to read from across the field
-        pros::screen::print(pros::E_TEXT_LARGE, 3, "X: %.1f cm", globalX);
-        pros::screen::print(pros::E_TEXT_LARGE, 5, "Y: %.1f cm", globalY);
-        pros::screen::print(pros::E_TEXT_LARGE, 7, "H: %.1f deg", getNormalizedHeading());
-
-        // Usage instructions in yellow (small text, lines 9-10)
         pros::screen::set_pen(0xFFFF00);
-        pros::screen::print(pros::E_TEXT_SMALL, 9,  "Push robot to target position");
+        pros::screen::print(pros::E_TEXT_SMALL,  9, "Push robot to target position");
         pros::screen::print(pros::E_TEXT_SMALL, 10, "Record coordinates above");
 
         pros::delay(500);
@@ -469,46 +409,40 @@ void coordinateFinderTask(void* params) {
 void startCoordinateFinder() {
     if (!coordFinderParams.isRunning) {
         coordFinderParams.isRunning = true;
-        pros::Task(coordinateFinderTask, &coordFinderParams, "coordFinder");  // pass params struct by address
+        pros::Task(coordinateFinderTask, &coordFinderParams, "coordFinder");
     }
 }
 
 void stopCoordinateFinder() {
     coordFinderParams.isRunning = false;
-    pros::delay(600);  // wait for the task to finish its current 500 ms cycle
+    pros::delay(600);
     pros::screen::erase();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MATCHLOAD PNEUMATIC-ONLY TASK
-// Drops the match-load piston for a set duration, then retracts.
-// No motors — designed to run in parallel with intakeHopperTask.
+// MATCHLOAD PNEUMATIC TASKS  — stubs kept for call-site compatibility
+// matchLoadPneumatics has been physically removed; these functions are no-ops.
 // ══════════════════════════════════════════════════════════════════════════════
 static AsyncTaskParams matchloadPneumaticParams;
 
 void matchloadPneumaticTask(void*) {
     matchloadPneumaticParams.running.store(true);
 
-    // Honor optional start delay before firing the piston
     if (matchloadPneumaticParams.delayMs > 0) {
         pros::delay(static_cast<uint32_t>(matchloadPneumaticParams.delayMs));
     }
 
-    matchLoadPneumatics.set_value(true);  // drop piston
-
-    // Hold piston down for the full requested duration
+    // matchLoadPneumatics removed — nothing to fire
     uint32_t startTime = pros::millis();
     while (matchloadPneumaticParams.running.load() &&
            pros::millis() - startTime < static_cast<uint32_t>(matchloadPneumaticParams.timeMs)) {
         pros::delay(10);
     }
 
-    matchLoadPneumatics.set_value(false);  // retract piston
     matchloadPneumaticParams.running.store(false);
 }
 
 void matchloadPneumaticStart(double timeMs, double delayMs, bool async) {
-    // Stop any previous instance before starting a new one
     if (matchloadPneumaticParams.running.load()) {
         matchloadPneumaticParams.running.store(false);
         pros::delay(20);
@@ -525,29 +459,19 @@ void matchloadPneumaticStart(double timeMs, double delayMs, bool async) {
 
 void matchloadPneumaticStop() {
     matchloadPneumaticParams.running.store(false);
-    matchLoadPneumatics.set_value(false);  // immediately retract
+    // matchLoadPneumatics removed — nothing to retract
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MATCHLOAD PISTON TIMED TASK
-// Extends the match-load piston for timeMs ms (with optional start delay),
-// then retracts.  Runs as a background PROS task.
+// MATCHLOAD PISTON TIMED TASK — stub, no-op
 // ══════════════════════════════════════════════════════════════════════════════
 static std::atomic<bool> g_matchloadPistonTaskRunning(false);
 static double g_matchloadPistonTimeMs  = 0;
 static double g_matchloadPistonDelayMs = 0;
 
-// Internal PROS task function for matchloadPistonStart — timed piston extend/retract.
 void matchloadPistonTaskFn(void*) {
-    uint32_t startTime = pros::millis();
-    while (g_matchloadPistonTaskRunning.load() &&
-           pros::millis() - startTime < static_cast<uint32_t>(g_matchloadPistonTimeMs)) {
-        pros::delay(static_cast<uint32_t>(g_matchloadPistonDelayMs));
-        matchLoadPneumatics.set_value(true);  // extend piston
-        pros::delay(10);
-    }
-    matchLoadPneumatics.set_value(false);  // retract when time is up
-    pros::delay(10);
+    // matchLoadPneumatics removed — task exits immediately
+    g_matchloadPistonTaskRunning.store(false);
 }
 
 void matchloadPistonStart(double timeMs, double delayMs) {
@@ -556,16 +480,12 @@ void matchloadPistonStart(double timeMs, double delayMs) {
         pros::delay(10);
     }
     g_matchloadPistonDelayMs = delayMs;
+    g_matchloadPistonTimeMs  = timeMs;
     g_matchloadPistonTaskRunning.store(true);
-    g_matchloadPistonTimeMs = timeMs;
     pros::Task(matchloadPistonTaskFn, nullptr, "matchloadPiston");
 }
 
 void matchloadPistonStop() {
-    // Signal the task to stop, then ensure piston is retracted
-    if (g_matchloadPistonTaskRunning.load()) {
-        g_matchloadPistonTaskRunning.store(false);
-        pros::delay(10);  // brief wait for the task to exit cleanly
-    }
-    matchLoadPneumatics.set_value(false);
+    g_matchloadPistonTaskRunning.store(false);
+    // matchLoadPneumatics removed — nothing to retract
 }

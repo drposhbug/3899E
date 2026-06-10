@@ -2948,84 +2948,122 @@ void driveToWall(double targetDistance, double targetHeading, double minSpeed,
 }
 
 // ======================================================================
-// gpsReset — GPS-based position correction
+// GPS RESET — on-demand background task
 //
-// Collects SAMPLE_COUNT position readings over ~500ms while the robot is
-// stationary and computes a weighted mean (weight = 1/error — lower error
-// samples contribute more to the result). Samples failing the confidence
-// threshold (get_error() > GPS_MAX_ERROR_M) or returning PROS_ERR_F are
-// discarded before averaging.
+// requestGpsReset() launches a one-shot PROS task. The task collects
+// 8 samples at 15ms intervals (120ms total), applies three confidence
+// gates, and commits globalX/Y only if all gates pass. The task then
+// self-terminates.
 //
-// Only globalX and globalY are updated — IMU heading is intentionally left
-// untouched because the GPS heading is less accurate than the inertial sensor.
+// Caller is never blocked — requestGpsReset() returns immediately.
+// IMU heading is never touched — GPS heading is less accurate than IMU.
 //
-// Returns true  — at least one sample accepted; globalX/globalY updated.
-// Returns false — all samples rejected (GPS signal too weak); odometry unchanged.
+// Confidence gates:
+//   1. Per-sample:  get_error() > GPS_TASK_MAX_ERROR_M or PROS_ERR_F → reject sample
+//   2. Min accepted: fewer than GPS_TASK_MIN_ACCEPTED samples pass → reject commit
+//   3. Spread gate:  position cloud > GPS_TASK_MAX_SPREAD_CM in X or Y → reject commit
 //
-// Call only when the robot is stationary. Motion during sampling corrupts readings.
+// Results readable via atomics:
+//   gpsResetInProgress — true while task is running
+//   gpsResetSucceeded  — result of last completed attempt
 // ======================================================================
-bool gpsReset() {
-    const int SAMPLE_COUNT    = 20;  // Total samples over 500ms
-    const int SAMPLE_INTERVAL = 25;  // ms between samples (20 × 25 = 500ms)
 
+// ── Task-internal confidence constants ───────────────────────────────────────
+// Separate from GPS_MAX_ERROR_M in robot_config.h (used by waitAndResetGPS).
+// Tighter threshold here because we average 8 samples — individual readings
+// can be slightly noisier and the average will still land well.
+static const int    GPS_TASK_SAMPLE_COUNT    = 8;
+static const int    GPS_TASK_SAMPLE_INTERVAL = 15;    // ms — 8 × 15 = 120ms total
+static const int    GPS_TASK_MIN_ACCEPTED    = 5;     // reject commit if fewer pass gate 1
+static const double GPS_TASK_MAX_ERROR_M     = 0.05;  // per-sample RMS error ceiling (m)
+static const double GPS_TASK_MAX_SPREAD_CM   = 8.0;   // position cloud width ceiling (cm)
+
+std::atomic<bool> gpsResetInProgress(false);
+std::atomic<bool> gpsResetSucceeded(false);
+
+// PROS task entry point — do not call directly; use requestGpsReset().
+void gpsResetTask(void* /* param */) {
     double weightedSumX = 0.0;
     double weightedSumY = 0.0;
     double totalWeight  = 0.0;
     int    accepted     = 0;
 
-    double lowX  =  1e9, highX = -1e9;
-    double lowY  =  1e9, highY = -1e9;
+    double lowX =  1e9, highX = -1e9;
+    double lowY =  1e9, highY = -1e9;
 
-    for (int i = 0; i < SAMPLE_COUNT; i++) {
+    for (int i = 0; i < GPS_TASK_SAMPLE_COUNT; i++) {
         double posError = gpsSensor.get_error();
 
-        if (posError == PROS_ERR_F || posError > GPS_MAX_ERROR_M) {
-            pros::delay(SAMPLE_INTERVAL);
+        if (posError == PROS_ERR_F || posError > GPS_TASK_MAX_ERROR_M) {
+            pros::delay(GPS_TASK_SAMPLE_INTERVAL);
             continue;
         }
 
         pros::gps_position_s_t pos = gpsSensor.get_position();
 
         if (pos.x == PROS_ERR_F || pos.y == PROS_ERR_F) {
-            pros::delay(SAMPLE_INTERVAL);
+            pros::delay(GPS_TASK_SAMPLE_INTERVAL);
             continue;
         }
 
-        // Weight = 1/error — lower error = higher confidence = higher weight
-        double weight = 1.0 / posError;
+        // Weight = 1/error — lower error = higher confidence = higher weight.
+        // Add epsilon to prevent divide-by-zero if get_error() returns exactly 0.0
+        // (perfect lock or momentary comms glitch). NaN in weightedSumX would corrupt globalX.
+        double weight = 1.0 / (posError + 0.0001);
         weightedSumX += pos.x * weight;
         weightedSumY += pos.y * weight;
         totalWeight  += weight;
         accepted++;
 
-        if (pos.x < lowX)  lowX  = pos.x;
+        if (pos.x < lowX)  lowX = pos.x;
         if (pos.x > highX) highX = pos.x;
-        if (pos.y < lowY)  lowY  = pos.y;
+        if (pos.y < lowY)  lowY = pos.y;
         if (pos.y > highY) highY = pos.y;
 
-        pros::delay(SAMPLE_INTERVAL);
+        pros::delay(GPS_TASK_SAMPLE_INTERVAL);
     }
 
-    if (accepted == 0 || totalWeight == 0.0) {
-        // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 5, "GPS FAIL — 0/%d accepted", SAMPLE_COUNT);
-        return false;
+    // ── Gate 2: minimum accepted samples ─────────────────────────────────────
+    if (accepted < GPS_TASK_MIN_ACCEPTED || totalWeight == 0.0) {
+        // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 5, "GPS FAIL: %d/%d accepted", accepted, GPS_TASK_SAMPLE_COUNT);
+        gpsResetSucceeded.store(false);
+        gpsResetInProgress.store(false);
+        return;
     }
 
     double resultX_m = weightedSumX / totalWeight;
     double resultY_m = weightedSumY / totalWeight;
 
-    double varX_cm = (highX - lowX) * 100.0;
-    double varY_cm = (highY - lowY) * 100.0;
+    // ── Gate 3: spread check ──────────────────────────────────────────────────
+    double spreadX_cm = (highX - lowX) * 100.0;
+    double spreadY_cm = (highY - lowY) * 100.0;
 
-    // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 5, "accepted:%d/%d  varX:%.1f varY:%.1fcm",
-        // DEBUG — accepted, SAMPLE_COUNT, varX_cm, varY_cm);
-    // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 6, "X low:%.1f high:%.1fcm", lowX * 100.0, highX * 100.0);
-    // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 7, "Y low:%.1f high:%.1fcm", lowY * 100.0, highY * 100.0);
-    // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 8, "result X:%.1f Y:%.1fcm", resultX_m * 100.0, resultY_m * 100.0);
+    if (spreadX_cm > GPS_TASK_MAX_SPREAD_CM || spreadY_cm > GPS_TASK_MAX_SPREAD_CM) {
+        // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 5, "GPS FAIL: spread X:%.1f Y:%.1fcm", spreadX_cm, spreadY_cm);
+        gpsResetSucceeded.store(false);
+        gpsResetInProgress.store(false);
+        return;
+    }
 
-    // Snap odometry to weighted mean. Heading NOT updated — trust IMU.
-    globalX = resultX_m * 100.0;
-    globalY = resultY_m * 100.0;
+    // All gates passed — hand off to odometry task via atomic pending flag.
+    // Direct assignment here would race with odometry's globalX += deltaXPos tick.
+    // applyGpsReset() sets a flag; updateOdometry() applies it safely between ticks.
+    // Heading NOT updated — trust IMU over GPS heading.
+    applyGpsReset(resultX_m * 100.0, resultY_m * 100.0);
 
-    return true;
+    // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 5, "GPS OK: X:%.1f Y:%.1fcm acc:%d/%d", globalX, globalY, accepted, GPS_TASK_SAMPLE_COUNT);
+
+    gpsResetSucceeded.store(true);
+    gpsResetInProgress.store(false);
+    // Task self-terminates here
+}
+
+// Launch the GPS reset task. Returns immediately — caller is never blocked.
+// Silently drops the request if a reset is already in progress.
+void requestGpsReset() {
+    if (gpsResetInProgress.load()) return;  // already running — drop request
+    gpsResetInProgress.store(true);
+    gpsResetSucceeded.store(false);
+    pros::Task(gpsResetTask, nullptr, TASK_PRIORITY_DEFAULT - 1,
+               TASK_STACK_DEPTH_DEFAULT, "GpsResetTask");
 }

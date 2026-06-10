@@ -17,6 +17,7 @@
 
 #include "main.h"
 #include "robot_config.h"
+#include "motion_config.h"  // DEFAULT_TURN and all named motion profiles
 #include "navigation.h"
 #include "odometry.h"
 #include "autontasks.h"
@@ -24,6 +25,23 @@
 #include "route_planner.h"
 #include "robot_geometry.h"
 #include "field_targets.h"
+
+// ── Field orientation flag ────────────────────────────────────────────────────
+// HOME FIELD ONLY — set true when field strips are rotated 180° from standard.
+// Standard: GPS North (+Y) = red alliance wall.
+// 180°: GPS North is physically the blue alliance wall — negate both axes.
+// SET TO FALSE at competition venue where field is correctly oriented.
+// Each robot sets this independently in their own auton.cpp.
+#define FIELD_ROTATION_180  true
+
+#if FIELD_ROTATION_180
+    #define APPLY_FIELD_ROTATION() do { \
+        globalX = -globalX;             \
+        globalY = -globalY;             \
+    } while(0)
+#else
+    #define APPLY_FIELD_ROTATION() do {} while(0)
+#endif
 // ══════════════════════════════════════════════════════════════════════════════
 // ROUTE FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════
@@ -32,6 +50,9 @@
 void runAIMatchRoute() {
     setStartPosition(0.0, 0.0, 0.0);  // update start coords before competition
     startOdometryTask();
+    requestGpsReset();
+    pros::delay(200);
+    APPLY_FIELD_ROTATION();
     setAllianceRed(true);              // set to false for blue alliance
     runAIMatch();
 }
@@ -89,67 +110,63 @@ void navTest() {
     driveProfile.maxCurrentA            = 8.0;
     driveProfile.overcurrentDurationMs  = 500;
 
-    TurnProfile turnProfile = {
-        // ── Motion shape ──────────────────────────────────────────────
-        .breakDistance         = 70.0,   // % of total turn angle
-        .minSpeed              = 22.0,   // % — floor speed on approach
-        .maxSpeed              = 70.0,   // % — peak turn speed
-        .exitTolerance         = 3.0,    // degrees — acceptable heading error
-        .timeout               = 5.0,    // seconds
-
-        // ── Traction control — disabled ───────────────────────────────
-        .accelFactor           = 1.2,
-        .slipThreshold         = 1.0,    // never triggers
-
-        // ── ABS — disabled ────────────────────────────────────────────
-        .decelStepPercent      = 10.0,
-        .lockThreshold         = 1.0,    // never triggers
-
-        // ── Overcurrent protection ────────────────────────────────────
-        .maxCurrentA           = 8.0,    // amps — set 50.0 to disable
-        .overcurrentDurationMs = 500,
-    };
-
     //forwardToPoint(0.0, 80.0, driveProfile);
     //driveForward(150.0, 0.0, LOADED_MID_FWD_80);
-    //turnToPoint(80.0, 0.0, turnProfile);
-    turnOdometry(100.0, turnProfile);
+    //turnToPoint(80.0, 0.0, DEFAULT_TURN);
+    turnOdometry(100.0, DEFAULT_TURN);
 }
 
 void visionTest() {
-    setStartPosition(0.0, 0.0, 0.0);
+    setStartPosition(-124.5, -34.5, 0.0);
     startOdometryTask();
 
-    VisionProfile vp = DEFAULT_VISION;
-    vp.drive.breakDistance          = 85.0;
-    vp.drive.minSpeed               = 15.0;
-    vp.drive.maxSpeed               = 30.0;
-    vp.drive.distanceTolerance      = 1.0;
-    vp.drive.timeout                = 5.0;
+    requestGpsReset();
+    pros::delay(200);
+
+    // ── Tune all parameters here, then copy final values to VISION_LONG_GOAL_FWD ──
+    VisionProfile vp = VISION_LONG_GOAL_FWD;  // start from current named profile
+
+    // ── Motion shape ──────────────────────────────────────────────────────────
+    vp.drive.breakDistance          = 40.0;   // %
+    vp.drive.minSpeed               = 15.0;   // %
+    vp.drive.maxSpeed               = 40.0;   // %
+    vp.drive.distanceTolerance      = 2.0;    // cm
+    vp.drive.timeout                = 5.0;    // s
     vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-    vp.drive.kp_heading             = .05;
+
+    // ── Heading PID ───────────────────────────────────────────────────────────
+    vp.drive.kp_heading             = 0.05;
     vp.drive.ki_heading             = 0.0;
     vp.drive.kd_heading             = 0.0;
+
+    // ── Phase heading scaling ─────────────────────────────────────────────────
     vp.drive.accelHeadingScaling    = 0.2;
     vp.drive.decelHeadingScaling    = 0.1;
     vp.drive.approachHeadingScaling = 0.1;
-    vp.drive.headingLockDistance    = 15.0;
-    vp.drive.launchVoltage          = 6.0;
+    vp.drive.headingLockDistance    = 5.0;   // cm
+
+    // ── Traction / ABS ────────────────────────────────────────────────────────
+    vp.drive.launchVoltage          = 6.0;    // V
     vp.drive.accelFactor            = 1.2;
     vp.drive.slipThreshold          = 0.3;
-    vp.drive.decelStepPercent       = 2.0;
-    vp.drive.lockThreshold          = 0.3;
-    vp.drive.maxCurrentA            = 4.0;
-    vp.drive.overcurrentDurationMs  = 500;
+    vp.drive.decelStepPercent       = 2.0;    // %
+    vp.drive.lockThreshold          = 0.50;
+
+    // ── Circuit breaker ───────────────────────────────────────────────────────
+    vp.drive.maxCurrentA            = 4.0;    // A — trips on goal contact
+    vp.drive.overcurrentDurationMs  = 250;    // ms
+
+    // ── Vision fusion ─────────────────────────────────────────────────────────
     vp.kp_distToHeadScaling         = 5.0;
-    vp.minObjectWidth               = 10;
+
+    // ── Object detection filter ───────────────────────────────────────────────
+    vp.minObjectWidth               = 10;     // px — minimum valid detection
     vp.minX                         = 0;
     vp.maxX                         = 320;
     vp.minY                         = 0;
     vp.maxY                         = 240;
 
-    visionDriveForward(aiVision_orangeBase, 200, 40.0, 0.0, vp);
-    
+    visionForwardToPoint(aiVision_orangeBase, 200, 60.0, 120.0, vp);
 }
 
 // Prints the route planner obstacle grid to brain screen.
@@ -210,23 +227,28 @@ void fieldTargetsTest() {
     setStartPosition(-124.5, -34.5, 180.0);
     startOdometryTask();
 
+    // GPS reset before routing — wait up to 200ms for task to finish
+    // so A* starts from a corrected position rather than setStartPosition estimate
+    requestGpsReset();
+    pros::delay(200);  // 8 samples × 15ms = 120ms; 200ms gives it room to complete
+    //APPLY_FIELD_ROTATION();
+
+
     pros::lcd::print(0, "START X:%.0f Y:%.0f H:%.0f",
                      globalX, globalY, getContinuousStandardHeading());
 
     NavResult result = navigateTo(LONG_GOAL_NE);
 
-    const char* resultStr =
-        result == NavResult::SUCCESS       ? "SUCCESS"  :
-        result == NavResult::BLIND_CONTACT ? "CONTACT"  :
-        result == NavResult::BLIND_TIMEOUT ? "TIMEOUT"  :
-        result == NavResult::VISION_LOST   ? "VIS LOST" : "BLOCKED";
+     const char* resultStr =
+         result == NavResult::SUCCESS       ? "SUCCESS"  :
+         result == NavResult::BLIND_CONTACT ? "CONTACT"  :
+         result == NavResult::BLIND_TIMEOUT ? "TIMEOUT"  :
+         result == NavResult::VISION_LOST   ? "VIS LOST" : "BLOCKED";
 
-    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "RESULT: %s", resultStr);
-    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "END X:%.0f Y:%.0f H:%.0f",
-                        globalX, globalY, getContinuousStandardHeading());
+     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "RESULT: %s", resultStr);
 
-    Controller.rumble(result == NavResult::SUCCESS ||
-                      result == NavResult::BLIND_CONTACT ? "." : "---");
+     Controller.rumble(result == NavResult::SUCCESS ||
+                       result == NavResult::BLIND_CONTACT ? "." : "---");
 
     // Hold screen forever so RESULT and END position stay visible after run
     while (true) {

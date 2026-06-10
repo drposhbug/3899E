@@ -669,6 +669,7 @@ bin/field_targets.cpp.o: src/field_targets.cpp include/field_targets.h \
  include/pros/vision.h include/ai.h include/jetson_comms.h \
  include/route_planner.h include/robot_geometry.h include/robot_config.h \
  include/ai.h include/robot_geometry.h include/odometry.h \
+ include/navigation.h include/utils.h include/motion_config.h \
  include/robot_config.h
 include/field_targets.h:
 include/main.h:
@@ -1420,4 +1421,7 @@ include/robot_config.h:
 include/ai.h:
 include/robot_geometry.h:
 include/odometry.h:
+include/navigation.h:
+include/utils.h:
+include/motion_config.h:
 include/robot_config.h:

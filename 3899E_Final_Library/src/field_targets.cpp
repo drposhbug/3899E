@@ -21,7 +21,8 @@
 #include "field_targets.h"
 #include "ai.h"              // TargetType full definition
 #include "robot_geometry.h"  // RobotGeometry namespace constants
-#include "odometry.h"        // gpsReset
+#include "odometry.h"        // applyGpsReset, pendingGpsReset
+#include "navigation.h"      // requestGpsReset
 #include "robot_config.h"    // gpsSensor, GPS_MAX_ERROR_M
 #include <cmath>
 
@@ -108,24 +109,24 @@ const NamedTarget FIELD_TARGETS[TARGET_COUNT] = {
     {   // LONG_GOAL_NE — approach from east corridor, face West into goal
         LONG_GOAL_NE, TargetType::LONG_GOAL,
         SHARED_APPROACH_X, ML_Y_NORTH, 270.0,
-        LONG_GOAL_X_EAST, LONG_GOAL_Y_NORTH
+        60.0, 120.0
     },
     {   // LONG_GOAL_SE — approach from east corridor, face West into goal
         LONG_GOAL_SE, TargetType::LONG_GOAL,
         SHARED_APPROACH_X, ML_Y_SOUTH, 270.0,
-        LONG_GOAL_X_EAST, LONG_GOAL_Y_SOUTH
+        60.0, -120.0
     },
 
     // ── West long goal — shared approach with LOADER_NW/SW ───────────────────
     {   // LONG_GOAL_NW — approach from west corridor, face East into goal
         LONG_GOAL_NW, TargetType::LONG_GOAL,
         -SHARED_APPROACH_X, ML_Y_NORTH, 90.0,
-        LONG_GOAL_X_WEST, LONG_GOAL_Y_NORTH
+        -60.0, 120.0
     },
     {   // LONG_GOAL_SW — approach from west corridor, face East into goal
         LONG_GOAL_SW, TargetType::LONG_GOAL,
         -SHARED_APPROACH_X, ML_Y_SOUTH, 90.0,
-        LONG_GOAL_X_WEST, LONG_GOAL_Y_SOUTH
+        -60.0, -120.0
     },
 
     // ── Center goals — diagonal approach, face origin (0,0) ──────────────────
@@ -249,7 +250,7 @@ bool waitAndResetGPS(uint32_t waitMs) {
     uint32_t start = pros::millis();
     while (pros::millis() - start < waitMs) {
         if (gpsSensor.get_error() < GPS_MAX_ERROR_M) {
-            gpsReset();
+            requestGpsReset();  // non-blocking — task runs in background
             return true;
         }
         pros::delay(20);

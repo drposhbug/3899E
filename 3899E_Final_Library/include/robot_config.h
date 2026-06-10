@@ -77,8 +77,8 @@ extern pros::Optical opticalSensor;
 // Colour sort flipper motor — port 16, 5.5W, fixed 200 RPM, HOLD brake.
 extern pros::Motor sortMotor;
 
-// GPS Sensor — port 3, left side mount
-// Offset from tracking center: x = -0.1524m (6" left), y = 0.0m (centered)
+// GPS Sensor — port 4, right side mount
+// Offset from tracking center: x = -0.135m (13.5cm right), y = 0.0m (centered lengthwise)
 // Mount optical window at 9.5" (24.1cm) height — same as field GPS strips.
 extern pros::Gps gpsSensor;
 

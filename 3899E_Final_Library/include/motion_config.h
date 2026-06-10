@@ -148,6 +148,7 @@ extern const StraightProfile LOADED_MID_FWD_80;     // 24" bot loaded, forward, 
 extern const TurnProfile     DEFAULT_TURN;           // point turn (both sides drive)
 extern const TurnProfile     DEFAULT_PIVOT;          // pivot turn (one side brakes)
 extern const VisionProfile   DEFAULT_VISION;         // vision-guided approach
+extern const VisionProfile   VISION_LONG_GOAL_FWD;  // orangeBase forward approach, 24" bot long goal
 
 
 // ══════════════════════════════════════════════════════════════════════════════

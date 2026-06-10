@@ -23,6 +23,22 @@ double prevRotation = 0.0;
 // Flag to enable/disable lateral tracking wheel
 bool xEncoderEnabled = true;  
 
+// ── GPS reset handoff ─────────────────────────────────────────────────────────
+// The GPS reset task runs on a separate PROS task and must not write globalX/Y
+// directly — that would race with the odometry task's globalX += deltaXPos tick.
+// Instead, the GPS task calls applyGpsReset() which sets a pending flag.
+// updateOdometry() checks the flag at the top of each tick (between accumulations)
+// and applies the correction safely — no tearing possible.
+std::atomic<bool> pendingGpsReset{false};
+static double pendingGpsX = 0.0;
+static double pendingGpsY = 0.0;
+
+void applyGpsReset(double newX_cm, double newY_cm) {
+    pendingGpsX = newX_cm;
+    pendingGpsY = newY_cm;
+    pendingGpsReset.store(true);
+}
+
 // Motion states for context-aware encoder interpretation
 enum RobotState { STATIONARY, TURNING, STRAIGHT };
 RobotState currentState = STATIONARY;
@@ -76,6 +92,14 @@ void setStartPosition(double startX, double startY, double startHeading) {
  * Uses "Dead Reckoning" math to integrate small movements into a global position.
  */
 void updateOdometry() {
+    // Apply any pending GPS reset between ticks — safe because this runs
+    // before the delta accumulation, so globalX/Y are in a stable state.
+    if (pendingGpsReset.load()) {
+        globalX = pendingGpsX;
+        globalY = pendingGpsY;
+        pendingGpsReset.store(false);
+    }
+
     // 1. Read Current Sensor Values
     // PROS Rotation returns centidegrees; divide by 100 to get degrees
     double leftEncoder  = passiveEncoderLeft.get_position()  / 100.0;

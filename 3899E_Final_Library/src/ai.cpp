@@ -19,6 +19,7 @@
 #include "route_planner.h"
 #include "odometry.h"
 #include "navigation.h"
+#include "motion_config.h"  // VISION_LONG_GOAL_FWD and all named motion profiles
 #include "autontasks.h"
 #include "pid.h"
 #include "utils.h"
@@ -406,9 +407,12 @@ NavResult navigateTo(TargetID id,
         uint32_t wpStart = pros::millis();
         forwardToPoint(path.x[i], path.y[i], wpProfile);
 
-        // Timed out means forwardToPoint couldn't reach the waypoint — something blocked
-        if (pros::millis() - wpStart >= static_cast<uint32_t>(wpProfile.timeout * 1000.0 - 50.0))
+        // Timed out means forwardToPoint couldn't reach the waypoint — something blocked.
+        // Request GPS reset before returning so the reroute starts from a corrected position.
+        if (pros::millis() - wpStart >= static_cast<uint32_t>(wpProfile.timeout * 1000.0 - 50.0)) {
+            requestGpsReset();
             return NavResult::BLOCKED_REROUTE;
+        }
     }
 
     // ── Parking: turn to face wall, then done ────────────────────────────────
@@ -422,14 +426,17 @@ NavResult navigateTo(TargetID id,
         return NavResult::SUCCESS;
     }
 
-    // ── Turn to face approach heading ─────────────────────────────────────────
-    {
+    // ── Turn to face target — long goals use turnToPoint, others use approachHeading ──
+    if (t.type == TargetType::LONG_GOAL) {
+        // turnToPoint computes correct heading from current position to target
+        // directly — no hardcoded approach heading needed
+        turnToPoint(t.targetX, t.targetY, selectTurnProfile(180.0));
+    } else {
         double currentH     = getContinuousStandardHeading();
         double currentHNorm = fmod(currentH, 360.0);
         if (currentHNorm < 0) currentHNorm += 360.0;
         double delta = fmod((t.approachHeading - currentHNorm) + 540.0, 360.0) - 180.0;
         pros::lcd::print(1, "Ph2:%s cH:%.0f tH:%.0f d:%.0f",
-            t.type == TargetType::LONG_GOAL    ? "LG" :
             t.type == TargetType::MATCH_LOADER ? "ML" : "CG",
             currentH, t.approachHeading, delta);
         if (fabs(delta) > 5.0)
@@ -437,10 +444,32 @@ NavResult navigateTo(TargetID id,
     }
     pros::delay(150);
 
-    // ── DEBUG: stop here — uncomment Phase 2+3 below when approach is confirmed ─
+    // ── Phase 2: vision approach — long goals, 24" bot only ──────────────────
+    // visionForwardToPoint fuses odometry + AI Vision (orangeBase signature).
+    // VISION_LONG_GOAL_FWD circuit breaker (4A / 500ms) cuts power on contact.
+    // After contact: GPS reset runs non-blocking — scoring routine goes here.
+    // All other target types: A* + approach turn is sufficient for now.
+#if ACTIVE_BOT == BOT_24INCH
+    if (t.type == TargetType::LONG_GOAL) {
+        visionForwardToPoint(aiVision_orangeBase,
+                             200,              // 200px width — orangeBase close approach
+                             t.targetX, t.targetY,
+                             VISION_LONG_GOAL_FWD);
+
+        // ── Scoring routine placeholder ───────────────────────────────────────
+        // GPS reset is non-blocking — task runs in parallel with scoring.
+        // Full scoring sequence replaces this comment when implemented.
+        requestGpsReset();
+
+        return NavResult::SUCCESS;
+    }
+#endif
+
+    // Non-long-goal targets and 15" bot: A* transit + approach turn is the
+    // full Phase 1. Phase 2+3 for these targets added in a later pass.
     return NavResult::SUCCESS;
 
-    // ── Phase 2+3: sensor approach + blind contact ────────────────────────────
+    // ── Phase 2+3 stubs — kept for reference, enable per target type later ────
     // Each target type has a 24" bot path and a 15" bot path.
     // 24" bot: Jetson vision (YOLO) or VEX AI Vision sensor.
     // 15" bot: GPS reset + odometry drive. Profile tier chosen from target distance.

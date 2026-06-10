@@ -14,7 +14,7 @@
 //     9   Intake Motor 2    (600 RPM, 11W, forward)
 //    11   Hood Motor        (200 RPM, 5.5W — fixed speed, no cartridge, forward)
 //    15   Upper Indexer     (200 RPM, 5.5W — fixed speed, no cartridge, reversed)
-//     3   GPS Sensor        (left side mount)
+//     4   GPS Sensor        (right side mount, 13.5cm right of center, centered lengthwise)
 //    16   Sort Motor        (200 RPM, 5.5W — colour sort flipper, no cartridge, forward)
 //    17   IMU
 //    20   Left  Encoder     (reversed)
@@ -57,8 +57,8 @@ pros::MotorGroup rightDrive({ 1, -5,  2}, pros::MotorGears::blue);
 
 // ── Mechanism motors ──────────────────────────────────────────────────────────
 // intakeMotor1/2: 11W V5 Smart Motor, blue cartridge (600 RPM).
-pros::Motor intakeMotor1(10, pros::MotorGears::blue);  // port 10, reversed
-pros::Motor intakeMotor2( -9,  pros::MotorGears::blue);  // port  9, forward
+pros::Motor intakeMotor1(-10, pros::MotorGears::blue);  // port 10, reversed
+pros::Motor intakeMotor2( 9,  pros::MotorGears::blue);  // port  9, forward
 
 // hoodMotor: 5.5W V5 Smart Motor (port 11).
 // This motor has NO swappable cartridge — speed is fixed at 200 RPM by hardware.
@@ -88,10 +88,10 @@ pros::adi::DigitalOut rudderPneumatics    ('D');
 // IMU — reset(true) blocks until calibration completes (~2 s).
 pros::Imu InertialSensor(17);
 
-// GPS Sensor — port 3
-// x_offset: -0.1524m = 6 inches left of tracking center
-// y_offset:  0.0m    = centered lengthwise
-pros::Gps gpsSensor(3, -0.1524, 0.0);
+// GPS Sensor — port 4
+// x_offset: -0.135m = 13.5cm right of tracking center (right = negative in PROS robot frame)
+// y_offset:  0.0m   = centered lengthwise
+pros::Gps gpsSensor(4, -0.135, 0.0);
 
 // Passive odometry tracking wheels.
 // Left/Right reversal set via set_reversed() in initialize().

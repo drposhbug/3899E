@@ -279,6 +279,32 @@ void visionOnly(pros::AIVision::Color targetSignature,
                 const VisionProfile& p = DEFAULT_VISION);
 
 // ══════════════════════════════════════════════════════════════════════════════
+// GPS RESET — on-demand background task
+//
+// requestGpsReset() launches a one-shot PROS task that samples the GPS sensor
+// (8 samples × 15ms = 120ms), applies confidence gates, and commits globalX/Y
+// if the reading is trustworthy. Returns immediately — caller is never blocked.
+//
+// The task self-terminates after one attempt (pass or fail).
+// If a reset is already in progress when requestGpsReset() is called, the new
+// request is silently dropped — no double-launch.
+//
+// Confidence gates (internal to task):
+//   • Per-sample: get_error() > 0.05m or PROS_ERR_F → sample rejected
+//   • Minimum accepted: < 5 of 8 samples pass → commit rejected
+//   • Spread gate: position cloud wider than 8cm in X or Y → commit rejected
+//   • On reject: globalX/Y left untouched
+//
+// Poll gpsResetInProgress to know if the task is still running.
+// Read gpsResetSucceeded after it finishes to know if the commit landed.
+// ══════════════════════════════════════════════════════════════════════════════
+extern std::atomic<bool> gpsResetInProgress;  // true while task is running
+extern std::atomic<bool> gpsResetSucceeded;   // result of last completed attempt
+
+void requestGpsReset();   // launch the task; returns immediately
+void gpsResetTask(void*); // PROS task entry point — do not call directly
+
+// ══════════════════════════════════════════════════════════════════════════════
 // visionDriveMinimal — simplified vision drive (individual params, no profile).
 // Separate simpler architecture; not part of the profile system.
 // Two overloads: color signature and color code.

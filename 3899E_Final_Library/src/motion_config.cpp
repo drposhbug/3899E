@@ -137,19 +137,18 @@ const StraightProfile LOADED_MID_FWD_80 = {
 // ──────────────────────────────────────────────────────────────────────────────
 const TurnProfile DEFAULT_TURN = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance    = 30.0,   // % of total turn angle
-    .minSpeed         = 15.0,
-    .maxSpeed         = 60.0,
-    .exitTolerance    = 2.0,    // degrees
+    .breakDistance    = 70.0,   // % of total turn angle
+    .minSpeed         = 22.0,
+    .maxSpeed         = 70.0,
+    .exitTolerance    = 3.0,    // degrees
     .timeout          = 5.0,
 
     // ── Internal motion constants ─────────────────────────────────────────────
-    // Traction control and ABS disabled — not appropriate for rotational motion.
-    .accelFactor      = 1.0,
+    .accelFactor      = 1.2,
     .slipThreshold    = 1.0,    // never triggers
-    .decelStepPercent = 20.0,   // irrelevant — ABS never fires
+    .decelStepPercent = 10.0,
     .lockThreshold    = 1.0,    // never triggers
-    .maxCurrentA      = 12.0,
+    .maxCurrentA      = 8.0,
     .overcurrentDurationMs = 500,
 };
 
@@ -215,6 +214,57 @@ const VisionProfile DEFAULT_VISION = {
     .maxX                   = 320,
     .minY                   = 0,
     .maxY                   = 240,
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// VISION_LONG_GOAL_FWD — forward vision approach to long goal (24" bot)
+// Seeded from SHORT_FWD — all fields exposed for independent tuning.
+// Used by: navigateTo() Phase 2 for LONG_GOAL_* targets, BOT_24INCH only.
+// Call site: visionForwardToPoint(aiVision_orangeBase, 200, targetX, targetY, VISION_LONG_GOAL_FWD)
+// ──────────────────────────────────────────────────────────────────────────────
+const VisionProfile VISION_LONG_GOAL_FWD = {
+    .drive = {
+        // ── Motion shape ──────────────────────────────────────────────────────
+        .breakDistance          = 85.0,   // % — early decel for slow final approach (SHORT_FWD=30)
+        .minSpeed               = 15.0,   // % (SHORT_FWD=13)
+        .maxSpeed               = 30.0,   // % — slow for precision (SHORT_FWD=80)
+        .distanceTolerance      = 1.0,    // cm
+        .timeout                = 5.0,    // s (SHORT_FWD=8)
+        .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
+
+        // ── Heading PID — low because vision handles most steering ────────────
+        .kp_heading             = 0.05,   // (SHORT_FWD=0.4)
+        .ki_heading             = 0.0,    // (SHORT_FWD=0.01)
+        .kd_heading             = 0.0,    // (SHORT_FWD=0.05)
+
+        // ── Phase heading scaling ─────────────────────────────────────────────
+        .accelHeadingScaling    = 0.2,
+        .decelHeadingScaling    = 0.1,    // (SHORT_FWD=0.2)
+        .approachHeadingScaling = 0.1,    // (SHORT_FWD=0.2)
+
+        .headingLockDistance    = 15.0,   // cm (SHORT_FWD=8)
+
+        // ── Traction / ABS ────────────────────────────────────────────────────
+        .launchVoltage          = 6.0,
+        .accelFactor            = 1.2,
+        .slipThreshold          = 0.3,
+        .decelStepPercent       = 2.0,
+        .lockThreshold          = 0.3,
+
+        // ── Circuit breaker — trips on goal contact ───────────────────────────
+        .maxCurrentA            = 4.0,    // A (SHORT_FWD=8)
+        .overcurrentDurationMs  = 500,    // ms
+    },
+
+    // ── Vision fusion ─────────────────────────────────────────────────────────
+    .kp_distToHeadScaling   = 5.0,   // how aggressively vision snaps heading onto target
+
+    // ── Object detection filter ───────────────────────────────────────────────
+    .minObjectWidth         = 10,    // px — minimum valid detection size
+    .minX                   = 0,     // px — left bound of detection zone
+    .maxX                   = 320,   // px — right bound
+    .minY                   = 0,     // px — top bound
+    .maxY                   = 240,   // px — bottom bound
 };
 
 
@@ -424,17 +474,17 @@ const StraightProfile LONG_BWD = {
 // Seeded from DEFAULT_TURN — tune independently when needed.
 // ──────────────────────────────────────────────────────────────────────────────
 const TurnProfile SHORT_TURN = {
-    .breakDistance    = 30.0,
-    .minSpeed         = 15.0,
-    .maxSpeed         = 60.0,
-    .exitTolerance    = 2.0,
+    .breakDistance    = 70.0,
+    .minSpeed         = 22.0,
+    .maxSpeed         = 70.0,
+    .exitTolerance    = 3.0,
     .timeout          = 5.0,
 
-    .accelFactor      = 1.0,
+    .accelFactor      = 1.2,
     .slipThreshold    = 1.0,
-    .decelStepPercent = 20.0,
+    .decelStepPercent = 10.0,
     .lockThreshold    = 1.0,
-    .maxCurrentA      = 12.0,
+    .maxCurrentA      = 8.0,
     .overcurrentDurationMs = 500,
 };
 
@@ -443,17 +493,17 @@ const TurnProfile SHORT_TURN = {
 // Seeded from DEFAULT_TURN — tune independently when needed.
 // ──────────────────────────────────────────────────────────────────────────────
 const TurnProfile MID_TURN = {
-    .breakDistance    = 30.0,
-    .minSpeed         = 15.0,
-    .maxSpeed         = 60.0,
-    .exitTolerance    = 2.0,
+    .breakDistance    = 70.0,
+    .minSpeed         = 22.0,
+    .maxSpeed         = 70.0,
+    .exitTolerance    = 3.0,
     .timeout          = 5.0,
 
-    .accelFactor      = 1.0,
+    .accelFactor      = 1.2,
     .slipThreshold    = 1.0,
-    .decelStepPercent = 20.0,
+    .decelStepPercent = 10.0,
     .lockThreshold    = 1.0,
-    .maxCurrentA      = 12.0,
+    .maxCurrentA      = 8.0,
     .overcurrentDurationMs = 500,
 };
 
@@ -462,17 +512,17 @@ const TurnProfile MID_TURN = {
 // Seeded from DEFAULT_TURN — tune independently when needed.
 // ──────────────────────────────────────────────────────────────────────────────
 const TurnProfile LONG_TURN = {
-    .breakDistance    = 30.0,
-    .minSpeed         = 15.0,
-    .maxSpeed         = 60.0,
-    .exitTolerance    = 2.0,
+    .breakDistance    = 70.0,
+    .minSpeed         = 22.0,
+    .maxSpeed         = 70.0,
+    .exitTolerance    = 3.0,
     .timeout          = 5.0,
 
-    .accelFactor      = 1.0,
+    .accelFactor      = 1.2,
     .slipThreshold    = 1.0,
-    .decelStepPercent = 20.0,
+    .decelStepPercent = 10.0,
     .lockThreshold    = 1.0,
-    .maxCurrentA      = 12.0,
+    .maxCurrentA      = 8.0,
     .overcurrentDurationMs = 500,
 };
 
