@@ -122,6 +122,9 @@ void driveBackward(double targetDistance,
 void turnToPoint(double targetX, double targetY,
                  const TurnProfile& p = DEFAULT_TURN);
 
+void turnToHeading(double targetX, double targetY,
+                   const TurnProfile& p = DEFAULT_TURN);
+
 void turnLeftToPoint(double targetX, double targetY,
                      const TurnProfile& p = DEFAULT_TURN);
 

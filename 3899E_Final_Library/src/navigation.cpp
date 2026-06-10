@@ -1286,6 +1286,25 @@ void turnToPoint(double targetX, double targetY, const TurnProfile& p) {
     updateOdometry();
 }
 
+void turnToHeading(double targetX, double targetY, const TurnProfile& p) {
+    // Compute the absolute heading to the target using trigonometry.
+    // This avoids direct reliance on the turnToPoint helper in calling code.
+    updateOdometry();
+
+    double currentHeading = getContinuousStandardHeading();
+    double deltaX = targetX - globalX;
+    double deltaY = targetY - globalY;
+    double desiredHeading = atan2(deltaX, deltaY) * 180.0 / M_PI;
+
+    // Normalize the heading into the same continuous frame as the current heading.
+    double headingError = desiredHeading - currentHeading;
+    headingError = fmod(headingError + 540.0, 360.0) - 180.0;
+    double absoluteTargetHeading = currentHeading + headingError;
+
+    turnOdometry(absoluteTargetHeading, p);
+    updateOdometry();
+}
+
 // ======================================================================
 // turnLeftToPoint — Force a CCW turn to face a field coordinate.
 // Subtracts 360° until target sits below current heading.

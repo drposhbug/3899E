@@ -19,6 +19,8 @@ void initialize()
 
     leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
     rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    gpsSensor.set_offset(-0.11, 0.1175); // X offset 15cm right, Y offset -25cm back
+
     // // Reset and enable color blob detection on the front camera
     // aiVision_Front.reset();
     // aiVision_Front.enable_detection_types(pros::AivisionModeType::colors);

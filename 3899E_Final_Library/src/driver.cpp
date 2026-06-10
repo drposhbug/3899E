@@ -662,6 +662,29 @@ void blockCountTask() {
     }
 }
 
+// Returns the absolute heading (0 to 360 degrees) from Point 1 to Point 2
+double getHeadingToTarget(double x1, double y1, double x2, double y2) {
+    // Calculate differences
+    double deltaX = x2 - x1;
+    double deltaY = y2 - y1;
+    
+    // atan2 returns radians between -PI and +PI
+    double radians = std::atan2(deltaY, deltaX);
+    
+    // Convert to degrees (-180 to 180)
+    double degrees = radians * (180.0 / M_PI);
+    
+    // Map standard math angle (0=Right) to VEX GPS heading (0=Up/Forward, clockwise)
+    // If your coordinate system treats 0 degrees as standard math right, skip this step
+    double robotHeading = 90.0 - degrees;
+    
+    // Normalize angle to keep it strictly between 0.0 and 360.0 degrees
+    while (robotHeading >= 360.0) robotHeading -= 360.0;
+    while (robotHeading < 0.0)    robotHeading += 360.0;
+    
+    return robotHeading;
+}
+
 void opScoring(std::pmr::string teamColor) {
     teamColorGlobal = teamColor;
     startOdometryTask();
@@ -673,13 +696,42 @@ void opScoring(std::pmr::string teamColor) {
     bool intakeFull = true;
     int retryCount = 0;
     const int MAX_RETRIES_PER_BLOCK = 3;  // Backtrack if vision fails 3 times in a row
+    StraightProfile dp = DEFAULT_STRAIGHT;
+    dp.breakDistance          = 30.0;   // cm before target to begin decel
+    dp.minSpeed               = 30.0;   // % minimum approach speed
+    dp.maxSpeed               = 80.0;   // % peak cruise speed
+    dp.distanceTolerance      = 1.0;    // cm exit bubble
+    dp.timeout                = 5.0;    // seconds 5 sec default
+    dp.brakeMode              = pros::E_MOTOR_BRAKE_HOLD;
+    dp.kp_heading             = 2.0;    // heading PID proportional
+    dp.ki_heading             = 0.0;    // heading PID integral
+    dp.kd_heading             = 5.0;    // heading PID derivative
+    dp.accelHeadingScaling    = 0.2;    // correction weight during accel
+    dp.decelHeadingScaling    = 0.1;    // correction weight during decel
+    dp.approachHeadingScaling = 0.1;    // correction weight during approach
+    dp.headingLockDistance    = 3.0;    // cm — freeze heading near target
+    dp.launchVoltage          = 3.0;    // V — initial kick voltage
+    dp.accelFactor            = 1.2;    // traction ramp multiplier
+    dp.slipThreshold          = 0.3;   // RPM slip before traction cuts in
+    dp.decelStepPercent       = 0.30;   // ABS voltage reduction per step
+    dp.lockThreshold          = 0.3;   // wheel lockup ratio
+    dp.maxCurrentA            = 4.0;   // amps — wall stall trip threshold
+    dp.overcurrentDurationMs  = 300; // ms — how long before breaker fires
+
+    TurnProfile tp = DEFAULT_TURN;
+    tp.breakDistance  = 5.0;    // degrees before target to begin decel
+    tp.minSpeed       = 10.0;   // % minimum approach speed
+    tp.maxSpeed       = 80.0;  // % peak turn speed
+    tp.exitTolerance  = 3;    // degrees — stop when within this
+    tp.timeout        = 3.0;    // seconds — release if stuck
+
     VisionProfile vp = DEFAULT_VISION;
     vp.drive.breakDistance          = 90.0;   // cm before target to begin decel
     vp.drive.minSpeed               = 20.0;   // % minimum approach speed
     vp.drive.maxSpeed               = 80.0;   // % peak cruise speed
     vp.drive.distanceTolerance      = 1.0;    // cm exit bubble
     vp.drive.timeout                = 5.0;    // seconds
-    vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_HOLD;
     vp.drive.kp_heading             = 0.4;    // low gain — vision correction is noisy
     vp.drive.ki_heading             = 0.0;
     vp.drive.kd_heading             = 0.1;
@@ -765,43 +817,50 @@ void opScoring(std::pmr::string teamColor) {
         intakeMotor.move(127);
         colorSortMotor.move(127);
         // Trigger scoring mechanism here (e.g., activate pneumatics, run motors)
-        //gps reset
-        float gpsXOffset = 0.1175; // Adjust based on your robot's design
-        float gpsYOffset = 0.110; // Adjust based on your robot's design
-        float xPos = 100*(gpsSensor.get_position().x - gpsXOffset);
-        float yPos = 100*(gpsSensor.get_position().y - gpsYOffset);
-        float heading = gpsSensor.get_heading();
-        setStartPosition(xPos, yPos, heading);
-        int xMultiplier, yMultiplier;
-        if (xPos > 0) {
-            int xMultiplier = 1;
-            if (yPos > 0) {
-                // Quadrant 1
-                int yMultiplier = 1;
-                
-            } else {
-                // Quadrant 4
-                int yMultiplier = -1;
-            }
-        } else {
-            int xMultiplier = -1;
-            if (yPos > 0) {
-                // Quadrant 2
-                int yMultiplier = 1;
-            } else {
-                // Quadrant 3
-                int yMultiplier = -1;
-            }
-        }
-        xPos = 100*(gpsSensor.get_position().x - gpsXOffset);
-        yPos = 100*(gpsSensor.get_position().y - gpsYOffset);
-        pros::lcd::print(1, "X: %.2f | Y: %.2f", xPos, yPos);
-        turnToPoint(10 , 1 , DEFAULT_TURN);
-        pros::delay(100000);
+        // GPS reset
+        double headingOffset = 90.0; // Adjust for cartesian vs VEX if needed
+        double rawGpsX = gpsSensor.get_position().x;
+        double rawGpsY = gpsSensor.get_position().y;
+        double gpsError = gpsSensor.get_error();
+
+        double xPosition = rawGpsX * 100.0;
+        double yPosition = rawGpsY * 100.0;
+        double heading = gpsSensor.get_heading() - headingOffset;
+        while (heading < 0.0) heading += 360.0;
+        while (heading >= 360.0) heading -= 360.0;
+
+        setStartPosition(xPosition, yPosition, heading);
+
+        pros::lcd::print(1, "GPS raw X: %.3f m Y: %.3f m", rawGpsX, rawGpsY);
+        pros::lcd::print(2, "GPS err: %.3f m heading: %.1f", gpsError, gpsSensor.get_heading());
+        pros::lcd::print(3, "SET X: %.1f cm Y: %.1f cm H: %.1f", xPosition, yPosition, heading);
+        pros::lcd::print(4, "ODOM X: %.1f cm Y: %.1f cm H: %.1f", globalX, globalY, globalRotation);
+        // pros::delay(50000);
+        turnToPoint(-60, 110, DEFAULT_TURN); //47,47 in inches
+        pros::delay(1000);
+        forwardToPoint(-60, 110, dp); //47,47 in inches
+        // turnRight(180, DEFAULT_TURN);
+        pros::delay(500000);
+        turnToPoint(0 , 0 , DEFAULT_TURN); //47,47 in inches
+        pros::delay(500);
+        turnToPoint(180, 180, DEFAULT_TURN); //47,47 in inches
+        pros::delay(5000);
+        turnToPoint(290, 120, DEFAULT_TURN); //47,47 in inches
+        // pros::delay(500000);
+        pros::delay(70000);
         scorePiston.set_value(true);
-        forwardToPoint(10, 1, DEFAULT_STRAIGHT); //47,47 in inches
-        turnRight(90, DEFAULT_TURN);
-        driveForward(-40, globalRotation, DEFAULT_STRAIGHT);
+        forwardToPoint(-60, 100, dp); //47,47 in inches
+        // xPos = 100*(gpsSensor.get_position().x - gpsXOffset);
+        // yPos = 100*(gpsSensor.get_position().y - gpsYOffset);
+        // pros::lcd::print(4, "X: %.2f | Y: %.2f | Heading: %.2f", xPos, yPos, heading);
+        // pros::lcd::print(5, "X: %.2f | Y: %.2f | Heading: %.2f", globalX, globalY, globalRotation);
+        // pros::delay(70000);
+        turnToPoint(-45, 100, DEFAULT_TURN);
+        forwardToPoint(-45, 100, dp);
+        // scorePiston.set_value(true);
+        turnToPoint(-45, 400, DEFAULT_TURN);
+        driveForward(-50, globalRotation, dp);
+        pros::delay(50000);
         //score
         scoreFlap.set_value(true);
         lever.move(127);
@@ -811,7 +870,7 @@ void opScoring(std::pmr::string teamColor) {
         lever.move(0);
         //reset lever
         // pros::lcd::print(9, "Scoring Red Ball!");
-        driveForward(30, globalRotation, DEFAULT_STRAIGHT); // Back away from the wall after scoring
+        driveForward(30, globalRotation, dp); // Back away from the wall after scoring
         scoreFlap.set_value(false);
         scorePiston.set_value(false);
         intakeFull = false; // Reset for next ball

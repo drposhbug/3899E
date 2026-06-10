@@ -25,7 +25,7 @@ const StraightProfile DEFAULT_STRAIGHT = {
     .maxSpeed               = 100.0,  // % — peak cruise speed
     .distanceTolerance      = 2.0,    // cm — exit bubble radius
     .timeout                = 3.0,    // seconds
-    .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
+    .brakeMode              = pros::E_MOTOR_BRAKE_HOLD,
 
     // ── Heading PID ───────────────────────────────────────────────────────────
     .kp_heading             = 0.615,
@@ -145,11 +145,11 @@ const StraightProfile LOADED_MID_FWD_80 = {
 // ──────────────────────────────────────────────────────────────────────────────
 const TurnProfile DEFAULT_TURN = {
     // ── Motion shape ──────────────────────────────────────────────────────────
-    .breakDistance    = 30.0,   // % of total turn angle — 30% means a 90° turn breaks at 27°
+    .breakDistance    = 50.0,   // % of total turn angle — 30% means a 90° turn breaks at 27°
     .minSpeed         = 15.0,   // %
-    .maxSpeed         = 60.0,   // %
+    .maxSpeed         = 80.0,   // %
     .exitTolerance    = 2.0,    // degrees
-    .timeout          = 5.0,    // seconds
+    .timeout          = 6.0,    // seconds
 
     // ── Internal motion constants ─────────────────────────────────────────────
     // Traction control and ABS disabled for turns — not appropriate for rotational
