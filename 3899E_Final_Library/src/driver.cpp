@@ -4,6 +4,7 @@
 #include "autontasks.h"
 #include "odometry.h"
 #include <cmath>
+#include <atomic>
 
 // Joystick deadzone threshold — inputs below this magnitude are treated as zero
 static int deadzoneThreshold = 20;
@@ -627,28 +628,37 @@ void AITracking(std::pmr::string teamColor) {
 
 int blockCount;
 std::pmr::string teamColorGlobal = "";
-int hue;
 bool wasColor;
+static std::atomic<bool> blockCountTaskRunning{false};
 
 void blockCountTask() {
-    if (teamColorGlobal == "RED") {
-        if (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2) {
-            wasColor = true;
-        } else {
-            if (wasColor) {
-                blockCount++;
-                wasColor = false; // Reset for next detection
+    blockCountTaskRunning.store(true);
+    wasColor = false;
+    
+    while (blockCountTaskRunning.load()) {    
+        int hue = opticalSensor.get_hue();  // Read hue directly each iteration
+        
+        if (teamColorGlobal == "RED") {
+            if (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2) {
+                wasColor = true;
+            } else {
+                if (wasColor) {
+                    blockCount++;
+                    wasColor = false; // Reset for next detection
+                }
+            }
+        } else if (teamColorGlobal == "BLUE") {
+            if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
+                wasColor = true;
+            } else {
+                if (wasColor) {
+                    blockCount++;
+                    wasColor = false; // Reset for next detection
+                }
             }
         }
-    } else if (teamColorGlobal == "BLUE") {
-        if (hue >= BLUE_HUE_MIN && hue <= BLUE_HUE_MAX) {
-            wasColor = true;
-        } else {
-            if (wasColor) {
-                blockCount++;
-                wasColor = false; // Reset for next detection
-            }
-        }
+        
+        pros::delay(20); // Check every 20 ms
     }
 }
 
@@ -659,9 +669,10 @@ void opScoring(std::pmr::string teamColor) {
     colorSortMotor.move(127);
     opticalSensor.set_led_pwm(100); // Ensure the LED is on for accurate readings
     blockCount = 0;
-    hue = opticalSensor.get_hue();
     wasColor = false;
-    bool intakeFull = false;
+    bool intakeFull = true;
+    int retryCount = 0;
+    const int MAX_RETRIES_PER_BLOCK = 3;  // Backtrack if vision fails 3 times in a row
     VisionProfile vp = DEFAULT_VISION;
     vp.drive.breakDistance          = 90.0;   // cm before target to begin decel
     vp.drive.minSpeed               = 20.0;   // % minimum approach speed
@@ -703,16 +714,43 @@ void opScoring(std::pmr::string teamColor) {
     while (!intakeFull) {
         intakeMotor.move(127);
         colorSortMotor.move(127);
-        hue = opticalSensor.get_hue();
-        pros::lcd::print(1, "Blocks in Intake: %d", blockCount);
-        visionOnly((teamColor == "RED") ? aiVision_redCube : aiVision_blueCube, 40, 200.0, vp);
-        driveForward(10, globalRotation, DEFAULT_STRAIGHT);
-        if (blockCount >= 6) {
-            // Detected a blue ball — trigger scoring mechanism
+        pros::lcd::print(1, "Blocks: %d | Retries: %d", blockCount, retryCount);
+        
+        // Try vision approach with a shorter timeout
+        VisionProfile vpShort = vp;
+        vpShort.drive.timeout = 2.0;  // Shorter timeout to avoid long hangs
+        
+        uint32_t visionStart = pros::millis();
+        visionDriveForward((teamColor == "RED") ? aiVision_redCube : aiVision_blueCube,
+                           40, 150.0, globalRotation, vpShort, false);
+        uint32_t visionElapsed = pros::millis() - visionStart;
+        
+        // If vision timeout occurred (elapsed >= 2000ms), we likely hit an obstacle
+        if (visionElapsed >= 1900) {
+            retryCount++;
+            pros::lcd::print(2, "Vision timeout - backtracking");
+            
+            if (retryCount >= MAX_RETRIES_PER_BLOCK) {
+                // Give up on this block location, back up and reset
+                // intakeMotor.move(0);
+                driveForward(-30, globalRotation, DEFAULT_STRAIGHT);  // Back up 30cm
+                retryCount = 0;  // Reset retry counter for next block
+                turnRight(globalRotation + 90, DEFAULT_TURN);  // Slight turn to try a new angle
+                pros::delay(500);
+                continue;
+            }
+        } else {
+            retryCount = 0;  // Vision succeeded, reset retry counter
+        }
+        
+        if (blockCount >= 2) {
             intakeFull = true;
             blockCount = 0; // Reset count after scoring
         }
     }
+    
+    blockCountTaskRunning.store(false);
+    pros::delay(50);
     // // Only count if an object is close enough to the sensor
     // if (proximity > 50) {
     //     if (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2) {
@@ -724,12 +762,14 @@ void opScoring(std::pmr::string teamColor) {
     //     }
     // }
     if (intakeFull) {
+        intakeMotor.move(127);
+        colorSortMotor.move(127);
         // Trigger scoring mechanism here (e.g., activate pneumatics, run motors)
         //gps reset
-        float gpsXOffset = 0.0; // Adjust based on your robot's design
-        float gpsYOffset = 0.0; // Adjust based on your robot's design
-        float xPos = gpsSensor.get_position().x - gpsXOffset;
-        float yPos = gpsSensor.get_position().y - gpsYOffset;
+        float gpsXOffset = 0.1175; // Adjust based on your robot's design
+        float gpsYOffset = 0.110; // Adjust based on your robot's design
+        float xPos = 100*(gpsSensor.get_position().x - gpsXOffset);
+        float yPos = 100*(gpsSensor.get_position().y - gpsYOffset);
         float heading = gpsSensor.get_heading();
         setStartPosition(xPos, yPos, heading);
         int xMultiplier, yMultiplier;
@@ -753,19 +793,29 @@ void opScoring(std::pmr::string teamColor) {
                 int yMultiplier = -1;
             }
         }
-        xPos = gpsSensor.get_position().x - gpsXOffset;
-        yPos = gpsSensor.get_position().y - gpsYOffset;
-        backwardToPoint(47 * xMultiplier, 47 * yMultiplier, DEFAULT_STRAIGHT);
-        turnToPoint(xPos+(10 * xMultiplier), yPos, DEFAULT_TURN);
+        xPos = 100*(gpsSensor.get_position().x - gpsXOffset);
+        yPos = 100*(gpsSensor.get_position().y - gpsYOffset);
+        pros::lcd::print(1, "X: %.2f | Y: %.2f", xPos, yPos);
+        turnToPoint(10 , 1 , DEFAULT_TURN);
+        pros::delay(100000);
+        scorePiston.set_value(true);
+        forwardToPoint(10, 1, DEFAULT_STRAIGHT); //47,47 in inches
+        turnRight(90, DEFAULT_TURN);
+        driveForward(-40, globalRotation, DEFAULT_STRAIGHT);
         //score
+        scoreFlap.set_value(true);
         lever.move(127);
-        pros::delay(500);
+        pros::delay(2000);
         lever.move(-127);
-        pros::delay(500);
+        pros::delay(2000);
         lever.move(0);
         //reset lever
-        pros::lcd::print(9, "Scoring Red Ball!");
+        // pros::lcd::print(9, "Scoring Red Ball!");
+        driveForward(30, globalRotation, DEFAULT_STRAIGHT); // Back away from the wall after scoring
+        scoreFlap.set_value(false);
+        scorePiston.set_value(false);
         intakeFull = false; // Reset for next ball
     }
+    // Task will exit cleanly when blockCountTaskRunning is set to false
     blockCounter.remove();
 }

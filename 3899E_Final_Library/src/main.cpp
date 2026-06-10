@@ -17,6 +17,8 @@ void initialize()
     passiveEncoderX.set_reversed(true);
     opticalSensor.set_led_pwm(100);
 
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
     // // Reset and enable color blob detection on the front camera
     // aiVision_Front.reset();
     // aiVision_Front.enable_detection_types(pros::AivisionModeType::colors);
@@ -137,6 +139,12 @@ void autonomous()
 
 void opcontrol() {
 
+    // while (true) {
+    //     double xPos = 100*(gpsSensor.get_position().x - 0.1175);
+    //     double yPos = 100*(gpsSensor.get_position().y - 0.110);
+    //     pros::lcd::print(1, "X: %.2f | Y: %.2f", xPos, yPos);
+    //     pros::delay(100);
+    // }
     while (true) {
         opScoring("RED"); // put alliance colour here as argument: "RED" or "BLUE"
         // AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"

@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "coloursorttest",
+    "project_name": "interaction (WORKING)",
     "target": "v5",
     "templates": {
       "kernel": {

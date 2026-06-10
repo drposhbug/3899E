@@ -56,7 +56,7 @@ std::int8_t horizontalEncoderPort = 2;
 std::int8_t verticalEncoderPort = 4;
 std::int8_t imuPort = 17; 
 std::int8_t colorSensorPort = 15;
-std::int8_t gpsSensorPort = 17; // not real
+std::int8_t gpsSensorPort = 13; // not real
 std::int8_t aiVisionFrontPort = 12;
 std::int8_t aiVisionBackPort = 8;
 std::int8_t aiVisionPort = 21;
@@ -254,8 +254,8 @@ void robotInit()
     pros::lcd::set_text(1, "IMU ready");
 
     // Colour sort motor — hold position after each sort move.
-    sortMotor.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-    sortMotor.tare_position();
+    // sortMotor.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    // sortMotor.tare_position();
 
     // Colour sort optical — LED on at full power for reliable hue reads.
     opticalSensor.set_led_pwm(100);
