@@ -34,6 +34,9 @@
 // Each robot sets this independently in their own auton.cpp.
 #define FIELD_ROTATION_180  true
 
+// Helper macro — applies 180° coordinate transform to globalX/globalY
+// after a GPS reset. Call immediately after pros::delay() post-requestGpsReset().
+// No-op when FIELD_ROTATION_180 is false.
 #if FIELD_ROTATION_180
     #define APPLY_FIELD_ROTATION() do { \
         globalX = -globalX;             \
@@ -127,9 +130,9 @@ void visionTest() {
     VisionProfile vp = VISION_LONG_GOAL_FWD;  // start from current named profile
 
     // ── Motion shape ──────────────────────────────────────────────────────────
-    vp.drive.breakDistance          = 40.0;   // %
+    vp.drive.breakDistance          = 35.0;   // %
     vp.drive.minSpeed               = 15.0;   // %
-    vp.drive.maxSpeed               = 40.0;   // %
+    vp.drive.maxSpeed               = 50.0;   // %
     vp.drive.distanceTolerance      = 2.0;    // cm
     vp.drive.timeout                = 5.0;    // s
     vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
@@ -143,20 +146,21 @@ void visionTest() {
     vp.drive.accelHeadingScaling    = 0.2;
     vp.drive.decelHeadingScaling    = 0.1;
     vp.drive.approachHeadingScaling = 0.1;
-    vp.drive.headingLockDistance    = 5.0;   // cm
+    vp.drive.headingLockDistance    = 15.0;   // cm
 
     // ── Traction / ABS ────────────────────────────────────────────────────────
     vp.drive.launchVoltage          = 6.0;    // V
     vp.drive.accelFactor            = 1.2;
     vp.drive.slipThreshold          = 0.3;
     vp.drive.decelStepPercent       = 2.0;    // %
-    vp.drive.lockThreshold          = 0.50;
+    vp.drive.lockThreshold          = 0.3;
 
     // ── Circuit breaker ───────────────────────────────────────────────────────
     vp.drive.maxCurrentA            = 4.0;    // A — trips on goal contact
-    vp.drive.overcurrentDurationMs  = 250;    // ms
+    vp.drive.overcurrentDurationMs  = 500;    // ms
 
     // ── Vision fusion ─────────────────────────────────────────────────────────
+    vp.kp_vision_heading            = 0.05;   // heading PID gain after vision locks
     vp.kp_distToHeadScaling         = 5.0;
 
     // ── Object detection filter ───────────────────────────────────────────────
@@ -166,7 +170,7 @@ void visionTest() {
     vp.minY                         = 0;
     vp.maxY                         = 240;
 
-    visionForwardToPoint(aiVision_orangeBase, 200, 60.0, 120.0, vp);
+    visionForwardToPoint(aiVision_orangeBase, 220, 60.0, 120.0, vp);
 }
 
 // Prints the route planner obstacle grid to brain screen.
@@ -217,6 +221,42 @@ void coordinateFinder() {
     startCoordinateFinder();
 }
 
+// Push robot around to compare live GPS readings vs odometry.
+// GPS raw X/Y shown alongside odometry X/Y, error, and reset status.
+// Press A on controller to trigger a GPS reset at any time.
+void gpsTest() {
+    setStartPosition(0.0, 0.0, 0.0);
+    startOdometryTask();
+
+    pros::screen::erase();
+    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "GPS TEST — push robot around");
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "A = request GPS reset");
+
+    while (true) {
+        pros::gps_position_s_t gpsPos = gpsSensor.get_position();
+        double gpsErr = gpsSensor.get_error();
+        bool gpsOk = (gpsErr != PROS_ERR_F && gpsErr < GPS_MAX_ERROR_M);
+
+        if (Controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
+            requestGpsReset();
+        }
+
+        pros::screen::print(pros::E_TEXT_MEDIUM, 2, "GPS raw  X:%.1f Y:%.1f cm",
+            gpsPos.x * 100.0, gpsPos.y * 100.0);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "GPS err: %.4fm  %s",
+            gpsErr, gpsOk ? "OK" : "WEAK");
+        pros::screen::print(pros::E_TEXT_MEDIUM, 4, "Odom     X:%.1f Y:%.1f cm",
+            globalX, globalY);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 5, "Heading: %.1f deg",
+            getContinuousStandardHeading());
+        pros::screen::print(pros::E_TEXT_MEDIUM, 6, "Reset: %s  inProg:%d",
+            gpsResetSucceeded.load() ? "OK" : "FAIL",
+            (int)gpsResetInProgress.load());
+
+        pros::delay(100);
+    }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // FIELD TARGETS TEST
 // ══════════════════════════════════════════════════════════════════════════════
@@ -224,7 +264,7 @@ void fieldTargetsTest() {
     for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
     pros::screen::erase();
 
-    setStartPosition(-124.5, -34.5, 180.0);
+    setStartPosition(124.5, 34.5, 0.0);
     startOdometryTask();
 
     // GPS reset before routing — wait up to 200ms for task to finish
@@ -233,24 +273,55 @@ void fieldTargetsTest() {
     pros::delay(200);  // 8 samples × 15ms = 120ms; 200ms gives it room to complete
     //APPLY_FIELD_ROTATION();
 
-
     pros::lcd::print(0, "START X:%.0f Y:%.0f H:%.0f",
                      globalX, globalY, getContinuousStandardHeading());
 
-    NavResult result = navigateTo(LONG_GOAL_NE);
+    NavResult 
+    result = navigateTo(LOADER_NW);
+    result = navigateTo(LOADER_NE);
+    result = navigateTo(LOADER_SW);
+    result = navigateTo(LOADER_SE);
 
-     const char* resultStr =
-         result == NavResult::SUCCESS       ? "SUCCESS"  :
-         result == NavResult::BLIND_CONTACT ? "CONTACT"  :
-         result == NavResult::BLIND_TIMEOUT ? "TIMEOUT"  :
-         result == NavResult::VISION_LOST   ? "VIS LOST" : "BLOCKED";
+    const char* resultStr =
+        result == NavResult::SUCCESS       ? "SUCCESS"  :
+        result == NavResult::BLIND_CONTACT ? "CONTACT"  :
+        result == NavResult::BLIND_TIMEOUT ? "TIMEOUT"  :
+        result == NavResult::VISION_LOST   ? "VIS LOST" : "BLOCKED";
 
-     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "RESULT: %s", resultStr);
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "RESULT: %s", resultStr);
 
-     Controller.rumble(result == NavResult::SUCCESS ||
-                       result == NavResult::BLIND_CONTACT ? "." : "---");
+    Controller.rumble(result == NavResult::SUCCESS ||
+                      result == NavResult::BLIND_CONTACT ? "." : "---");
 
     // Hold screen forever so RESULT and END position stay visible after run
+    while (true) {
+        pros::delay(100);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SWEEP TEST
+// Runs visionSweepNorth() standalone — no match timer, no Jetson required.
+// Alliance set via setAllianceRed() in the selector before calling this.
+// ══════════════════════════════════════════════════════════════════════════════
+void sweepTest(bool isRed) {
+    for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
+    pros::screen::erase();
+
+    setStartPosition(0.0, 0.0, 0.0);
+    startOdometryTask();
+
+    requestGpsReset();
+    pros::delay(200);
+
+    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "SWEEP TEST — 30s");
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Alliance: %s", isRed ? "RED" : "BLUE");
+
+    visionSweepNorth();
+
+    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "SWEEP DONE — at nearest goal");
+    Controller.rumble(".");
+
     while (true) {
         pros::delay(100);
     }
@@ -269,8 +340,11 @@ void autonSelector() {
         "System Test",
         "Coordinate Finder",
         "Vision Test",
+        "GPS Test",
+        "Sweep Test (Red)",
+        "Sweep Test (Blue)",
     };
-    const int numAutons = 7;
+    const int numAutons = 10;
     int autonMode = 0;
 
     pros::screen::erase();
@@ -299,6 +373,9 @@ void autonSelector() {
                 case 4:  systemTest();                                  break;
                 case 5:  coordinateFinder();                            break;
                 case 6:  visionTest();                                  break;
+                case 7:  gpsTest();                                     break;
+                case 8:  setAllianceRed(true);  sweepTest(true);             break;
+                case 9:  setAllianceRed(false); sweepTest(false);            break;
             }
             break;
         }

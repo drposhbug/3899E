@@ -407,11 +407,10 @@ NavResult navigateTo(TargetID id,
         uint32_t wpStart = pros::millis();
         forwardToPoint(path.x[i], path.y[i], wpProfile);
 
-        // Timed out means forwardToPoint couldn't reach the waypoint — something blocked.
-        // Request GPS reset before returning so the reroute starts from a corrected position.
+        // Timeout on a transit waypoint = obstacle or position drift.
+        // GPS reset and continue to the next waypoint — do not abort the route.
         if (pros::millis() - wpStart >= static_cast<uint32_t>(wpProfile.timeout * 1000.0 - 50.0)) {
             requestGpsReset();
-            return NavResult::BLOCKED_REROUTE;
         }
     }
 
@@ -426,10 +425,11 @@ NavResult navigateTo(TargetID id,
         return NavResult::SUCCESS;
     }
 
-    // ── Turn to face target — long goals use turnToPoint, others use approachHeading ──
-    if (t.type == TargetType::LONG_GOAL) {
-        // turnToPoint computes correct heading from current position to target
-        // directly — no hardcoded approach heading needed
+    // ── Turn to face target ───────────────────────────────────────────────────
+    // Long goals and match loaders use turnToPoint — computes correct heading
+    // from current position to target directly.
+    // Center goals and park zones use approachHeading (diagonal/wall headings).
+    if (t.type == TargetType::LONG_GOAL || t.type == TargetType::MATCH_LOADER) {
         turnToPoint(t.targetX, t.targetY, selectTurnProfile(180.0));
     } else {
         double currentH     = getContinuousStandardHeading();
@@ -442,25 +442,30 @@ NavResult navigateTo(TargetID id,
         if (fabs(delta) > 5.0)
             turnOdometry(currentH + delta, selectTurnProfile(fabs(delta)));
     }
-    pros::delay(150);
 
-    // ── Phase 2: vision approach — long goals, 24" bot only ──────────────────
-    // visionForwardToPoint fuses odometry + AI Vision (orangeBase signature).
-    // VISION_LONG_GOAL_FWD circuit breaker (4A / 500ms) cuts power on contact.
-    // After contact: GPS reset runs non-blocking — scoring routine goes here.
-    // All other target types: A* + approach turn is sufficient for now.
+    // ── Phase 2: final approach — target-type specific, 24" bot ──────────────
 #if ACTIVE_BOT == BOT_24INCH
     if (t.type == TargetType::LONG_GOAL) {
+        // 1s settle after approach turn before vision locks on
+        pros::delay(1000);
+
+        // Vision-guided approach — orangeBase signature, circuit breaker on contact
         visionForwardToPoint(aiVision_orangeBase,
-                             200,              // 200px width — orangeBase close approach
+                             220,              // stop when orangeBase reaches 220px wide
                              t.targetX, t.targetY,
                              VISION_LONG_GOAL_FWD);
 
-        // ── Scoring routine placeholder ───────────────────────────────────────
         // GPS reset is non-blocking — task runs in parallel with scoring.
-        // Full scoring sequence replaces this comment when implemented.
         requestGpsReset();
 
+        return NavResult::SUCCESS;
+    }
+
+    if (t.type == TargetType::MATCH_LOADER) {
+        // Final drive to post — wall contact (stall/overcurrent/timeout) = SUCCESS.
+        // No settle delay needed — odometry approach, no vision lock.
+        forwardToPoint(t.targetX, t.targetY, SHORT_FWD);
+        requestGpsReset();
         return NavResult::SUCCESS;
     }
 #endif
@@ -693,6 +698,153 @@ void runAIMatch() {
 // SECTION 6 — Behavior stubs
 // ============================================================================
 
+// ── visionSweepNorth ──────────────────────────────────────────────────────────
+// Reactive block sweep using VEX AI Vision sensor.
+//
+// Loop:
+//   1. Look for alliance-colour blocks via aiVision
+//   2. Block visible → steer toward it and drive
+//   3. No block visible → spin in place until one appears (max 360°)
+//   4. Stall detected (hit wall/block pile) → back up 20cm, then scan again
+//   5. After 30s → navigate to nearest long goal
+//
+// Alliance colour selected from g_isRedAlliance set by setAllianceRed().
+// Intake runs continuously throughout.
+//
+// Tuning constants at top — do not inline-override elsewhere.
+// ─────────────────────────────────────────────────────────────────────────────
+
 void visionSweepNorth() {
-    // Not yet implemented
+
+    // ── Tuning constants ──────────────────────────────────────────────────────
+    static constexpr double SWEEP_DURATION_MS  = 30000.0; // total sweep time (ms)
+    static constexpr double SWEEP_TURN_SPEED   = 25.0;    // % speed while scanning
+    static constexpr double SCAN_MAX_DEG       = 360.0;   // max scan before giving up
+    static constexpr double SCAN_STEP_MS       = 20.0;    // scan loop interval (ms)
+    static constexpr int    MIN_BLOCK_WIDTH_PX = 8;       // minimum detection width (px)
+    static constexpr int    CHASE_PIXEL_WIDTH  = 60;      // stop chase when block this wide
+    static constexpr double CHASE_DISTANCE_CM  = 50.0;    // safety distance cap per chase
+    static constexpr double BACKUP_MS          = 500.0;   // ms to back up after each chase
+
+    // ── visionOnly profile for block chasing ─────────────────────────────────
+    // Seeded from DEFAULT_VISION — short timeout, low current trip for block contact.
+    VisionProfile sweepProfile = DEFAULT_VISION;
+    sweepProfile.drive.maxSpeed            = 40.0;   // % — slow enough to intake reliably
+    sweepProfile.drive.minSpeed            = 15.0;   // %
+    sweepProfile.drive.timeout             = 3.0;    // s per chase — move on if no contact
+    sweepProfile.drive.maxCurrentA         = 4.0;    // A — trips on block/wall contact
+    sweepProfile.drive.overcurrentDurationMs = 300;  // ms
+    sweepProfile.minObjectWidth            = MIN_BLOCK_WIDTH_PX;
+    sweepProfile.kp_distToHeadScaling      = 0.4;
+
+    // ── Alliance colour ───────────────────────────────────────────────────────
+    pros::AIVision::Color blockSig = g_isRedAlliance ? aiVision_redCube : aiVision_blueCube;
+
+    // ── Intake runs for full sweep duration ───────────────────────────────────
+    intakeHopperStart(SWEEP_DURATION_MS + 2000.0, 80.0, 0.0, true);
+
+    uint32_t sweepStart = pros::millis();
+
+    // ── Main sweep loop ───────────────────────────────────────────────────────
+    while (pros::millis() - sweepStart < static_cast<uint32_t>(SWEEP_DURATION_MS)) {
+
+        // 1. CHECK — is a block visible right now?
+        bool blockVisible = false;
+        {
+            int cnt = aiVision.get_object_count();
+            for (int i = 0; i < cnt; i++) {
+                pros::AIVision::Object o = aiVision.get_object(i);
+                if (pros::AIVision::is_type(o, pros::AivisionDetectType::color) &&
+                    o.id == blockSig.id &&
+                    o.object.color.width >= MIN_BLOCK_WIDTH_PX) {
+                    blockVisible = true;
+                    break;
+                }
+            }
+        }
+
+        if (blockVisible) {
+            // 2. CHASE — visionOnly drives toward block, exits on:
+            //    - block fills CHASE_PIXEL_WIDTH px (close enough to intake)
+            //    - overcurrent trip (wall or block pile contact)
+            //    - timeout (3s)
+            //    - encoder distance cap (CHASE_DISTANCE_CM)
+            visionOnly(blockSig, CHASE_PIXEL_WIDTH, CHASE_DISTANCE_CM, sweepProfile);
+
+            // 3. BACK UP — clear contact point so we can turn and scan again
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            int32_t backMv = static_cast<int32_t>(-sweepProfile.drive.minSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+            leftDrive.move_voltage(backMv);
+            rightDrive.move_voltage(backMv);
+            pros::delay(static_cast<uint32_t>(BACKUP_MS));
+            leftDrive.move(0);
+            rightDrive.move(0);
+            pros::delay(100);
+
+        } else {
+            // 4. SCAN — spin until block appears or 360° elapsed
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+            int32_t turnMv  = static_cast<int32_t>(SWEEP_TURN_SPEED * 0.01 * absoluteMaxVoltage * 1000.0);
+            double  degTurned = 0.0;
+            double  lastH     = getContinuousStandardHeading();
+
+            while (degTurned < SCAN_MAX_DEG &&
+                   pros::millis() - sweepStart < static_cast<uint32_t>(SWEEP_DURATION_MS)) {
+
+                bool scanFound = false;
+                {
+                    int scnt = aiVision.get_object_count();
+                    for (int si = 0; si < scnt; si++) {
+                        pros::AIVision::Object so = aiVision.get_object(si);
+                        if (pros::AIVision::is_type(so, pros::AivisionDetectType::color) &&
+                            so.id == blockSig.id &&
+                            so.object.color.width >= MIN_BLOCK_WIDTH_PX) {
+                            scanFound = true;
+                            break;
+                        }
+                    }
+                }
+                if (scanFound) break;
+
+                leftDrive.move_voltage( turnMv);
+                rightDrive.move_voltage(-turnMv);
+                pros::delay(static_cast<uint32_t>(SCAN_STEP_MS));
+
+                double newH = getContinuousStandardHeading();
+                degTurned  += std::fabs(newH - lastH);
+                lastH       = newH;
+            }
+
+            leftDrive.move(0);
+            rightDrive.move(0);
+            pros::delay(50);
+        }
+    }
+
+    // ── Sweep done — stop everything ─────────────────────────────────────────
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.move(0);
+    rightDrive.move(0);
+    intakeHopperStop();
+
+    // ── Navigate to nearest long goal ─────────────────────────────────────────
+    updateOdometry();
+
+    const TargetID longGoals[4] = { LONG_GOAL_NE, LONG_GOAL_SE, LONG_GOAL_NW, LONG_GOAL_SW };
+    TargetID nearestGoal = LONG_GOAL_NE;
+    double   bestDist    = 1e9;
+
+    for (int i = 0; i < 4; i++) {
+        const NamedTarget& t = getTarget(longGoals[i]);
+        double dx = t.approachX - globalX;
+        double dy = t.approachY - globalY;
+        double d  = std::hypot(dx, dy);
+        if (d < bestDist) { bestDist = d; nearestGoal = longGoals[i]; }
+    }
+
+    navigateTo(nearestGoal);
 }

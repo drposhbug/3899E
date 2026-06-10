@@ -96,7 +96,9 @@ void autonomous()
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
     //fieldTargetsTest();
-    visionTest();
+    visionSweepNorth();
+    //gpsTest();
+    //visionTest();
     //navTest();
     //runAIMatchRoute();
     //routeTest();

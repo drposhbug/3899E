@@ -1834,8 +1834,14 @@ void visionForwardToPoint(pros::AIVision::Color targetSignature,
     // dirSign negated at motor output each tick — see forwardToPoint for explanation
     double dirSign = reversed ? -1.0 : 1.0;
 
-    PID headingPID(p.drive.kp_heading, p.drive.ki_heading, p.drive.kd_heading);
-    headingPID.pidReset();
+    // Two separate PID controllers — odometry phase and vision phase.
+    // odomHeadingPID: active before vision locks, uses p.drive.kp/ki/kd_heading.
+    // visionHeadingPID: active after vision locks, uses p.kp_vision_heading.
+    // Switching via reference — activePID always points to the correct one.
+    PID odomHeadingPID(p.drive.kp_heading, p.drive.ki_heading, p.drive.kd_heading);
+    PID visionHeadingPID(p.kp_vision_heading, 0.0, 0.0);
+    odomHeadingPID.pidReset();
+    visionHeadingPID.pidReset();
 
     double maxSpeedVoltage       = p.drive.maxSpeed * 0.01 * absoluteMaxVoltage;
     double minSpeedVoltage       = p.drive.minSpeed * 0.01 * absoluteMaxVoltage;
@@ -1867,6 +1873,7 @@ void visionForwardToPoint(pros::AIVision::Color targetSignature,
     bool   visionCurrentlyTracked     = false; // True only if valid object this tick
     bool   visionDropoutHandled       = false; // Prevents dropout block re-firing every tick
     double lastFusedHeading           = 0.0;   // Last heading while vision was active
+    bool   visionPIDActive            = false; // Switches to visionHeadingPID on first lock
 
     // Heading lock state — prevents atan2 singularity near target
     bool   headingLocked      = false;
@@ -2040,7 +2047,16 @@ void visionForwardToPoint(pros::AIVision::Color targetSignature,
             }
         }
 
-        double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
+        // ── Switch to vision PID on first lock ───────────────────────────────
+        // Before vision: odomHeadingPID uses p.drive.kp/ki/kd_heading.
+        // After vision locks: visionHeadingPID uses p.kp_vision_heading.
+        // Reference switch fires once — visionPIDActive latches.
+        if (visionEverTracked && !visionPIDActive) {
+            visionHeadingPID.pidReset();  // clear state before taking over
+            visionPIDActive = true;
+        }
+        PID& activePID = visionPIDActive ? visionHeadingPID : odomHeadingPID;
+        double headingCorrection = activePID.calculate(fusedTargetHeading, currentGyroHeading);
 
         // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 7, "odomH:%.1f fusedH:%.1f", odometryTargetHeading, fusedTargetHeading);
         // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 8, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);

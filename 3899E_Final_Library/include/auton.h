@@ -12,6 +12,7 @@ void coordinateFinder();   // live GPS/odometry coordinate display
 void navTest();            // test odometry-based straight drive
 void visionTest();         // test vision-based drive
 void fieldTargetsTest();   // test navigateTo() end-to-end for a named target
+void gpsTest();            // test GPS functionality
 
 // ── Selector — called from autonomous() in main.cpp ──────────────────────────
 void autonSelector();

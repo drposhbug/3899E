@@ -41,6 +41,10 @@ static const double MATCH_LOADER_STANDOFF_CM = 45.0;   // unused — ML shares a
 // Goals face inward (toward field center), ML posts face the wall.
 static const double SHARED_APPROACH_X = 122.0;
 
+// Loader approach is 30cm further infield than the shared goal/loader approach point.
+// Gives more room for the forwardToPoint final drive-in to the post.
+static const double LOADER_APPROACH_X = 92.0;  // SHARED_APPROACH_X - 30cm
+
 // Park zone approach: 3 cells (45.72cm) infield of park target center.
 // RED_PARK_X=-161.41 → approach at -161.41+45.72=-115.69cm
 // BLUE_PARK_X=+161.41 → approach at +161.41-45.72=+115.69cm
@@ -109,24 +113,24 @@ const NamedTarget FIELD_TARGETS[TARGET_COUNT] = {
     {   // LONG_GOAL_NE — approach from east corridor, face West into goal
         LONG_GOAL_NE, TargetType::LONG_GOAL,
         SHARED_APPROACH_X, ML_Y_NORTH, 270.0,
-        60.0, 120.0
+        LONG_GOAL_X_EAST, LONG_GOAL_Y_NORTH
     },
     {   // LONG_GOAL_SE — approach from east corridor, face West into goal
         LONG_GOAL_SE, TargetType::LONG_GOAL,
         SHARED_APPROACH_X, ML_Y_SOUTH, 270.0,
-        60.0, -120.0
+        LONG_GOAL_X_EAST, LONG_GOAL_Y_SOUTH
     },
 
     // ── West long goal — shared approach with LOADER_NW/SW ───────────────────
     {   // LONG_GOAL_NW — approach from west corridor, face East into goal
         LONG_GOAL_NW, TargetType::LONG_GOAL,
         -SHARED_APPROACH_X, ML_Y_NORTH, 90.0,
-        -60.0, 120.0
+        LONG_GOAL_X_WEST, LONG_GOAL_Y_NORTH
     },
     {   // LONG_GOAL_SW — approach from west corridor, face East into goal
         LONG_GOAL_SW, TargetType::LONG_GOAL,
         -SHARED_APPROACH_X, ML_Y_SOUTH, 90.0,
-        -60.0, -120.0
+        LONG_GOAL_X_WEST, LONG_GOAL_Y_SOUTH
     },
 
     // ── Center goals — diagonal approach, face origin (0,0) ──────────────────
@@ -152,27 +156,27 @@ const NamedTarget FIELD_TARGETS[TARGET_COUNT] = {
         -CENTER_GOAL_HALF_EXTENT * 0.70710678,  CENTER_GOAL_HALF_EXTENT * 0.70710678
     },
 
-    // ── Match loaders — shared approach with long goals ───────────────────────
-    // Same XY as corresponding goal approach. Faces wall (toward post).
+    // ── Match loaders — approach 30cm further back than long goal approach ──────
+    // Loader approach X=±92cm, Y=±121cm (matches target Y)
     {   // LOADER_NE — east post north, face East toward post
         LOADER_NE, TargetType::MATCH_LOADER,
-        SHARED_APPROACH_X, ML_Y_NORTH, 90.0,
-        ML_X_EAST, ML_Y_NORTH
+        LOADER_APPROACH_X, 121.0, 90.0,
+        ML_X_EAST, 121.0
     },
     {   // LOADER_SE — east post south, face East toward post
         LOADER_SE, TargetType::MATCH_LOADER,
-        SHARED_APPROACH_X, ML_Y_SOUTH, 90.0,
-        ML_X_EAST, ML_Y_SOUTH
+        LOADER_APPROACH_X, -121.0, 90.0,
+        ML_X_EAST, -121.0
     },
     {   // LOADER_SW — west post south, face West toward post
         LOADER_SW, TargetType::MATCH_LOADER,
-        -SHARED_APPROACH_X, ML_Y_SOUTH, 270.0,
-        ML_X_WEST, ML_Y_SOUTH
+        -LOADER_APPROACH_X, -121.0, 270.0,
+        ML_X_WEST, -121.0
     },
     {   // LOADER_NW — west post north, face West toward post
         LOADER_NW, TargetType::MATCH_LOADER,
-        -SHARED_APPROACH_X, ML_Y_NORTH, 270.0,
-        ML_X_WEST, ML_Y_NORTH
+        -LOADER_APPROACH_X, 121.0, 270.0,
+        ML_X_WEST, 121.0
     },
 
     // ── Parking — approach 1 cell outside park zone, face wall ───────────────

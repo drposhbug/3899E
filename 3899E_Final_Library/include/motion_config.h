@@ -121,6 +121,12 @@ struct VisionProfile {
     StraightProfile drive;
 
     // ── Vision heading fusion ─────────────────────────────────────────────────
+    // kp_vision_heading: heading PID gain used AFTER vision first locks.
+    // Replaces drive.kp_heading once a valid detection is acquired.
+    // Tune independently — vision-guided correction typically needs different
+    // gain than pure odometry. drive.kp_heading still governs pre-lock behaviour.
+    double kp_vision_heading;
+
     // kp_distToHeadScaling: aggressiveness of vision correction.
     // 0.0 = hold odometry heading (ignores vision), 1.0 = full snap to object.
     double kp_distToHeadScaling;

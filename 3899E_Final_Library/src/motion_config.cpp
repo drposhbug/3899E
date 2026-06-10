@@ -183,8 +183,8 @@ const VisionProfile DEFAULT_VISION = {
     .drive = {
         .breakDistance          = 30.0,
         .minSpeed               = 13.0,
-        .maxSpeed               = 80.0,
-        .distanceTolerance      = 1.0,
+        .maxSpeed               = 40.0,
+        .distanceTolerance      = 2.0,
         .timeout                = 5.0,
         .brakeMode              = pros::E_MOTOR_BRAKE_COAST,
 
@@ -220,51 +220,52 @@ const VisionProfile DEFAULT_VISION = {
 // VISION_LONG_GOAL_FWD — forward vision approach to long goal (24" bot)
 // Seeded from SHORT_FWD — all fields exposed for independent tuning.
 // Used by: navigateTo() Phase 2 for LONG_GOAL_* targets, BOT_24INCH only.
-// Call site: visionForwardToPoint(aiVision_orangeBase, 200, targetX, targetY, VISION_LONG_GOAL_FWD)
+// Call site: visionForwardToPoint(aiVision_orangeBase, 220, targetX, targetY, VISION_LONG_GOAL_FWD)
 // ──────────────────────────────────────────────────────────────────────────────
 const VisionProfile VISION_LONG_GOAL_FWD = {
     .drive = {
         // ── Motion shape ──────────────────────────────────────────────────────
-        .breakDistance          = 85.0,   // % — early decel for slow final approach (SHORT_FWD=30)
-        .minSpeed               = 15.0,   // % (SHORT_FWD=13)
-        .maxSpeed               = 30.0,   // % — slow for precision (SHORT_FWD=80)
-        .distanceTolerance      = 1.0,    // cm
-        .timeout                = 5.0,    // s (SHORT_FWD=8)
+        .breakDistance          = 35.0,   // %
+        .minSpeed               = 15.0,   // %
+        .maxSpeed               = 30.0,   // %
+        .distanceTolerance      = 2.0,    // cm
+        .timeout                = 3.0,    // s
         .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
 
-        // ── Heading PID — low because vision handles most steering ────────────
-        .kp_heading             = 0.05,   // (SHORT_FWD=0.4)
-        .ki_heading             = 0.0,    // (SHORT_FWD=0.01)
-        .kd_heading             = 0.0,    // (SHORT_FWD=0.05)
+        // ── Heading PID ───────────────────────────────────────────────────────
+        .kp_heading             = 0.25,
+        .ki_heading             = 0.0,
+        .kd_heading             = 0.0,
 
         // ── Phase heading scaling ─────────────────────────────────────────────
         .accelHeadingScaling    = 0.2,
-        .decelHeadingScaling    = 0.1,    // (SHORT_FWD=0.2)
-        .approachHeadingScaling = 0.1,    // (SHORT_FWD=0.2)
+        .decelHeadingScaling    = 0.1,
+        .approachHeadingScaling = 0.1,
 
-        .headingLockDistance    = 15.0,   // cm (SHORT_FWD=8)
+        .headingLockDistance    = 5.0,    // cm
 
         // ── Traction / ABS ────────────────────────────────────────────────────
-        .launchVoltage          = 6.0,
+        .launchVoltage          = 3.0,    // V — gentle launch
         .accelFactor            = 1.2,
         .slipThreshold          = 0.3,
         .decelStepPercent       = 2.0,
-        .lockThreshold          = 0.3,
+        .lockThreshold          = 0.50,
 
         // ── Circuit breaker — trips on goal contact ───────────────────────────
-        .maxCurrentA            = 4.0,    // A (SHORT_FWD=8)
-        .overcurrentDurationMs  = 500,    // ms
+        .maxCurrentA            = 2.0,    // A
+        .overcurrentDurationMs  = 250,    // ms — faster trip than default
     },
 
     // ── Vision fusion ─────────────────────────────────────────────────────────
-    .kp_distToHeadScaling   = 5.0,   // how aggressively vision snaps heading onto target
+    .kp_vision_heading      = 0.04,
+    .kp_distToHeadScaling   = 5.0,
 
     // ── Object detection filter ───────────────────────────────────────────────
-    .minObjectWidth         = 10,    // px — minimum valid detection size
-    .minX                   = 0,     // px — left bound of detection zone
-    .maxX                   = 320,   // px — right bound
-    .minY                   = 0,     // px — top bound
-    .maxY                   = 240,   // px — bottom bound
+    .minObjectWidth         = 10,
+    .minX                   = 0,
+    .maxX                   = 320,
+    .minY                   = 0,
+    .maxY                   = 240,
 };
 
 
@@ -288,29 +289,29 @@ const VisionProfile VISION_LONG_GOAL_FWD = {
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile SHORT_FWD = {
     .breakDistance          = 30.0,
-    .minSpeed               = 13.0,
-    .maxSpeed               = 80.0,
+    .minSpeed               = 15.0,
+    .maxSpeed               = 40.0,
     .distanceTolerance      = 1.0,
-    .timeout                = 8.0,
+    .timeout                = 2.0,
     .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
 
-    .kp_heading             = 0.4,
-    .ki_heading             = 0.01,
-    .kd_heading             = 0.05,
+    .kp_heading             = 0.8,
+    .ki_heading             = 0.0,
+    .kd_heading             = 0.0,
 
-    .accelHeadingScaling    = 0.2,
-    .decelHeadingScaling    = 0.2,
-    .approachHeadingScaling = 0.2,
+    .accelHeadingScaling    = 0.1,
+    .decelHeadingScaling    = 0.05,
+    .approachHeadingScaling = 0.05,
 
-    .headingLockDistance    = 8.0,
+    .headingLockDistance    = 3.0,
 
-    .launchVoltage          = 6.0,
+    .launchVoltage          = 2.0,
     .accelFactor            = 1.2,
     .slipThreshold          = 0.3,
     .decelStepPercent       = 2.0,
-    .lockThreshold          = 0.3,
-    .maxCurrentA            = 8.0,
-    .overcurrentDurationMs  = 500,
+    .lockThreshold          = 0.4,
+    .maxCurrentA            = 4.0,
+    .overcurrentDurationMs  = 200,
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -321,7 +322,7 @@ const StraightProfile SHORT_FWD = {
 const StraightProfile MID_FWD = {
     .breakDistance          = 30.0,
     .minSpeed               = 13.0,
-    .maxSpeed               = 80.0,
+    .maxSpeed               = 70.0,
     .distanceTolerance      = 1.0,
     .timeout                = 8.0,
     .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
@@ -341,8 +342,8 @@ const StraightProfile MID_FWD = {
     .slipThreshold          = 0.3,
     .decelStepPercent       = 2.0,
     .lockThreshold          = 0.3,
-    .maxCurrentA            = 8.0,
-    .overcurrentDurationMs  = 500,
+    .maxCurrentA            = 4.0,
+    .overcurrentDurationMs  = 250,
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -350,14 +351,14 @@ const StraightProfile MID_FWD = {
 // Seeded from LOADED_MID_FWD_80.
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile LONG_FWD = {
-    .breakDistance          = 30.0,
-    .minSpeed               = 13.0,
-    .maxSpeed               = 80.0,
-    .distanceTolerance      = 1.0,
-    .timeout                = 8.0,
+    .breakDistance          = 50.0,
+    .minSpeed               = 17.0,
+    .maxSpeed               = 90.0,
+    .distanceTolerance      = 3.0,
+    .timeout                = 5.0,
     .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
 
-    .kp_heading             = 1.0,
+    .kp_heading             = 1.2,
     .ki_heading             = 0.0,
     .kd_heading             = 0.0,
 
@@ -365,15 +366,15 @@ const StraightProfile LONG_FWD = {
     .decelHeadingScaling    = 0.1,
     .approachHeadingScaling = 0.1,
 
-    .headingLockDistance    = 3.0,
+    .headingLockDistance    = 5.0,
 
     .launchVoltage          = 6.0,
     .accelFactor            = 1.2,
     .slipThreshold          = 0.3,
     .decelStepPercent       = 2.0,
-    .lockThreshold          = 0.3,
-    .maxCurrentA            = 8.0,
-    .overcurrentDurationMs  = 500,
+    .lockThreshold          = 0.5,
+    .maxCurrentA            = 6.0,
+    .overcurrentDurationMs  = 250,
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
