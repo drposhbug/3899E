@@ -669,8 +669,9 @@ bin/ai.cpp.o: src/ai.cpp include/ai.h include/jetson_comms.h \
  include/pros/vision.h include/route_planner.h include/robot_geometry.h \
  include/robot_config.h include/robot_config.h include/robot_geometry.h \
  include/route_planner.h include/odometry.h include/navigation.h \
- include/utils.h include/motion_config.h include/autontasks.h \
- include/pid.h include/utils.h include/field_targets.h include/ai.h
+ include/utils.h include/motion_config.h include/motion_config.h \
+ include/autontasks.h include/pid.h include/utils.h \
+ include/field_targets.h include/ai.h
 include/ai.h:
 include/jetson_comms.h:
 include/main.h:
@@ -1423,6 +1424,7 @@ include/route_planner.h:
 include/odometry.h:
 include/navigation.h:
 include/utils.h:
+include/motion_config.h:
 include/motion_config.h:
 include/autontasks.h:
 include/pid.h:

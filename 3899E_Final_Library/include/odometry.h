@@ -29,6 +29,13 @@ extern double prevRotation;      // previous heading (degrees)
 // ── Encoder configuration ─────────────────────────────────────────────────────
 extern bool xEncoderEnabled;  // enable/disable lateral encoder
 
+// ── GPS reset atomic handoff ──────────────────────────────────────────────────
+// The GPS reset task writes here; updateOdometry() applies the correction safely
+// between ticks to avoid racing with globalX += deltaXPos accumulation.
+#include <atomic>
+extern std::atomic<bool> pendingGpsReset;  // set by applyGpsReset(), cleared by updateOdometry()
+void applyGpsReset(double newX_cm, double newY_cm);  // called by GPS task — do not call directly
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CORE ODOMETRY UPDATE
 // Called each iteration of the odometry task (~10 ms).
@@ -42,13 +49,6 @@ void updateOdometry();
 // Defaults to the field origin (0, 0) facing North (0degrees).
 // ══════════════════════════════════════════════════════════════════════════════
 void setStartPosition(double startX = 0.0, double startY = 0.0, double startHeading = 0.0);
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Snaps globalX/globalY to GPS-reported field position when robot is stationary.
-// Returns true  — reset accepted, GPS error within GPS_MAX_ERROR_M.
-// Returns false — GPS signal too weak or sensor not connected; odometry unchanged.
-// ══════════════════════════════════════════════════════════════════════════════
-bool gpsReset();
 
 // ══════════════════════════════════════════════════════════════════════════════
 // NAVIGATION HELPERS

@@ -12,6 +12,10 @@
 
 void initialize()
 {
+    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "GPS diag start");
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "GPS err:%.3fm", gpsSensor.get_error());
+    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Raw X:%.3f Y:%.3fm",
+    gpsSensor.get_position().x, gpsSensor.get_position().y);
     passiveEncoderLeft.set_reversed(true);
     passiveEncoderRight.set_reversed(false);
     passiveEncoderX.set_reversed(true);
@@ -53,9 +57,10 @@ void initialize()
     //     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "GPS err:%.3fm", gpsSensor.get_error());
     //     pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Raw X:%.3f Y:%.3fm",
     //         gpsSensor.get_position().x, gpsSensor.get_position().y);
-    //     bool gpsOk = gpsReset();
-    //     pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Reset: %s", gpsOk ? "OK" : "FAIL");
-    //     pros::screen::print(pros::E_TEXT_MEDIUM, 4, "Odom X:%.1f Y:%.1fcm", globalX, globalY);
+    //     requestGpsReset();
+    //     pros::delay(200);
+    //     pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Reset: %s  X:%.1f Y:%.1fcm",
+    //         gpsResetSucceeded.load() ? "OK" : "FAIL", globalX, globalY);
     //     pros::delay(100);
     // }
 

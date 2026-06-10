@@ -121,6 +121,12 @@ struct VisionProfile {
     StraightProfile drive;
 
     // ── Vision heading fusion ─────────────────────────────────────────────────
+    // kp_vision_heading: heading PID gain used AFTER vision first locks.
+    // Replaces drive.kp_heading once a valid detection is acquired.
+    // Tune independently — vision-guided correction typically needs different
+    // gain than pure odometry. drive.kp_heading still governs pre-lock behaviour.
+    double kp_vision_heading;
+
     // kp_distToHeadScaling: aggressiveness of vision correction.
     // 0.0 = hold odometry heading (ignores vision), 1.0 = full snap to object.
     double kp_distToHeadScaling;
@@ -148,5 +154,46 @@ extern const StraightProfile LOADED_MID_FWD_80;     // 24" bot loaded, forward, 
 extern const TurnProfile     DEFAULT_TURN;           // point turn (both sides drive)
 extern const TurnProfile     DEFAULT_PIVOT;          // pivot turn (one side brakes)
 extern const VisionProfile   DEFAULT_VISION;         // vision-guided approach
+extern const VisionProfile   VISION_LONG_GOAL_FWD;  // orangeBase forward approach, 24" bot long goal
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TIERED NAVIGATION PROFILES
+//
+// Selected automatically by selectFwdProfile / selectBwdProfile / selectTurnProfile
+// based on the distance or angle of each individual waypoint segment.
+//
+// ── Range thresholds — change ONLY here to reclassify segments ───────────────
+// Straight: SHORT = 1–STRAIGHT_SHORT_MAX_CM, MID = up to STRAIGHT_MID_MAX_CM,
+//           LONG = anything above.
+// Turn:     SHORT = 1–TURN_SHORT_MAX_DEG, MID = up to TURN_MID_MAX_DEG,
+//           LONG = anything above.
+// ─────────────────────────────────────────────────────────────────────────────
+constexpr double STRAIGHT_SHORT_MAX_CM = 50.0;   // cm  — SHORT/MID boundary
+constexpr double STRAIGHT_MID_MAX_CM   = 80.0;   // cm  — MID/LONG boundary
+constexpr double TURN_SHORT_MAX_DEG    = 50.0;   // deg — SHORT/MID boundary
+constexpr double TURN_MID_MAX_DEG      = 100.0;  // deg — MID/LONG boundary
+
+// ── Tiered forward straight profiles ─────────────────────────────────────────
+extern const StraightProfile SHORT_FWD;   // <= STRAIGHT_SHORT_MAX_CM
+extern const StraightProfile MID_FWD;     // <= STRAIGHT_MID_MAX_CM
+extern const StraightProfile LONG_FWD;    // >  STRAIGHT_MID_MAX_CM
+
+// ── Tiered backward straight profiles ────────────────────────────────────────
+extern const StraightProfile SHORT_BWD;   // <= STRAIGHT_SHORT_MAX_CM
+extern const StraightProfile MID_BWD;     // <= STRAIGHT_MID_MAX_CM
+extern const StraightProfile LONG_BWD;    // >  STRAIGHT_MID_MAX_CM
+
+// ── Tiered turn profiles ──────────────────────────────────────────────────────
+extern const TurnProfile SHORT_TURN;      // <= TURN_SHORT_MAX_DEG
+extern const TurnProfile MID_TURN;        // <= TURN_MID_MAX_DEG
+extern const TurnProfile LONG_TURN;       // >  TURN_MID_MAX_DEG
+
+// ── Selectors — return const ref to the correct named profile ─────────────────
+// Call with the measured segment distance or turn angle; profile is chosen
+// automatically from the thresholds above. No inline overrides at call sites.
+const StraightProfile& selectFwdProfile(double distCm);
+const StraightProfile& selectBwdProfile(double distCm);
+const TurnProfile&     selectTurnProfile(double degrees);
 
 #endif // MOTION_CONFIG_H

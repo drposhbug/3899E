@@ -15,7 +15,7 @@
 //     9   Intake Motor 2    (600 RPM, 11W, forward)
 //    11   Hood Motor        (200 RPM, 5.5W — fixed speed, no cartridge, forward)
 //    15   Upper Indexer     (200 RPM, 5.5W — fixed speed, no cartridge, reversed)
-//     3   GPS Sensor        (left side mount)
+//     4   GPS Sensor        (right side mount, 13.5cm right of center, centered lengthwise)
 //    16   Sort Motor        (200 RPM, 5.5W — colour sort flipper, no cartridge, forward)
 //    17   IMU
 //    20   Left  Encoder     (reversed)

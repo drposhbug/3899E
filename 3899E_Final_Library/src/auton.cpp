@@ -17,6 +17,7 @@
 
 #include "main.h"
 #include "robot_config.h"
+#include "motion_config.h"  // DEFAULT_TURN and all named motion profiles
 #include "navigation.h"
 #include "odometry.h"
 #include "autontasks.h"
@@ -24,6 +25,26 @@
 #include "route_planner.h"
 #include "robot_geometry.h"
 #include "field_targets.h"
+
+// ── Field orientation flag ────────────────────────────────────────────────────
+// HOME FIELD ONLY — set true when field strips are rotated 180° from standard.
+// Standard: GPS North (+Y) = red alliance wall.
+// 180°: GPS North is physically the blue alliance wall — negate both axes.
+// SET TO FALSE at competition venue where field is correctly oriented.
+// Each robot sets this independently in their own auton.cpp.
+#define FIELD_ROTATION_180  true
+
+// Helper macro — applies 180° coordinate transform to globalX/globalY
+// after a GPS reset. Call immediately after pros::delay() post-requestGpsReset().
+// No-op when FIELD_ROTATION_180 is false.
+#if FIELD_ROTATION_180
+    #define APPLY_FIELD_ROTATION() do { \
+        globalX = -globalX;             \
+        globalY = -globalY;             \
+    } while(0)
+#else
+    #define APPLY_FIELD_ROTATION() do {} while(0)
+#endif
 // ══════════════════════════════════════════════════════════════════════════════
 // ROUTE FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════
@@ -32,6 +53,9 @@
 void runAIMatchRoute() {
     setStartPosition(0.0, 0.0, 0.0);  // update start coords before competition
     startOdometryTask();
+    requestGpsReset();
+    pros::delay(200);
+    APPLY_FIELD_ROTATION();
     setAllianceRed(true);              // set to false for blue alliance
     runAIMatch();
 }
@@ -90,13 +114,23 @@ void fieldTargetsTest() {
     for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
     pros::screen::erase();
 
-    setStartPosition(-124.5, -34.5, 180.0);
+    setStartPosition(124.5, 34.5, 0.0);
     startOdometryTask();
+
+    // GPS reset before routing — wait up to 200ms for task to finish
+    // so A* starts from a corrected position rather than setStartPosition estimate
+    requestGpsReset();
+    pros::delay(200);  // 8 samples × 15ms = 120ms; 200ms gives it room to complete
+    //APPLY_FIELD_ROTATION();
 
     pros::lcd::print(0, "START X:%.0f Y:%.0f H:%.0f",
                      globalX, globalY, getContinuousStandardHeading());
 
-    NavResult result = navigateTo(LONG_GOAL_NE);
+    NavResult 
+    result = navigateTo(LOADER_NW);
+    result = navigateTo(LOADER_NE);
+    result = navigateTo(LOADER_SW);
+    result = navigateTo(LOADER_SE);
 
     const char* resultStr =
         result == NavResult::SUCCESS       ? "SUCCESS"  :
@@ -105,13 +139,39 @@ void fieldTargetsTest() {
         result == NavResult::VISION_LOST   ? "VIS LOST" : "BLOCKED";
 
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "RESULT: %s", resultStr);
-    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "END X:%.0f Y:%.0f H:%.0f",
-                        globalX, globalY, getContinuousStandardHeading());
 
     Controller.rumble(result == NavResult::SUCCESS ||
                       result == NavResult::BLIND_CONTACT ? "." : "---");
 
     // Hold screen forever so RESULT and END position stay visible after run
+    while (true) {
+        pros::delay(100);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SWEEP TEST
+// Runs visionSweepNorth() standalone — no match timer, no Jetson required.
+// Alliance set via setAllianceRed() in the selector before calling this.
+// ══════════════════════════════════════════════════════════════════════════════
+void sweepTest(bool isRed) {
+    for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
+    pros::screen::erase();
+
+    setStartPosition(0.0, 0.0, 0.0);
+    startOdometryTask();
+
+    requestGpsReset();
+    pros::delay(200);
+
+    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "SWEEP TEST — 30s");
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Alliance: %s", isRed ? "RED" : "BLUE");
+
+    visionSweepNorth();
+
+    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "SWEEP DONE — at nearest goal");
+    Controller.rumble(".");
+
     while (true) {
         pros::delay(100);
     }
@@ -352,8 +412,11 @@ void autonSelector() {
         "System Test",
         "Coordinate Finder",
         "Vision Test",
+        "GPS Test",
+        "Sweep Test (Red)",
+        "Sweep Test (Blue)",
     };
-    const int numAutons = 7;
+    const int numAutons = 10;
     int autonMode = 0;
 
 //     pros::screen::erase();

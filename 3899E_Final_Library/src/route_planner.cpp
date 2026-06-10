@@ -9,7 +9,8 @@
 // Fixes applied vs original:
 //   - HEAP_CAPACITY = GRID_CELLS * 4 prevents MinHeap overflow on re-pushes
 //   - Octile distance heuristic replaces sqrtf (exact for 8-dir, faster)
-//   - String pulling (line-of-sight DDA) reduces waypoint count after A*
+//   - LOS forward scan (replaces string pulling) collapses A* path into
+//     minimum straight legs; starts from robot's actual cm position
 // ======================================================================
 
 #include "route_planner.h"
@@ -465,14 +466,10 @@ RoutePath routePlan(double startX, double startY,
 // ---------------------------------------------------------------------------
 // routeExecute — drives path waypoint-by-waypoint using forwardToPoint
 //
-// Profile selection uses DEFAULT_STRAIGHT from motion_config.h — all tuning
-// belongs there, not here. Do not hardcode profile values in this file.
-//
-// TODO (post field validation): select profile based on leg distance and
-// heading delta between waypoints:
-//   short legs  (<30cm)  → tighter breakDistance, lower maxSpeed
-//   long legs   (>90cm)  → full cruise profile
-//   sharp turns (>45deg) → insert turnOdometry between waypoints
+// Uses DEFAULT_STRAIGHT for all legs. Tiered profile selection (SHORT/MID/LONG_FWD)
+// and per-waypoint turn insertion live in navigateTo() in ai.cpp, which is the
+// primary execution path. routeExecute is retained for direct path execution
+// where that logic isn't needed (e.g. 15" bot pre-approach sequences).
 //
 // Returns true if all waypoints reached, false if any timed out (blocked).
 // ---------------------------------------------------------------------------

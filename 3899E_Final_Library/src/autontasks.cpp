@@ -443,17 +443,10 @@ void headingDisplayTask(void* params) {
         double leftCM   = leftEnc   * encoderWheelCircumferenceCM / 360.0;
         double rightCM  = rightEnc  * encoderWheelCircumferenceCM / 360.0;
         double centerCM = centerEnc * encoderWheelCircumferenceCM / 360.0;
-        double avgCM    = (leftCM + rightCM) / 2.0;
         double heading  = getNormalizedHeading();
 
-        // Line 0: encoder distances (L=left, R=right, X=lateral)
-        // %.0f strips decimals to fit within the controller's 15-char line width
         Controller.print(0, 0, "L:%.0f R:%.0f X:%.0f  ", leftCM, rightCM, centerCM);
-
-        // Line 1: average distance and current heading
-        Controller.print(1, 0, "Avg:%.0f  H:%.1f   ", avgCM, heading);
-
-        // Line 2: current navigation targets (updated by motion functions)
+        Controller.print(1, 0, "Avg:%.0f  H:%.1f   ", (leftCM + rightCM) / 2.0, heading);
         Controller.print(2, 0, "Tgt D:%.0f H:%.0f   ", g_targetDistance, g_targetHeading);
 
         pros::delay(500);
@@ -463,32 +456,22 @@ void headingDisplayTask(void* params) {
 }
 
 // Driver display: shows LeftMotor3 diagnostics for troubleshooting.
-// Reads all six drive motor RPMs, but only displays LeftMotor3 detail.
 void driverDisplayTask(void* params) {
     HeadingDisplayParams* p = static_cast<HeadingDisplayParams*>(params);
 
     while (p->isRunning) {
-        // Read current RPM from all six drivetrain motors
-        double leftRpm1  = LeftMotor1.get_actual_velocity();
-        double leftRpm2  = LeftMotor2.get_actual_velocity();
-        double leftRpm3  = LeftMotor3.get_actual_velocity();
-        double rightRpm1 = RightMotor1.get_actual_velocity();
-        double rightRpm2 = RightMotor2.get_actual_velocity();
-        double rightRpm3 = RightMotor3.get_actual_velocity();
+        double leftRpm3 = LeftMotor3.get_actual_velocity();
 
         Controller.clear();
 
-        // Line 0: LeftMotor3 RPM and installed status (1=connected, 0=missing)
         Controller.print(0, 0, "L3 RPM:%.0f OK:%d",
             leftRpm3,
             LeftMotor3.is_installed() ? 1 : 0);
 
-        // Line 1: voltage (PROS returns mV → /1000 for V) and current (mA → /1000 for A)
         Controller.print(1, 0, "V:%.1f A:%.2f",
-            LeftMotor3.get_voltage()       / 1000.0,
-            LeftMotor3.get_current_draw()  / 1000.0);
+            LeftMotor3.get_voltage()      / 1000.0,
+            LeftMotor3.get_current_draw() / 1000.0);
 
-        // Line 2: motor temperature in °C (PROS reports Celsius, not %)
         Controller.print(2, 0, "Temp:%.0fC",
             LeftMotor3.get_temperature());
 
@@ -551,21 +534,16 @@ void coordinateFinderTask(void* params) {
     CoordinateFinderParams* p = static_cast<CoordinateFinderParams*>(params);
 
     while (p->isRunning) {
-        // globalX/Y updated by background odometry task — read directly here
         pros::screen::erase();
-        pros::screen::set_pen(0xFFFFFF);  // white
+        pros::screen::set_pen(0xFFFFFF);
 
-        // Title bar (medium text, line 1)
         pros::screen::print(pros::E_TEXT_MEDIUM, 1, "=== COORDINATE FINDER ===");
+        pros::screen::print(pros::E_TEXT_LARGE,  3, "X: %.1f cm", globalX);
+        pros::screen::print(pros::E_TEXT_LARGE,  5, "Y: %.1f cm", globalY);
+        pros::screen::print(pros::E_TEXT_LARGE,  7, "H: %.1f deg", getNormalizedHeading());
 
-        // Large position readout — easy to read from across the field
-        pros::screen::print(pros::E_TEXT_LARGE, 3, "X: %.1f cm", globalX);
-        pros::screen::print(pros::E_TEXT_LARGE, 5, "Y: %.1f cm", globalY);
-        pros::screen::print(pros::E_TEXT_LARGE, 7, "H: %.1f deg", getNormalizedHeading());
-
-        // Usage instructions in yellow (small text, lines 9-10)
         pros::screen::set_pen(0xFFFF00);
-        pros::screen::print(pros::E_TEXT_SMALL, 9,  "Push robot to target position");
+        pros::screen::print(pros::E_TEXT_SMALL,  9, "Push robot to target position");
         pros::screen::print(pros::E_TEXT_SMALL, 10, "Record coordinates above");
 
         pros::delay(500);
@@ -575,13 +553,13 @@ void coordinateFinderTask(void* params) {
 void startCoordinateFinder() {
     if (!coordFinderParams.isRunning) {
         coordFinderParams.isRunning = true;
-        pros::Task(coordinateFinderTask, &coordFinderParams, "coordFinder");  // pass params struct by address
+        pros::Task(coordinateFinderTask, &coordFinderParams, "coordFinder");
     }
 }
 
 void stopCoordinateFinder() {
     coordFinderParams.isRunning = false;
-    pros::delay(600);  // wait for the task to finish its current 500 ms cycle
+    pros::delay(600);
     pros::screen::erase();
 }
 

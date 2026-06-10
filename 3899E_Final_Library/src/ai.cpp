@@ -4,7 +4,7 @@
  * Contains all VAIRC match logic:
  *   SECTION 1 — Jetson data accessors
  *   SECTION 2 — moveVisionOdometryAI (vision navigation)
- *   SECTION 3 — Three-phase navigation wrapper (navigateToTarget)
+ *   SECTION 3 — Navigation helper functions (blindApproach, navigateTo)
  *   SECTION 4 — Strategy functions
  *   SECTION 5 — Match dispatch loop
  *   SECTION 6 — Behavior stubs
@@ -19,6 +19,7 @@
 #include "route_planner.h"
 #include "odometry.h"
 #include "navigation.h"
+#include "motion_config.h"  // VISION_LONG_GOAL_FWD and all named motion profiles
 #include "autontasks.h"
 #include "pid.h"
 #include "utils.h"
@@ -351,87 +352,6 @@ NavResult blindApproach(TargetType target) {
     }
 }
 
-NavResult navigateToTarget(double goalX, double goalY,
-                           TargetType target,
-                           const RoutePath& precomputedPath) {
-
-    // ── Phase 1: Route planner + forwardToPoint ─────────────────────────────
-    RoutePath path = (precomputedPath.count > 0)
-                   ? precomputedPath
-                   : routePlan(globalX, globalY, goalX, goalY);
-
-    if (path.count == 0) return NavResult::BLOCKED_REROUTE;
-
-    for (int i = 0; i < path.count; i++) {
-        updateOdometry();
-        double dx   = goalX - globalX;
-        double dy   = goalY - globalY;
-        double dist = sqrt(dx*dx + dy*dy);
-
-        // Hand off to vision when close enough and Jetson has a lock
-        if (dist <= VISION_HANDOFF_DISTANCE_CM && jetsonTargetTracked()) break;
-
-        uint32_t wpStart      = pros::millis();
-        const double wpTimeout = 4.0;
-
-        // ── Phase 1: Route planner + forwardToPoint ─────────────────────────────
-        StraightProfile wpProfile = DEFAULT_STRAIGHT;
-        wpProfile.breakDistance          = 20.0;
-        wpProfile.minSpeed               = 16.0;
-        wpProfile.distanceTolerance      = 3.0;
-        wpProfile.kp_heading             = 0.4;
-        wpProfile.ki_heading             = 0.01;
-        wpProfile.kd_heading             = 0.05;
-        wpProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-        wpProfile.accelHeadingScaling    = 0.2;
-        wpProfile.decelHeadingScaling    = 0.2;
-        wpProfile.approachHeadingScaling = 0.2;
-        wpProfile.maxSpeed               = ROBOT_CRUISE_POWER_PCT;
-        wpProfile.headingLockDistance    = 8.0;
-        wpProfile.timeout                = wpTimeout;
-
-        forwardToPoint(path.x[i], path.y[i], wpProfile);
-
-        if (pros::millis() - wpStart >= static_cast<uint32_t>(wpTimeout * 1000.0 - 50.0))
-            return NavResult::BLOCKED_REROUTE;
-
-        if (jetsonObstacleDetected()) return NavResult::BLOCKED_REROUTE;
-    }
-
-    if (target == TargetType::PARK_ZONE) return NavResult::SUCCESS;
-
-    // ── Phase 2: Vision approach ───────────────────────────────────────────
-    uint32_t visionWaitStart = pros::millis();
-    while (!jetsonTargetTracked() && pros::millis() - visionWaitStart < 300)
-        pros::delay(10);
-
-    bool visionLostBeforeBlind = false;
-
-    if (jetsonTargetTracked()) {
-        moveVisionOdometryAI(CLASS_FWD_GOAL,
-                             (float)BLIND_HANDOFF_DISTANCE_CM,
-                             goalX, goalY,
-                             15.0,
-                             pros::E_MOTOR_BRAKE_COAST,
-                             60.0);
-        double jDist = jetsonTargetDistance();
-        if (!jetsonTargetTracked() && (jDist < 0 || jDist > BLIND_HANDOFF_DISTANCE_CM))
-            visionLostBeforeBlind = true;
-    } else {
-        visionLostBeforeBlind = true;
-    }
-
-    // ── Phase 3: Blind final push ──────────────────────────────────────────
-    NavResult blindResult = blindApproach(target);
-
-    if (visionLostBeforeBlind && blindResult == NavResult::BLIND_TIMEOUT)
-        return NavResult::VISION_LOST;
-
-    return blindResult == NavResult::BLIND_CONTACT ? NavResult::BLIND_CONTACT
-         : blindResult == NavResult::BLIND_TIMEOUT  ? NavResult::BLIND_TIMEOUT
-         : NavResult::SUCCESS;
-}
-
 // ============================================================================
 // navigateTo — single-call navigation to a named field target
 //
@@ -454,23 +374,6 @@ NavResult navigateTo(TargetID id,
 
     pros::lcd::print(2, "%d WPs → (%.0f,%.0f)", path.count, t.approachX, t.approachY);
 
-    StraightProfile wpProfile = LOADED_MID_FWD_80;
-    wpProfile.kp_heading             = 0.4;
-    wpProfile.ki_heading             = 0.01;
-    wpProfile.kd_heading             = 0.05;
-    wpProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
-    wpProfile.accelHeadingScaling    = 0.2;
-    wpProfile.decelHeadingScaling    = 0.2;
-    wpProfile.approachHeadingScaling = 0.2;
-    wpProfile.headingLockDistance    = 8.0;
-    wpProfile.timeout                = 8.0;  // per-waypoint timeout — forwardToPoint enforces this
-
-    TurnProfile turnProfile = DEFAULT_TURN;
-    turnProfile.exitTolerance = 5.0;
-    turnProfile.maxSpeed      = 60.0;
-    turnProfile.breakDistance = 20.0;
-    turnProfile.maxCurrentA   = 5.0;
-
     int lcdLine = 3;  // start waypoint log at line 3, increment per waypoint
     for (int i = 0; i < path.count; i++) {
         updateOdometry();
@@ -487,6 +390,11 @@ NavResult navigateTo(TargetID id,
         if (error < -180.0) error += 360.0;
         error = fabs(error);
 
+        // Profile selected per segment — distance and angle determine which tier
+        StraightProfile wpProfile   = selectFwdProfile(wpDist);
+        TurnProfile     turnProfile = selectTurnProfile(error);
+        wpProfile.timeout = 8.0;  // per-waypoint safety ceiling — not a tuning value
+
         if (lcdLine <= 7) {
             pros::lcd::print(lcdLine++, "WP%d(%.0f,%.0f)e:%.0f %s",
                              i, path.x[i], path.y[i], error,
@@ -499,60 +407,87 @@ NavResult navigateTo(TargetID id,
         uint32_t wpStart = pros::millis();
         forwardToPoint(path.x[i], path.y[i], wpProfile);
 
-        // Timed out means forwardToPoint couldn't reach the waypoint — something blocked
-        if (pros::millis() - wpStart >= static_cast<uint32_t>(wpProfile.timeout * 1000.0 - 50.0))
-            return NavResult::BLOCKED_REROUTE;
+        // Timeout on a transit waypoint = obstacle or position drift.
+        // GPS reset and continue to the next waypoint — do not abort the route.
+        if (pros::millis() - wpStart >= static_cast<uint32_t>(wpProfile.timeout * 1000.0 - 50.0)) {
+            requestGpsReset();
+        }
     }
 
     // ── Parking: turn to face wall, then done ────────────────────────────────
-    // Approach heading from field_targets table: PARK_ALLIANCE=270° (west wall),
-    // PARK_OPPONENT=90° (east wall). Same turn logic as goal approach below.
     if (t.type == TargetType::PARK_ZONE) {
         double currentH     = getContinuousStandardHeading();
         double currentHNorm = fmod(currentH, 360.0);
         if (currentHNorm < 0) currentHNorm += 360.0;
         double delta = fmod((t.approachHeading - currentHNorm) + 540.0, 360.0) - 180.0;
         if (fabs(delta) > 5.0)
-            turnOdometry(currentH + delta, turnProfile);
+            turnOdometry(currentH + delta, selectTurnProfile(fabs(delta)));
         return NavResult::SUCCESS;
     }
 
-    // ── Turn to face approach heading ─────────────────────────────────────────
-    // Heading pulled directly from field_targets table — not computed from position.
-    // currentHNorm normalized to [0,360) before delta: fmod preserves sign in C++
-    // so negative continuous headings corrupt the calculation without this fix.
-    {
+    // ── Turn to face target ───────────────────────────────────────────────────
+    // Long goals and match loaders use turnToPoint — computes correct heading
+    // from current position to target directly.
+    // Center goals and park zones use approachHeading (diagonal/wall headings).
+    if (t.type == TargetType::LONG_GOAL || t.type == TargetType::MATCH_LOADER) {
+        turnToPoint(t.targetX, t.targetY, selectTurnProfile(180.0));
+    } else {
         double currentH     = getContinuousStandardHeading();
         double currentHNorm = fmod(currentH, 360.0);
         if (currentHNorm < 0) currentHNorm += 360.0;
         double delta = fmod((t.approachHeading - currentHNorm) + 540.0, 360.0) - 180.0;
         pros::lcd::print(1, "Ph2:%s cH:%.0f tH:%.0f d:%.0f",
-            t.type == TargetType::LONG_GOAL    ? "LG" :
             t.type == TargetType::MATCH_LOADER ? "ML" : "CG",
             currentH, t.approachHeading, delta);
         if (fabs(delta) > 5.0)
-            turnOdometry(currentH + delta, turnProfile);  // continuous heading for turnOdometry
+            turnOdometry(currentH + delta, selectTurnProfile(fabs(delta)));
     }
-    pros::delay(150);
 
-    // ── DEBUG: stop here — uncomment Phase 2+3 below when approach is confirmed ─
+    // ── Phase 2: final approach — target-type specific, 24" bot ──────────────
+#if ACTIVE_BOT == BOT_24INCH
+    if (t.type == TargetType::LONG_GOAL) {
+        // 1s settle after approach turn before vision locks on
+        pros::delay(1000);
+
+        // Vision-guided approach — orangeBase signature, circuit breaker on contact
+        visionForwardToPoint(aiVision_orangeBase,
+                             220,              // stop when orangeBase reaches 220px wide
+                             t.targetX, t.targetY,
+                             VISION_LONG_GOAL_FWD);
+
+        // GPS reset is non-blocking — task runs in parallel with scoring.
+        requestGpsReset();
+
+        return NavResult::SUCCESS;
+    }
+
+    if (t.type == TargetType::MATCH_LOADER) {
+        // Final drive to post — wall contact (stall/overcurrent/timeout) = SUCCESS.
+        // No settle delay needed — odometry approach, no vision lock.
+        forwardToPoint(t.targetX, t.targetY, SHORT_FWD);
+        requestGpsReset();
+        return NavResult::SUCCESS;
+    }
+#endif
+
+    // Non-long-goal targets and 15" bot: A* transit + approach turn is the
+    // full Phase 1. Phase 2+3 for these targets added in a later pass.
     return NavResult::SUCCESS;
 
-    // ── Phase 2+3: sensor approach by target type ─────────────────────────────
+    // ── Phase 2+3 stubs — kept for reference, enable per target type later ────
+    // Each target type has a 24" bot path and a 15" bot path.
+    // 24" bot: Jetson vision (YOLO) or VEX AI Vision sensor.
+    // 15" bot: GPS reset + odometry drive. Profile tier chosen from target distance.
+    // Both paths end with blindApproach() for final contact confirmation.
+    //
+    // To enable: remove the debug return above and uncomment this block.
+    // ─────────────────────────────────────────────────────────────────────────
+    // updateOdometry();
+    // double ph2Dist = hypot(t.targetX - globalX, t.targetY - globalY);
+    //
     // if (t.type == TargetType::LONG_GOAL) {
-    //     StraightProfile backProfile = BACKWARD_STRAIGHT;
-    //     backProfile.timeout = 3.0;
-    //     backwardToPoint(t.targetX, t.targetY, backProfile);
-    //     return blindApproach(t.type);
-    // }
-    // if (t.type == TargetType::MATCH_LOADER) {
-    //     VisionProfile vp = DEFAULT_VISION;
-    //     vp.drive.timeout = 3.0;
-    //     visionOnly(matchLoaderSig, vp.minObjectWidth, 10.0, vp);
-    //     return blindApproach(t.type);
-    // }
-    // if (t.type == TargetType::CENTER_GOAL) {
     // #if ACTIVE_BOT == BOT_24INCH
+    //     // 24" bot: Jetson vision — rear approach, back into goal
     //     uint32_t visionWaitStart = pros::millis();
     //     while (!jetsonTargetTracked() && pros::millis() - visionWaitStart < 300)
     //         pros::delay(10);
@@ -562,16 +497,46 @@ NavResult navigateTo(TargetID id,
     //                              pros::E_MOTOR_BRAKE_COAST, 60.0);
     //     return blindApproach(t.type);
     // #else
+    //     // 15" bot: GPS reset + backward odometry — rear faces goal
     //     waitAndResetGPS(500);
-    //     StraightProfile fwdProfile = DEFAULT_STRAIGHT;
-    //     fwdProfile.timeout = 3.0;
-    //     forwardToPoint(t.targetX, t.targetY, fwdProfile);
+    //     backwardToPoint(t.targetX, t.targetY, selectBwdProfile(ph2Dist));
     //     return blindApproach(t.type);
     // #endif
     // }
+    //
+    // if (t.type == TargetType::MATCH_LOADER) {
+    // #if ACTIVE_BOT == BOT_24INCH
+    //     // 24" bot: VEX AI Vision sensor — front approach
+    //     visionOnly(matchLoaderSig, DEFAULT_VISION.minObjectWidth, 10.0, DEFAULT_VISION);
+    //     return blindApproach(t.type);
+    // #else
+    //     // 15" bot: GPS reset + forward odometry
+    //     waitAndResetGPS(500);
+    //     forwardToPoint(t.targetX, t.targetY, selectFwdProfile(ph2Dist));
+    //     return blindApproach(t.type);
+    // #endif
+    // }
+    //
+    // if (t.type == TargetType::CENTER_GOAL) {
+    // #if ACTIVE_BOT == BOT_24INCH
+    //     // 24" bot: Jetson vision — forward approach
+    //     uint32_t visionWaitStart = pros::millis();
+    //     while (!jetsonTargetTracked() && pros::millis() - visionWaitStart < 300)
+    //         pros::delay(10);
+    //     if (jetsonTargetTracked())
+    //         moveVisionOdometryAI(CLASS_FWD_GOAL, (float)BLIND_HANDOFF_DISTANCE_CM,
+    //                              t.targetX, t.targetY, 15.0,
+    //                              pros::E_MOTOR_BRAKE_COAST, 60.0);
+    //     return blindApproach(t.type);
+    // #else
+    //     // 15" bot: GPS reset + forward odometry
+    //     waitAndResetGPS(500);
+    //     forwardToPoint(t.targetX, t.targetY, selectFwdProfile(ph2Dist));
+    //     return blindApproach(t.type);
+    // #endif
+    // }
+    //
     // return NavResult::BLOCKED_REROUTE;
-
-    return NavResult::BLOCKED_REROUTE;
 }
 
 // ============================================================================
@@ -582,97 +547,75 @@ static bool g_isRedAlliance = true;
 void setAllianceRed(bool isRed) { g_isRedAlliance = isRed; }
 double getParkX() { return g_isRedAlliance ? RED_PARK_X : BLUE_PARK_X; }
 
-// Replan helper — marks obstacle ahead, replans, retries once
-static NavResult replanAndRetry(double goalX, double goalY, TargetType target) {
-    updateOdometry();
-    double dx = goalX - globalX, dy = goalY - globalY;
-    double dist = sqrt(dx*dx + dy*dy);
-    if (dist > 1.0)
-        routeAddObstacle(globalX + (dx/dist)*30.48, globalY + (dy/dist)*30.48);
-
-    RoutePath newPath = routePlan(globalX, globalY, goalX, goalY);
-    routeClearObstacles();  // robots move — clear immediately after planning
-
-    if (newPath.count == 0) return NavResult::BLOCKED_REROUTE;
-    return navigateToTarget(goalX, goalY, target, newPath);
-}
-
-// Shared action handler — navigate, replan once on block, execute action
-static void executeStrategy(double goalX, double goalY, TargetType target,
-                             void (*mechanismAction)()) {
-    NavResult result = navigateToTarget(goalX, goalY, target);
-    if (result == NavResult::BLOCKED_REROUTE)
-        result = replanAndRetry(goalX, goalY, target);
-
-    if (result == NavResult::SUCCESS      ||
-        result == NavResult::BLIND_CONTACT ||
-        result == NavResult::BLIND_TIMEOUT) {
-        if (mechanismAction) mechanismAction();
-    }
-}
-
 // Mechanism stubs — replace with actual function calls when defined
 static void doScore()   { score(1000, 100); }
 static void doDescore() { outtake(1000, 80); }
 static void doIntake()  { intakeHopperStart(3000, 80); }
 static void doNothing() {}
 
+// Shared result check — mechanism fires on any successful arrival
+static bool arrivedAt(NavResult r) {
+    return r == NavResult::SUCCESS      ||
+           r == NavResult::BLIND_CONTACT ||
+           r == NavResult::BLIND_TIMEOUT;
+}
+
 void strategyScoreTopGoal() {
-    const NamedTarget& t = getTarget(LONG_GOAL_NE);
-    executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doScore);
+    if (arrivedAt(navigateTo(LONG_GOAL_NE))) doScore();
 }
+
 void strategyScoreBottomGoal() {
-    const NamedTarget& t = getTarget(LONG_GOAL_SE);
-    executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doScore);
+    if (arrivedAt(navigateTo(LONG_GOAL_SE))) doScore();
 }
+
 void strategyScoreCenterGoal() {
-    const NamedTarget& t = getTarget(CENTER_GOAL_NE);  // default arm — change per route
 #if ACTIVE_BOT == BOT_15INCH
-    RoutePath path = routePlan(globalX, globalY, t.approachX, t.approachY);
-    if (path.count > 0) routeExecute(path);
-    turnOdometry(t.approachHeading);
-    waitAndResetGPS(500);
-    executeStrategy(t.targetX, t.targetY, TargetType::CENTER_GOAL, doScore);
+    // 15" bot: own approach sequence — navigateTo handles A* + turns via the
+    // 15" field_targets table (rear-facing headings, GPS-reset Phase 2).
+    if (arrivedAt(navigateTo(CENTER_GOAL_NE))) doScore();
 #else
-    executeStrategy(t.approachX, t.approachY, TargetType::CENTER_GOAL, doScore);
+    // 24" bot: standard navigateTo — Jetson vision Phase 2 when uncommented
+    if (arrivedAt(navigateTo(CENTER_GOAL_NE))) doScore();
 #endif
 }
+
 void strategyDescoreTopGoal() {
-    const NamedTarget& t = getTarget(LONG_GOAL_NE);
-    executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doDescore);
+    if (arrivedAt(navigateTo(LONG_GOAL_NE))) doDescore();
 }
+
 void strategyDescoreBottomGoal() {
-    const NamedTarget& t = getTarget(LONG_GOAL_SE);
-    executeStrategy(t.approachX, t.approachY, TargetType::LONG_GOAL, doDescore);
+    if (arrivedAt(navigateTo(LONG_GOAL_SE))) doDescore();
 }
+
 void strategyBlockTopGoal() {
-    const NamedTarget& t = getTarget(LONG_GOAL_NE);
-    executeStrategy(t.approachX, t.approachY, TargetType::PARK_ZONE, doNothing);
+    // Navigate to goal position and hold — no mechanism action
+    navigateTo(LONG_GOAL_NE);
 }
+
 void strategyBlockBottomGoal() {
-    const NamedTarget& t = getTarget(LONG_GOAL_SE);
-    executeStrategy(t.approachX, t.approachY, TargetType::PARK_ZONE, doNothing);
+    navigateTo(LONG_GOAL_SE);
 }
+
 void strategyUseMatchLoader() {
+    // Pick nearest match loader — compare approach points to current position
     updateOdometry();
     double bestDist = 1e9;
     TargetID bestID = LOADER_NE;
     const TargetID loaderIDs[4] = { LOADER_NE, LOADER_SE, LOADER_SW, LOADER_NW };
     for (int i = 0; i < 4; i++) {
         const NamedTarget& t = getTarget(loaderIDs[i]);
-        double dx = t.targetX - globalX;
-        double dy = t.targetY - globalY;
+        double dx = t.approachX - globalX;
+        double dy = t.approachY - globalY;
         double d  = sqrt(dx*dx + dy*dy);
         if (d < bestDist) { bestDist = d; bestID = loaderIDs[i]; }
     }
-    const NamedTarget& best = getTarget(bestID);
-    executeStrategy(best.approachX, best.approachY, TargetType::MATCH_LOADER, doIntake);
+    if (arrivedAt(navigateTo(bestID))) doIntake();
 }
+
 void strategyPark() {
-    NavResult result = navigateToTarget(getParkX(), PARK_Y, TargetType::PARK_ZONE);
-    if (result == NavResult::BLOCKED_REROUTE)
-        replanAndRetry(getParkX(), PARK_Y, TargetType::PARK_ZONE);
+    navigateTo(g_isRedAlliance ? PARK_ALLIANCE : PARK_OPPONENT);
 }
+
 
 // ============================================================================
 // SECTION 5 — Match dispatch loop
@@ -755,6 +698,153 @@ void runAIMatch() {
 // SECTION 6 — Behavior stubs
 // ============================================================================
 
+// ── visionSweepNorth ──────────────────────────────────────────────────────────
+// Reactive block sweep using VEX AI Vision sensor.
+//
+// Loop:
+//   1. Look for alliance-colour blocks via aiVision
+//   2. Block visible → steer toward it and drive
+//   3. No block visible → spin in place until one appears (max 360°)
+//   4. Stall detected (hit wall/block pile) → back up 20cm, then scan again
+//   5. After 30s → navigate to nearest long goal
+//
+// Alliance colour selected from g_isRedAlliance set by setAllianceRed().
+// Intake runs continuously throughout.
+//
+// Tuning constants at top — do not inline-override elsewhere.
+// ─────────────────────────────────────────────────────────────────────────────
+
 void visionSweepNorth() {
-    // Not yet implemented
+
+    // ── Tuning constants ──────────────────────────────────────────────────────
+    static constexpr double SWEEP_DURATION_MS  = 30000.0; // total sweep time (ms)
+    static constexpr double SWEEP_TURN_SPEED   = 25.0;    // % speed while scanning
+    static constexpr double SCAN_MAX_DEG       = 360.0;   // max scan before giving up
+    static constexpr double SCAN_STEP_MS       = 20.0;    // scan loop interval (ms)
+    static constexpr int    MIN_BLOCK_WIDTH_PX = 8;       // minimum detection width (px)
+    static constexpr int    CHASE_PIXEL_WIDTH  = 60;      // stop chase when block this wide
+    static constexpr double CHASE_DISTANCE_CM  = 50.0;    // safety distance cap per chase
+    static constexpr double BACKUP_MS          = 500.0;   // ms to back up after each chase
+
+    // ── visionOnly profile for block chasing ─────────────────────────────────
+    // Seeded from DEFAULT_VISION — short timeout, low current trip for block contact.
+    VisionProfile sweepProfile = DEFAULT_VISION;
+    sweepProfile.drive.maxSpeed            = 40.0;   // % — slow enough to intake reliably
+    sweepProfile.drive.minSpeed            = 15.0;   // %
+    sweepProfile.drive.timeout             = 3.0;    // s per chase — move on if no contact
+    sweepProfile.drive.maxCurrentA         = 4.0;    // A — trips on block/wall contact
+    sweepProfile.drive.overcurrentDurationMs = 300;  // ms
+    sweepProfile.minObjectWidth            = MIN_BLOCK_WIDTH_PX;
+    sweepProfile.kp_distToHeadScaling      = 0.4;
+
+    // ── Alliance colour ───────────────────────────────────────────────────────
+    pros::AIVision::Color blockSig = g_isRedAlliance ? aiVision_redCube : aiVision_blueCube;
+
+    // ── Intake runs for full sweep duration ───────────────────────────────────
+    intakeHopperStart(SWEEP_DURATION_MS + 2000.0, 80.0, 0.0, true);
+
+    uint32_t sweepStart = pros::millis();
+
+    // ── Main sweep loop ───────────────────────────────────────────────────────
+    while (pros::millis() - sweepStart < static_cast<uint32_t>(SWEEP_DURATION_MS)) {
+
+        // 1. CHECK — is a block visible right now?
+        bool blockVisible = false;
+        {
+            int cnt = aiVision.get_object_count();
+            for (int i = 0; i < cnt; i++) {
+                pros::AIVision::Object o = aiVision.get_object(i);
+                if (pros::AIVision::is_type(o, pros::AivisionDetectType::color) &&
+                    o.id == blockSig.id &&
+                    o.object.color.width >= MIN_BLOCK_WIDTH_PX) {
+                    blockVisible = true;
+                    break;
+                }
+            }
+        }
+
+        if (blockVisible) {
+            // 2. CHASE — visionOnly drives toward block, exits on:
+            //    - block fills CHASE_PIXEL_WIDTH px (close enough to intake)
+            //    - overcurrent trip (wall or block pile contact)
+            //    - timeout (3s)
+            //    - encoder distance cap (CHASE_DISTANCE_CM)
+            visionOnly(blockSig, CHASE_PIXEL_WIDTH, CHASE_DISTANCE_CM, sweepProfile);
+
+            // 3. BACK UP — clear contact point so we can turn and scan again
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            int32_t backMv = static_cast<int32_t>(-sweepProfile.drive.minSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+            leftDrive.move_voltage(backMv);
+            rightDrive.move_voltage(backMv);
+            pros::delay(static_cast<uint32_t>(BACKUP_MS));
+            leftDrive.move(0);
+            rightDrive.move(0);
+            pros::delay(100);
+
+        } else {
+            // 4. SCAN — spin until block appears or 360° elapsed
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+            int32_t turnMv  = static_cast<int32_t>(SWEEP_TURN_SPEED * 0.01 * absoluteMaxVoltage * 1000.0);
+            double  degTurned = 0.0;
+            double  lastH     = getContinuousStandardHeading();
+
+            while (degTurned < SCAN_MAX_DEG &&
+                   pros::millis() - sweepStart < static_cast<uint32_t>(SWEEP_DURATION_MS)) {
+
+                bool scanFound = false;
+                {
+                    int scnt = aiVision.get_object_count();
+                    for (int si = 0; si < scnt; si++) {
+                        pros::AIVision::Object so = aiVision.get_object(si);
+                        if (pros::AIVision::is_type(so, pros::AivisionDetectType::color) &&
+                            so.id == blockSig.id &&
+                            so.object.color.width >= MIN_BLOCK_WIDTH_PX) {
+                            scanFound = true;
+                            break;
+                        }
+                    }
+                }
+                if (scanFound) break;
+
+                leftDrive.move_voltage( turnMv);
+                rightDrive.move_voltage(-turnMv);
+                pros::delay(static_cast<uint32_t>(SCAN_STEP_MS));
+
+                double newH = getContinuousStandardHeading();
+                degTurned  += std::fabs(newH - lastH);
+                lastH       = newH;
+            }
+
+            leftDrive.move(0);
+            rightDrive.move(0);
+            pros::delay(50);
+        }
+    }
+
+    // ── Sweep done — stop everything ─────────────────────────────────────────
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.move(0);
+    rightDrive.move(0);
+    intakeHopperStop();
+
+    // ── Navigate to nearest long goal ─────────────────────────────────────────
+    updateOdometry();
+
+    const TargetID longGoals[4] = { LONG_GOAL_NE, LONG_GOAL_SE, LONG_GOAL_NW, LONG_GOAL_SW };
+    TargetID nearestGoal = LONG_GOAL_NE;
+    double   bestDist    = 1e9;
+
+    for (int i = 0; i < 4; i++) {
+        const NamedTarget& t = getTarget(longGoals[i]);
+        double dx = t.approachX - globalX;
+        double dy = t.approachY - globalY;
+        double d  = std::hypot(dx, dy);
+        if (d < bestDist) { bestDist = d; nearestGoal = longGoals[i]; }
+    }
+
+    navigateTo(nearestGoal);
 }

@@ -43,14 +43,14 @@ void toggleScorePiston() {
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN DRIVER CONTROL
 // Split-arcade steering; R1/R2 = intake with colour-sort (2× 11W intake + 2× 5.5W hood/
-// indexer, main intake reversed); RIGHT = outtake; L1 = match-load piston;
-// L2 = left-lane score; Y = wings; A = rudder toggle.
+// indexer, main intake reversed); L2 = left-lane score; RIGHT = right-lane score;
+// L1 = match-load piston; Y = wings; A = rudder toggle.
 //
 // Intake motor summary:
 //   intakeMotor1  port 10  11W  600 RPM  reversed
 //   intakeMotor2  port  9  11W  600 RPM  forward
-//   hoodMotor     port  8  5.5W 200 RPM  forward   (hardware fixed, no cartridge)
-//   upperIndexer  port  4  5.5W 200 RPM  reversed  (opposite to hood — pulls together)
+//   hoodMotor     port 11  5.5W 200 RPM  forward   (hardware fixed, no cartridge)
+//   upperIndexer  port 15  5.5W 200 RPM  reversed  (opposite to hood — pulls together)
 //
 // All four fire together on every intake/score/outtake binding.
 // ══════════════════════════════════════════════════════════════════════════════
@@ -61,28 +61,16 @@ void driverControl() {
     double motorPowerLeft[3]  = {0};
     double motorPowerRight[3] = {0};
 
-    // Pneumatic toggle states (DigitalOut::get_value() is private in PROS 4)
-    bool wingState   = false;
-    bool rudderState = false;
+    // Pneumatic toggle states — none currently active
 
     // Button edge-detection flags — prevent repeated triggers on a single held press
-    bool wasAPressed     = false;
     bool wasR1Pressed    = false;
     bool wasR2Pressed    = false;
-    bool wasL1Pressed    = false;
     bool wasL2Pressed    = false;
     bool wasRightPressed = false;
-    bool wasYPressed     = false;
-    bool wasUpPressed    = false;
-    bool wasDownPressed  = false;
 
     // Intake control state
-    bool spinForInProgress          = false;  // true while a timed motor burst is running
-    bool isMatchLoadPneumaticsActive = false;
-    bool isLeftGateOpen             = true;
-    bool rudderOpen                 = true;
-    bool intakeRunning              = false;
-    int  intakeDirection            = 0;  // 1=forward, -1=reverse, 0=off
+    bool spinForInProgress = false;  // true while a timed motor burst is running
 
     // Consecutive-read counters for Octoball colour sort.
     // Persists across loop iterations; resets are handled inside the R1 block.
@@ -340,37 +328,8 @@ void driverControl() {
         // }
 
         // ─────────────────────────────────────────────────────────────────────
-        // BUTTON R2  —  right-lane score  [DISABLED — replaced by match-loader scoring above]
-        // ─────────────────────────────────────────────────────────────────────
-        // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-        //     if (!wasR2Pressed) {
-        //         frontHoodPneumatics.set_value(true);  // open front hood for scoring
-        //         ptoPneumatics.set_value(true);        // engage PTO
-        //         isLeftGateOpen = true;
-        //         leftGatePneumatics.set_value(isLeftGateOpen);
-        //         rightGatePneumatics.set_value(!isLeftGateOpen);
-        //         rudderPneumatics.set_value(false);
-        //         wasR2Pressed = true;
-        //     }
-        //
-        //     spinForInProgress = false;
-        //     intakeMotor1.move_voltage(12000);
-        //     intakeMotor2.move_voltage(12000);
-        //     hoodMotor.move_voltage(12000);
-        //     upperIndexerMotor.move_voltage(12000);
-        // } else {
-        //     if (wasR2Pressed) {
-        //         spinForInProgress = true;
-        //         intakeMotor1.move(0);
-        //         intakeMotor2.move(0);
-        //         hoodMotor.move(0);
-        //         upperIndexerMotor.move(0);
-        //         wasR2Pressed = false;
-        //     }
-        // }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // BUTTON RIGHT  —  outtake with alternating lane selection
+        // BUTTON RIGHT  —  right-lane score
+        // Opens right gate while held, closes it on release. Mirrors L2.
         // ─────────────────────────────────────────────────────────────────────
         // if (Controller.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
         //     if (!wasRightPressed) {

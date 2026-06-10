@@ -667,10 +667,10 @@ bin/auton.cpp.o: src/auton.cpp include/main.h include/api.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
  include/pros/vision.h include/robot_config.h include/main.h \
- include/navigation.h include/utils.h include/robot_config.h \
- include/motion_config.h include/odometry.h include/autontasks.h \
- include/ai.h include/jetson_comms.h include/route_planner.h \
- include/robot_geometry.h include/route_planner.h \
+ include/motion_config.h include/navigation.h include/utils.h \
+ include/robot_config.h include/motion_config.h include/odometry.h \
+ include/autontasks.h include/ai.h include/jetson_comms.h \
+ include/route_planner.h include/robot_geometry.h include/route_planner.h \
  include/robot_geometry.h include/field_targets.h include/ai.h
 include/main.h:
 include/api.h:
@@ -1415,6 +1415,7 @@ include/pros/vision.hpp:
 include/pros/vision.h:
 include/robot_config.h:
 include/main.h:
+include/motion_config.h:
 include/navigation.h:
 include/utils.h:
 include/robot_config.h:
