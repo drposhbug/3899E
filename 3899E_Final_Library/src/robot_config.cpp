@@ -57,8 +57,8 @@ pros::MotorGroup rightDrive({ 1, -5,  2}, pros::MotorGears::blue);
 
 // ── Mechanism motors ──────────────────────────────────────────────────────────
 // intakeMotor1/2: 11W V5 Smart Motor, blue cartridge (600 RPM).
-pros::Motor intakeMotor1(-10, pros::MotorGears::blue);  // port 10, reversed
-pros::Motor intakeMotor2( 9,  pros::MotorGears::blue);  // port  9, forward
+pros::Motor intakeMotor1(10, pros::MotorGears::blue);  // port 10, reversed
+pros::Motor intakeMotor2( -9,  pros::MotorGears::blue);  // port  9, forward
 
 // hoodMotor: 5.5W V5 Smart Motor (port 11).
 // This motor has NO swappable cartridge — speed is fixed at 200 RPM by hardware.

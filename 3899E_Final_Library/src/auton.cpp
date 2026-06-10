@@ -89,15 +89,31 @@ void navTest() {
     driveProfile.maxCurrentA            = 8.0;
     driveProfile.overcurrentDurationMs  = 500;
 
-    TurnProfile turnProfile = DEFAULT_TURN;
-    turnProfile.breakDistance  = 5.0;
-    turnProfile.minSpeed       = 10.0;
-    turnProfile.maxSpeed       = 20.0;
-    turnProfile.exitTolerance  = 3;
-    turnProfile.timeout        = 3.0;
+    TurnProfile turnProfile = {
+        // ── Motion shape ──────────────────────────────────────────────
+        .breakDistance         = 70.0,   // % of total turn angle
+        .minSpeed              = 22.0,   // % — floor speed on approach
+        .maxSpeed              = 70.0,   // % — peak turn speed
+        .exitTolerance         = 3.0,    // degrees — acceptable heading error
+        .timeout               = 5.0,    // seconds
 
-   forwardToPoint(0.0, 80.0, driveProfile);
-   // driveForward(150.0, 0.0, LOADED_MID_FWD_80);
+        // ── Traction control — disabled ───────────────────────────────
+        .accelFactor           = 1.2,
+        .slipThreshold         = 1.0,    // never triggers
+
+        // ── ABS — disabled ────────────────────────────────────────────
+        .decelStepPercent      = 10.0,
+        .lockThreshold         = 1.0,    // never triggers
+
+        // ── Overcurrent protection ────────────────────────────────────
+        .maxCurrentA           = 8.0,    // amps — set 50.0 to disable
+        .overcurrentDurationMs = 500,
+    };
+
+    //forwardToPoint(0.0, 80.0, driveProfile);
+    //driveForward(150.0, 0.0, LOADED_MID_FWD_80);
+    //turnToPoint(80.0, 0.0, turnProfile);
+    turnOdometry(100.0, turnProfile);
 }
 
 void visionTest() {
