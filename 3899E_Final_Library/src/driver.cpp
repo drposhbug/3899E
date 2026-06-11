@@ -3,6 +3,10 @@
 #include "navigation.h"
 #include "autontasks.h"
 #include "odometry.h"
+#include "ai.h"
+#include "route_planner.h"
+#include "robot_geometry.h"
+#include "field_targets.h"
 #include <cmath>
 #include <atomic>
 
@@ -794,7 +798,28 @@ void opScoring(std::pmr::string teamColor) {
         pros::lcd::print(2, "GPS err: %.3f m heading: %.1f", gpsError, gpsSensor.get_heading());
         pros::lcd::print(3, "SET X: %.1f cm Y: %.1f cm H: %.1f", xPosition, yPosition, heading);
         pros::lcd::print(4, "ODOM X: %.1f cm Y: %.1f cm H: %.1f", globalX, globalY, globalRotation);
+        // pros::delay(5000);
+        // turnRight(90, DEFAULT_TURN);
+        // pros::lcd::print(5, "Post-turn GPS heading: %.1f", gpsSensor.get_heading());
         // pros::delay(50000);
+        NavResult 
+        result = navigateTo(LONG_GOAL_SE);
+        pros::delay(500);
+        setStartPosition(globalX, globalY, gpsSensor.get_heading()-headingOffset);
+        // turnRight(90, DEFAULT_TURN);
+        pros::delay(500);
+        scorePiston.set_value(true);
+        driveBackward(30, globalRotation, dp);
+        scoreFlap.set_value(true);
+        pros::delay(200);
+        lever.move(127);
+        pros::delay(2000);
+        lever.move(-127);
+        pros::delay(2000);
+        lever.move(0);
+        // turnRight(270, DEFAULT_TURN);
+
+        pros::delay(50000);
         turnToPoint(-60, 120, DEFAULT_TURN); //47,47 in inches
         pros::delay(1000);
         forwardToPoint(-60, 120, dp); //47,47 in inches

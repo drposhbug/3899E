@@ -139,7 +139,7 @@ const TurnProfile DEFAULT_TURN = {
     // ── Motion shape ──────────────────────────────────────────────────────────
     .breakDistance    = 50.0,   // % of total turn angle — 30% means a 90° turn breaks at 27°
     .minSpeed         = 15.0,   // %
-    .maxSpeed         = 80.0,   // %
+    .maxSpeed         = 30.0,   // %
     .exitTolerance    = 2.0,    // degrees
     .timeout          = 6.0,    // seconds
 
@@ -550,7 +550,8 @@ const StraightProfile& selectBwdProfile(double distCm) {
 }
 
 const TurnProfile& selectTurnProfile(double degrees) {
-    if (degrees <= TURN_SHORT_MAX_DEG) return SHORT_TURN;
-    if (degrees <= TURN_MID_MAX_DEG)   return MID_TURN;
-    return LONG_TURN;
+    // if (degrees <= TURN_SHORT_MAX_DEG) return SHORT_TURN;
+    // if (degrees <= TURN_MID_MAX_DEG)   return MID_TURN;
+    // return LONG_TURN;
+    return DEFAULT_TURN; // single default turn profile for all angles
 }

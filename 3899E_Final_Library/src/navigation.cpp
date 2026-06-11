@@ -270,8 +270,22 @@ void turnOdometry(double targetHeading, const TurnProfile& p) {
         else if (decelCompleted)
         {
             currentDrivePhase = PHASE_APPROACH;
-            motorVoltageLeft  = minSpeedVoltage;
-            motorVoltageRight = minSpeedVoltage;
+            // Use a low-gain proportional approach controller instead of a
+            // fixed minimum voltage. This reduces overshoot/oscillation when
+            // closing on the final heading. Scale the approach minimum so
+            // large minSpeed values don't force an aggressive final kick.
+            double kp_approach = 0.12; // volts per degree (tunable)
+            double approachMinScale = 0.40; // fraction of configured minSpeed
+
+            double approachMinVoltage = std::copysign(fabs(minSpeedVoltage) * approachMinScale, -headingError);
+            double correctionVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(headingError) * kp_approach), -headingError);
+
+            // Ensure we at least apply a small approach voltage to overcome static
+            // friction, but reduced compared to the profile minSpeed to avoid overshoot.
+            if (fabs(correctionVoltage) < fabs(approachMinVoltage)) correctionVoltage = approachMinVoltage;
+
+            motorVoltageLeft  = correctionVoltage;
+            motorVoltageRight = correctionVoltage;
         }
  
         // Apply voltages — left side is negated because it faces opposite direction to right

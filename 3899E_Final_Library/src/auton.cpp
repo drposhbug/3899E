@@ -114,7 +114,7 @@ void fieldTargetsTest() {
     for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
     pros::screen::erase();
 
-    setStartPosition(-60.96, 60.96, 0.0);
+    setStartPosition(60.96, 60.96, 0.0);
     startOdometryTask();
 
     // GPS reset before routing — wait up to 200ms for task to finish
@@ -141,9 +141,12 @@ void fieldTargetsTest() {
                       result == NavResult::BLIND_CONTACT ? "." : "---");
 
     // Hold screen forever so RESULT and END position stay visible after run
-    while (true) {
-        pros::delay(100);
-    }
+    // while (true) {
+    //     pros::delay(100);
+    // }
+
+    turnRight(90.0, DEFAULT_TURN);
+
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
