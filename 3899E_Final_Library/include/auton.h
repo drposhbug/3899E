@@ -17,4 +17,5 @@ void gpsTest();            // test GPS functionality
 // ── Selector — called from autonomous() in main.cpp ──────────────────────────
 void autonSelector();
 
+void rightSideAuton();
 #endif // AUTON_H

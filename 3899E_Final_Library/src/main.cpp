@@ -66,7 +66,6 @@ static bool posDisplayRunning = true;
 
 void autonomous()
 {
-    pros::screen::erase();
 
     // PosDisplay — uncomment to show live position during testing
     // pros::Task([]{
@@ -96,7 +95,7 @@ void autonomous()
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
     //fieldTargetsTest();
-    visionSweepNorth();
+    //visionSweepNorth();
     //gpsTest();
     //visionTest();
     //navTest();
@@ -105,6 +104,7 @@ void autonomous()
     //routeGridTest();
     //systemTest();
     //coordinateFinder();
+    rightSideAuton();
     // ─────────────────────────────────────────────────────────────────────────
 
     // Hold for remainder of autonomous period — prevents task cleanup killing the screen
