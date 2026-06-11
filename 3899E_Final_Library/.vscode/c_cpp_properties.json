@@ -14,7 +14,7 @@
         "/Users/ayushkothari/Documents/GitHub/3899E/3899E_Final_Library/include",
         "c:\\Users\\justi\\OneDrive\\Documents\\GitHub\\newBot\\3899E\\3899E_Final_Library\\include"
       ],
-      "compilerPath": "c:\\Users\\justi\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\bin\\arm-none-eabi-g++",
+      "compilerPath": "/Users/ayushkothari/Library/Application Support/Code/User/globalStorage/sigbots.pros/install/pros-toolchain-macos/bin/arm-none-eabi-g++",
       "cStandard": "gnu11",
       "cppStandard": "gnu++20",
       "intelliSenseMode": "gcc-arm",
@@ -22,7 +22,7 @@
       "forcedInclude": [],
       "browse": {
         "path": [
-          "c:\\Users\\justi\\OneDrive\\Documents\\GitHub\\newBot\\3899E\\3899E_Final_Library"
+          "/Users/ayushkothari/Documents/GitHub/3899E/3899E_Final_Library"
         ],
         "limitSymbolsToIncludedHeaders": true,
         "databaseFilename": ""

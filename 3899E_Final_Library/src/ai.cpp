@@ -429,8 +429,26 @@ NavResult navigateTo(TargetID id,
     // Long goals and match loaders use turnToPoint — computes correct heading
     // from current position to target directly.
     // Center goals and park zones use approachHeading (diagonal/wall headings).
-    if (t.type == TargetType::LONG_GOAL || t.type == TargetType::MATCH_LOADER) {
+    if (t.type == TargetType::MATCH_LOADER) {
         turnToPoint(t.targetX, t.targetY, selectTurnProfile(180.0));
+    } else if (t.type == TargetType::LONG_GOAL) {
+        double deltaX = t.targetX - globalX;
+        double deltaY = t.targetY - globalY;
+
+        double targetStandardHeading  = atan2(deltaX, deltaY) * 180.0 / M_PI;
+        double currentStandardHeading = getContinuousStandardHeading();
+
+        // Shortest-path error: clamp to (-180, +180]
+        double headingError = targetStandardHeading - currentStandardHeading;
+        headingError = fmod(headingError + 540.0, 360.0) - 180.0;
+
+        // Snap target to continuous frame so turnOdometry sees a coherent heading
+        double targetHeading = currentStandardHeading + headingError;
+        // Add 180 degrees to heading so the robot turns the opposite direction
+        double finalTargetHeading = targetHeading + 180;
+        // Shortest-path error: clamp to (-180, +180]
+        finalTargetHeading = fmod(finalTargetHeading + 540.0, 360.0) - 180.0;
+        turnOdometry(finalTargetHeading, DEFAULT_TURN);
     } else {
         double currentH     = getContinuousStandardHeading();
         double currentHNorm = fmod(currentH, 360.0);
@@ -442,6 +460,8 @@ NavResult navigateTo(TargetID id,
         if (fabs(delta) > 5.0)
             turnOdometry(currentH + delta, selectTurnProfile(fabs(delta)));
     }
+
+
 
     // ── Phase 2: final approach — target-type specific, 24" bot ──────────────
 #if ACTIVE_BOT == BOT_24INCH

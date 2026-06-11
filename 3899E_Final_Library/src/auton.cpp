@@ -114,7 +114,7 @@ void fieldTargetsTest() {
     for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
     pros::screen::erase();
 
-    setStartPosition(124.5, 34.5, 0.0);
+    setStartPosition(-60.96, 60.96, 0.0);
     startOdometryTask();
 
     // GPS reset before routing — wait up to 200ms for task to finish
@@ -206,12 +206,12 @@ void navTest() {
     driveProfile.maxCurrentA            = 4.0;   // amps — wall stall trip threshold
     driveProfile.overcurrentDurationMs  = 300; // ms — how long before breaker fires
 
-    TurnProfile turnProfile = DEFAULT_TURN;
-    turnProfile.breakDistance  = 5.0;    // degrees before target to begin decel
-    turnProfile.minSpeed       = 10.0;   // % minimum approach speed
-    turnProfile.maxSpeed       = 20.0;  // % peak turn speed
-    turnProfile.exitTolerance  = 3;    // degrees — stop when within this
-    turnProfile.timeout        = 3.0;    // seconds — release if stuck
+    // TurnProfile turnProfile = DEFAULT_TURN;
+    // turnProfile.breakDistance  = 5.0;    // degrees before target to begin decel
+    // turnProfile.minSpeed       = 10.0;   // % minimum approach speed
+    // turnProfile.maxSpeed       = 20.0;  // % peak turn speed
+    // turnProfile.exitTolerance  = 3;    // degrees — stop when within this
+    // turnProfile.timeout        = 3.0;    // seconds — release if stuck
 
     /*
     // ── Full square backward: (0,0) → (0,100) → (100,100) → (100,0) → (0,0) ──
@@ -247,7 +247,9 @@ void navTest() {
     // backwardToPoint(0.0, 0.0, driveProfile);
 
     // ── driveForward/driveBackward test (open-loop) ───────────────────
-    driveForward(150.0, 0.0, driveProfile);
+    // driveForward(150.0, 0.0, LONG_FWD);
+    // turnOdometry(90, DEFAULT_TURN); //selectTurnProfile(180)
+    turnRight(90, DEFAULT_TURN);
     pros::delay(500);
     // setStartPosition(0.0, 150.0, 0.0);
     // driveBackward(150.0, 0.0, driveProfile);

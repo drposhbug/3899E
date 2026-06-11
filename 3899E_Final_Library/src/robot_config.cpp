@@ -139,9 +139,9 @@ pros::AIVision::Color aiVision_blueCube = {.id=2, .red=59,  .green=91,  .blue=17
 // Orange cap on match loader post — placeholder values, tune on field.
 // Typical orange: high red, mid green, low blue. Narrow hue_range avoids
 // false matches on other field elements. Adjust all values after testing.
-pros::AIVision::Color aiVision_orangeCap  = {.id=3, .red=210, .green=100, .blue=10,  .hue_range=15.0, .saturation_range=0.7};
+pros::AIVision::Color aiVision_orangeCap  = {.id=3, .red=223, .green=137, .blue=51,  .hue_range=7.0, .saturation_range=0.45};
 // Long goal base — different shade of orange from the cap; tune RGB separately on field.
-pros::AIVision::Color aiVision_orangeBase = {.id=4, .red=198, .green=151,  .blue=133,   .hue_range=40, .saturation_range=0.29};
+pros::AIVision::Color aiVision_orangeBase = {.id=4, .red=223, .green=137,  .blue=51,   .hue_range=7.0, .saturation_range=0.45};
 
 // AI Vision sensor — port 14.
 // Colors pushed to sensor and detection enabled in robotInit().

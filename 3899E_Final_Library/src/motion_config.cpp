@@ -352,13 +352,13 @@ const StraightProfile MID_FWD = {
 // ──────────────────────────────────────────────────────────────────────────────
 const StraightProfile LONG_FWD = {
     .breakDistance          = 50.0,
-    .minSpeed               = 17.0,
+    .minSpeed               = 27.0,
     .maxSpeed               = 90.0,
     .distanceTolerance      = 3.0,
     .timeout                = 5.0,
     .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
 
-    .kp_heading             = 1.2,
+    .kp_heading             = 0.5,
     .ki_heading             = 0.0,
     .kd_heading             = 0.0,
 
