@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────
 #define BOT_24INCH 0
 #define BOT_15INCH 1
-#define ACTIVE_BOT BOT_24INCH
+#define ACTIVE_BOT BOT_15INCH
 
 namespace RobotGeometry {
 
@@ -40,10 +40,10 @@ namespace RobotGeometry {
     }
 
     namespace Bot15 {
-        constexpr double WIDTH_CM     = 38.10;   // 15"
-        constexpr double DEPTH_CM     = 30.48;   // 12"
-        // Diagonal half-extent: sqrt((15/2)^2 + (12/2)^2) = 24.4cm → 25.0cm with margin
-        constexpr double CLEARANCE_CM = 25.0;
+        constexpr double WIDTH_CM     = 33.02;   // 12.25"
+        constexpr double DEPTH_CM     = 48.26;   // 19" (with intake down and aligner extended)
+        // Diagonal half-extent: sqrt((12.25/2)^2 + (19/2)^2) = 28.71cm → 29.0cm with margin
+        constexpr double CLEARANCE_CM = 29.0;
     }
 
     // Active robot — used by navigation code

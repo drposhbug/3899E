@@ -795,18 +795,18 @@ void opScoring(std::pmr::string teamColor) {
         pros::lcd::print(3, "SET X: %.1f cm Y: %.1f cm H: %.1f", xPosition, yPosition, heading);
         pros::lcd::print(4, "ODOM X: %.1f cm Y: %.1f cm H: %.1f", globalX, globalY, globalRotation);
         // pros::delay(50000);
-        turnToPoint(-60, 110, DEFAULT_TURN); //47,47 in inches
+        turnToPoint(-60, 120, DEFAULT_TURN); //47,47 in inches
         pros::delay(1000);
-        forwardToPoint(-60, 110, dp); //47,47 in inches
-        // turnRight(180, DEFAULT_TURN);
-        pros::delay(500000);
-        turnToPoint(0 , 0 , DEFAULT_TURN); //47,47 in inches
-        pros::delay(500);
-        turnToPoint(180, 180, DEFAULT_TURN); //47,47 in inches
-        pros::delay(5000);
-        turnToPoint(290, 120, DEFAULT_TURN); //47,47 in inches
+        forwardToPoint(-60, 120, dp); //47,47 in inches
+        turnRight(270, DEFAULT_TURN);
         // pros::delay(500000);
-        pros::delay(70000);
+        // turnToPoint(0 , 0 , DEFAULT_TURN); //47,47 in inches
+        // pros::delay(500);
+        // turnToPoint(180, 180, DEFAULT_TURN); //47,47 in inches
+        // pros::delay(5000);
+        // turnToPoint(290, 120, DEFAULT_TURN); //47,47 in inches
+        // // pros::delay(500000);
+        pros::delay(7000);
         scorePiston.set_value(true);
         forwardToPoint(-60, 100, dp); //47,47 in inches
         // xPos = 100*(gpsSensor.get_position().x - gpsXOffset);

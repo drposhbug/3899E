@@ -125,8 +125,8 @@ void autonomous()
     // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
-    //fieldTargetsTest();
-    visionTest();
+    fieldTargetsTest();
+    // visionTest();
     // navTest();
     // blueColorSortTest();
     //runAIMatchRoute();

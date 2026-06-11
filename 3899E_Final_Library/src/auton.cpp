@@ -127,10 +127,7 @@ void fieldTargetsTest() {
                      globalX, globalY, getContinuousStandardHeading());
 
     NavResult 
-    result = navigateTo(LOADER_NW);
-    result = navigateTo(LOADER_NE);
-    result = navigateTo(LOADER_SW);
-    result = navigateTo(LOADER_SE);
+    result = navigateTo(LONG_GOAL_SE);
 
     const char* resultStr =
         result == NavResult::SUCCESS       ? "SUCCESS"  :

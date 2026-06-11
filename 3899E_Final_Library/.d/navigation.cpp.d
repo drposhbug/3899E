@@ -669,7 +669,8 @@ bin/navigation.cpp.o: src/navigation.cpp include/robot_config.h \
  include/pros/vision.h include/main.h include/utils.h \
  include/robot_config.h include/pid.h include/motion_config.h \
  include/navigation.h include/utils.h include/motion_config.h \
- include/odometry.h
+ include/odometry.h include/route_planner.h include/robot_geometry.h \
+ include/liblvgl/lv_conf_internal.h
 include/robot_config.h:
 include/main.h:
 include/api.h:
@@ -1421,3 +1422,6 @@ include/navigation.h:
 include/utils.h:
 include/motion_config.h:
 include/odometry.h:
+include/route_planner.h:
+include/robot_geometry.h:
+include/liblvgl/lv_conf_internal.h:

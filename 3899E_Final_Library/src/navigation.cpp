@@ -7,6 +7,9 @@
 #include <cmath>
 #include <atomic>
 #include "odometry.h"
+#include "route_planner.h"
+#include "robot_geometry.h"
+#include "liblvgl/lv_conf_internal.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -3026,25 +3029,6 @@ void driveToWall(double targetDistance, double targetHeading, double minSpeed,
 //   gpsResetInProgress — true while task is running
 //   gpsResetSucceeded  — result of last completed attempt
 // ======================================================================
-// bool gpsReset() {
-//     const int SAMPLE_COUNT    = 20;  // Total samples over 500ms
-//     const int SAMPLE_INTERVAL = 25;  // ms between samples (20 × 25 = 500ms)
-
-//     double weightedSumX = 0.0;
-//     double weightedSumY = 0.0;
-//     double totalWeight  = 0.0;
-//     int    accepted     = 0;
-
-//     double lowX  =  1e9, highX = -1e9;
-//     double lowY  =  1e9, highY = -1e9;
-
-//     for (int i = 0; i < SAMPLE_COUNT; i++) {
-//         double posError = gpsSensor.get_error();
-
-//         if (posError == PROS_ERR_F || posError > GPS_MAX_ERROR_M) {
-//             pros::delay(SAMPLE_INTERVAL);
-//             continue;
-//         }
 
 // ── Task-internal confidence constants ───────────────────────────────────────
 // Separate from GPS_MAX_ERROR_M in robot_config.h (used by waitAndResetGPS).
@@ -3077,7 +3061,7 @@ void gpsResetTask(void* /* param */) {
             continue;
         }
 
-//         pros::gps_position_s_t pos = gpsSensor.get_position();
+        pros::gps_position_s_t pos = gpsSensor.get_position();
 
         if (pos.x == PROS_ERR_F || pos.y == PROS_ERR_F) {
             pros::delay(GPS_TASK_SAMPLE_INTERVAL);
@@ -3109,8 +3093,8 @@ void gpsResetTask(void* /* param */) {
         return;
     }
 
-//     double resultX_m = weightedSumX / totalWeight;
-//     double resultY_m = weightedSumY / totalWeight;
+    double resultX_m = weightedSumX / totalWeight;
+    double resultY_m = weightedSumY / totalWeight;
 
     // ── Gate 3: spread check ──────────────────────────────────────────────────
     double spreadX_cm = (highX - lowX) * 100.0;
