@@ -11,9 +11,10 @@
         "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\arm-none-eabi\\include\\c++\\14.3.1\\arm-none-eabi",
         "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\lib\\gcc\\arm-none-eabi\\14.3.1\\include",
         "C:\\Users\\oscar\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\lib\\gcc\\arm-none-eabi\\14.3.1\\include-fixed",
-        "c:\\Users\\siwen\\OneDrive\\Documents\\GitHub\\3899E\\3899E_Final_Library\\include"
+        "c:\\Users\\siwen\\OneDrive\\Documents\\GitHub\\3899E\\3899E_Final_Library\\include",
+        "c:\\Users\\justi\\OneDrive\\Documents\\GitHub\\newBot\\3899E\\3899E_Final_Library\\include"
       ],
-      "compilerPath": "c:\\Users\\siwen\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\bin\\arm-none-eabi-g++",
+      "compilerPath": "c:\\Users\\justi\\AppData\\Roaming\\Code\\User\\globalStorage\\sigbots.pros\\install\\pros-toolchain-windows\\usr\\bin\\arm-none-eabi-g++",
       "cStandard": "gnu11",
       "cppStandard": "gnu++20",
       "intelliSenseMode": "gcc-arm",
@@ -21,7 +22,7 @@
       "forcedInclude": [],
       "browse": {
         "path": [
-          "c:\\Users\\siwen\\OneDrive\\Documents\\GitHub\\3899E\\3899E_Final_Library"
+          "c:\\Users\\justi\\OneDrive\\Documents\\GitHub\\newBot\\3899E\\3899E_Final_Library"
         ],
         "limitSymbolsToIncludedHeaders": true,
         "databaseFilename": ""

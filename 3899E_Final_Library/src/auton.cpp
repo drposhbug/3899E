@@ -411,7 +411,7 @@ void rightSideAuton(){
     driveProfile.lockThreshold          = 0.50;
     driveProfile.maxCurrentA            = 8.0;
     driveProfile.overcurrentDurationMs  = 500;
-    driveForward(33.3,-90,driveProfile);
+    // driveForward(33,-90,driveProfile);
 
 
     TurnProfile turnProfile1 = DEFAULT_TURN;
@@ -429,11 +429,11 @@ void rightSideAuton(){
         turnProfile1.maxCurrentA      = 8.0,
         turnProfile1.overcurrentDurationMs = 500;
         
-    turnRight(40, turnProfile1);
+    // turnRight(30, turnProfile1);
     StraightProfile driveProfile1 = LOADED_MID_FWD_80;
         driveProfile1.breakDistance          = 30.0;
-        driveProfile1.minSpeed               = 10.0;
-        driveProfile1.maxSpeed               = 20.0;
+        driveProfile1.minSpeed               = 30.0;
+        driveProfile1.maxSpeed               = 40.0;
         driveProfile1.distanceTolerance      = 2.0;
         driveProfile1.timeout                = 5.0;
         driveProfile1.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
@@ -451,13 +451,13 @@ void rightSideAuton(){
         driveProfile1.lockThreshold          = 0.50;
         driveProfile1.maxCurrentA            = 8.0;
         driveProfile1.overcurrentDurationMs  = 500;
-    driveForward(50,15,driveProfile1);
+    // driveForward(50,35,driveProfile1);
     StraightProfile driveProfile2 = LOADED_MID_FWD_80;
         driveProfile2.breakDistance          = 15.0;
         driveProfile2.minSpeed               = 15.0;
         driveProfile2.maxSpeed               = 30.0;
         driveProfile2.distanceTolerance      = 2.0;
-        driveProfile2.timeout                = 5.0;
+        driveProfile2.timeout                = 1.5;
         driveProfile2.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
         driveProfile2.kp_heading             = 0.2;
         driveProfile2.ki_heading             = 0.0;
@@ -473,9 +473,34 @@ void rightSideAuton(){
         driveProfile2.lockThreshold          = 0.50;
         driveProfile2.maxCurrentA            = 8.0;
         driveProfile2.overcurrentDurationMs  = 500;
+
+    turnLeft(-96,turnProfile1);
+    driveForward(37,-96,driveProfile);
+    turnRight(10, turnProfile1);
+    driveForward(35,10,driveProfile1);
+    turnRight(45, turnProfile1);
+    driveForward(85,45,driveProfile1);
+    turnLeft(0, turnProfile1);
+    driveForward(10,0,driveProfile);
+    // driveBackward(5,0,driveProfile1);
+    turnRight(75, turnProfile1);
+    driveForward(30,90,driveProfile2);
+    // pros::delay(600);
+    driveBackward(12,90,driveProfile);
+    turnRight(180, turnProfile1);
+    driveForward(20,180,driveProfile);
+    // turnRight(-90, turnProfile1);
+    navigateTo(LONG_GOAL_NE);
+    // driveForward(40,-90,driveProfile2);
+    //score
+
+    pros::delay(1000000);
     driveForward(80,-150,driveProfile2);
+    pros::delay(1000);
     driveBackward(30,-143,driveProfile);
+    pros::delay(1000);
     turnLeft(-165,turnProfile1);
+    pros::delay(1000);
     driveForward(130,-165,driveProfile);
     
 
