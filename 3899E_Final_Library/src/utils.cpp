@@ -143,7 +143,7 @@ const double RED_HUE_MIN_2 =   0.0;
 const double RED_HUE_MAX_2 =  15.0;
 const double BLUE_HUE_MIN  = 218.0;
 const double BLUE_HUE_MAX  = 245.0;
-const double MIN_BRIGHTNESS =  0.0;  // 0.0-1.0 scale — low threshold for channel mounting
+const double MIN_BRIGHTNESS =  0.01;  // 0.0-1.0 scale — low threshold for channel mounting
 
 // Turn on the optical sensor's illumination LED at full power.
 void initializeOpticalSensor() {
@@ -219,27 +219,43 @@ void MotorControlThread(void* params) {
 // ══════════════════════════════════════════════════════════════════════════════
 // COLOR SORT TASK
 // Monitors opticalSensor (port 3) and drives the sort flipper motor (port 16).
-// Red  detected → flipper CW  +45 degrees (move_relative positive)
-// Blue detected → flipper CCW -45 degrees (move_relative negative)
-// Flipper holds position after each move via HOLD brake mode.
-// p->targetColor is unused here — both colours are always sorted.
-// p->delayMs = settle time between detection and flipper fire (tune on field).
+// Red  detected → flipper CW  (move_relative positive)
+// Blue detected → flipper CCW (move_relative negative)
+// Brake mode: COAST. After firing, motor power cut after 100ms unless a new
+// colour is detected first — flipper rests against hard stop naturally.
+// p->targetColor unused — both colours always sorted.
 void colorDetectionTask(void* params) {
     ColorTaskParams* p = static_cast<ColorTaskParams*>(params);
 
     int redConsecutive  = 0;
     int blueConsecutive = 0;
     const int    REQUIRED_CONSECUTIVE = 2;    // 2 x 10 ms = 20 ms confirmation
-    const double FLIPPER_DEGREES      = 45.0;
-    const int    FLIPPER_RPM          = 100;  // half of 200 RPM max — controlled move
+    const double FLIPPER_DEGREES      = 100.0; // full travel to opposite hard stop
+    const int    FLIPPER_RPM          = 200;   // max speed — faster sort
+
+    // Set coast mode — flipper rests against hard stop naturally after power cut.
+    sortMotor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+    // Track last fire direction and when it fired.
+    // -1 = CCW (blue), +1 = CW (red), 0 = idle
+    int      lastDirection  = 0;
+    uint32_t lastFireTime   = 0;
+    const uint32_t POWER_CUT_MS = 100; // cut power after this long if no new detection
 
     while (p->isRunning) {
-        double hue        = opticalSensor.get_hue();
-        double brightness = opticalSensor.get_brightness();
-        double proximity  = opticalSensor.get_proximity();  // 0-255; 0 = far
+        double hue      = opticalSensor.get_hue();
+        double proximity = opticalSensor.get_proximity();
 
-        // Gate on proximity only — brightness unreliable at close range with this mount.
-        // prx:255 = touching, prx:0 = nothing. Threshold of 10 gives ~3-5cm range.
+        // Cut motor power if 100ms have elapsed since last fire and no new block incoming.
+        // Skip cut if proximity is high — block still in channel, may need to switch.
+        if (lastDirection != 0 &&
+            pros::millis() - lastFireTime >= POWER_CUT_MS &&
+            proximity < 10) {
+            sortMotor.move_voltage(0);
+            lastDirection = 0;
+        }
+
+        // Nothing in channel — reset counters and wait.
         if (proximity < 10) {
             redConsecutive  = 0;
             blueConsecutive = 0;
@@ -263,7 +279,7 @@ void colorDetectionTask(void* params) {
             blueConsecutive = 0;
         }
 
-        // Brain screen debug — hue + proximity visible during field testing.
+        // Brain screen debug.
         pros::lcd::set_text(0, "hue:" + std::to_string((int)hue) +
                                " prx:" + std::to_string((int)proximity) +
                                " r:" + std::to_string(redConsecutive) +
@@ -273,15 +289,17 @@ void colorDetectionTask(void* params) {
             redConsecutive  = 0;
             blueConsecutive = 0;
             pros::lcd::set_text(1, "SORT: RED -> CW");
-            if (p->delayMs > 0) pros::delay(p->delayMs);
             sortMotor.move_relative(FLIPPER_DEGREES, FLIPPER_RPM);
+            lastDirection = +1;
+            lastFireTime  = pros::millis();
 
         } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
             redConsecutive  = 0;
             blueConsecutive = 0;
             pros::lcd::set_text(1, "SORT: BLUE -> CCW");
-            if (p->delayMs > 0) pros::delay(p->delayMs);
             sortMotor.move_relative(-FLIPPER_DEGREES, FLIPPER_RPM);
+            lastDirection = -1;
+            lastFireTime  = pros::millis();
         }
 
         pros::delay(10);  // ~100 Hz loop
@@ -359,7 +377,6 @@ void intakeStallTask(void* params) {
 
 // Starts the intake and launches the stall-detection task.
 void startIntakeStallDetection() {
-    if (intakeStallParams.isRunning) return;  // guard — prevent duplicate task spawn
     intakeStallParams.isRunning       = true;
     intakeStallParams.stallThreshold  = 1.0;   // % velocity below which a stall is declared
     intakeStallParams.reverseRotation = 210;   // degrees to reverse to clear jam
@@ -394,7 +411,6 @@ void simpleArmTask(void* params) {
 
 // Queues an arm move by filling simpleArmParams and launching the task.
 void moveArm(ArmPosition position, int adjustment, int delayMs) {
-    if (simpleArmParams.isRunning) return;  // guard — prevent duplicate task spawn
     simpleArmParams.isRunning   = true;
     simpleArmParams.position    = position;
     simpleArmParams.adjustment  = adjustment;

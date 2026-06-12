@@ -15,14 +15,13 @@
 //    11   Hood Motor        (200 RPM, 5.5W — fixed speed, no cartridge, forward)
 //    15   Upper Indexer     (200 RPM, 5.5W — fixed speed, no cartridge, reversed)
 //     4   GPS Sensor        (right side mount, 13.5cm right of center, centered lengthwise)
-//    16   Sort Motor        (200 RPM, 5.5W — colour sort flipper, no cartridge, forward)
+//     8   Sort Motor        (200 RPM, 5.5W — colour sort flipper, no cartridge, forward)
+//    16   Lower Indexer     (200 RPM, 5.5W — fixed speed, no cartridge)
 //    17   IMU
 //    20   Left  Encoder     (reversed)
 //    13   Right Encoder     (not reversed)
 //    12   X-axis Encoder    (not reversed — set_reversed(false) in initialize())
-//     4   Optical Sensor    (colour sort — port 3, single sensor for testing)
-//    16   Left  Lane Optical  [REMOVED — port now used by sort motor]
-//    11   Right Lane Optical  [REMOVED — port conflict with hood motor]
+//     3   Optical Sensor    (colour sort, single sensor)
 //    14   AI Vision Sensor
 //
 //  ADI (3-wire) Ports:
@@ -72,7 +71,7 @@ pros::Motor hoodMotor(11, pros::MotorGears::green);      // port 11, forward (ne
 // Runs in the OPPOSITE direction to hoodMotor (port negated) so both motors
 // pull game objects through the indexer path together.
 pros::Motor upperIndexerMotor(-15, pros::MotorGears::green); // port 15, reversed
-pros::Motor lowerIndexerMotor(16, pros::MotorGears::green); // port 16, reversed
+pros::Motor lowerIndexerMotor(16, pros::MotorGears::green);  // port 16
 // ── Pneumatics ────────────────────────────────────────────────────────────────
 // set_value(true) = solenoid extended, set_value(false) = retracted.
 pros::adi::DigitalOut frontHoodPneumatics ('G');
@@ -105,10 +104,10 @@ pros::Rotation passiveEncoderX    (12);
 // Second sensor (failsafe) added later once primary is validated.
 pros::Optical opticalSensor(3);
 
-// Colour sort flipper motor — port 16, 5.5W, no swappable cartridge (fixed 200 RPM).
+// Colour sort flipper motor — port 8, 5.5W, no swappable cartridge (fixed 200 RPM).
 // pros::MotorGears::green matches the internal fixed ratio for velocity API scaling.
 // Held in brake HOLD after each sort so the flipper stays at its last position.
-pros::Motor sortMotor(16, pros::MotorGears::green);
+pros::Motor sortMotor(8, pros::MotorGears::green);
 
 // ── AI Vision Sensor ──────────────────────────────────────────────────────────
 // Color descriptors converted from VEX aivision::colordesc format:

@@ -66,6 +66,15 @@ static bool posDisplayRunning = true;
 
 void autonomous()
 {
+    // ── Background tasks — launch once, run for entire autonomous period ───────
+    // Colour sort: watches optical sensor on port 3, fires sort flipper (port 16).
+    // Runs continuously regardless of which routine is selected below.
+    static ColorTaskParams sortParams;
+    sortParams.isRunning = true;
+    sortParams.delayMs   = 0;
+    pros::Task(colorDetectionTask, &sortParams, "colourSort");
+    // ─────────────────────────────────────────────────────────────────────────
+
 
     // PosDisplay — uncomment to show live position during testing
     // pros::Task([]{
@@ -97,14 +106,14 @@ void autonomous()
     //fieldTargetsTest();
     //visionSweepNorth();
     //gpsTest();
-    //visionTest();
+    visionTest();
     //navTest();
     //runAIMatchRoute();
     //routeTest();
     //routeGridTest();
     //systemTest();
     //coordinateFinder();
-    rightSideAuton();
+    //rightSideAuton();
     // ─────────────────────────────────────────────────────────────────────────
 
     // Hold for remainder of autonomous period — prevents task cleanup killing the screen

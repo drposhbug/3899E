@@ -1,21 +1,99 @@
-#ifndef AUTON_H
-#define AUTON_H
+#ifndef AUTONTASKS_H
+#define AUTONTASKS_H
 
-// ── VAIRC match routes ────────────────────────────────────────────────────────
-void runAIMatchRoute();    // full VAIRC match via Jetson + ai.cpp
+#include "utils.h"   // Color enum, arm helpers, task param structs
 
-// ── Field test / diagnostic routes ───────────────────────────────────────────
-void routeTest();          // plan and drive a route manually
-void routeGridTest();      // print obstacle grid to brain screen
-void systemTest();         // spin each motor to verify hardware
-void coordinateFinder();   // live GPS/odometry coordinate display
-void navTest();            // test odometry-based straight drive
-void visionTest();         // test vision-based drive
-void fieldTargetsTest();   // test navigateTo() end-to-end for a named target
-void gpsTest();            // test GPS functionality
+// ══════════════════════════════════════════════════════════════════════════════
+// INTAKE / HOPPER TASKS
+// These functions start a timed motor burst and optionally return immediately
+// (async = true) so the main autonomous thread can continue to the next step.
+// ══════════════════════════════════════════════════════════════════════════════
 
-// ── Selector — called from autonomous() in main.cpp ──────────────────────────
-void autonSelector();
+// Spin the intake/hopper for timeMs milliseconds at the given power%.
+// delayMs: wait this long before starting (0 = start immediately).
+// async:   true = launch as a PROS background task and return; false = block.
+void intakeHopperStart(double timeMs, double power, double delayMs = 0.0, bool async = true);
 
-void rightSideAuton();
-#endif // AUTON_H
+// Same for the match-loader mechanism (motors + piston).
+void matchloadStart(double timeMs, double power, double delayMs = 0.0, bool async = true);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LEGACY INTAKE HELPERS
+// Kept for backwards compatibility with older autonomous routines.
+// ══════════════════════════════════════════════════════════════════════════════
+void intake(double time, bool pistonState);
+void intakeStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
+void intakeColourStart(double timeMs, double intakePct, bool pistonState, bool matchLoad);
+void intakeStop();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCORING TASKS
+// Non-blocking — robot can GPS reset or navigate while scoring runs.
+// Left bay = RED blocks, Right bay = BLUE blocks.
+// Gates open/close automatically; all mechanism motors fire together.
+// ══════════════════════════════════════════════════════════════════════════════
+void scoreRedStart(double timeMs);   // score red blocks through left bay
+void scoreBlueStart(double timeMs);  // score blue blocks through right bay
+void scoringStop();                  // halt scoring immediately
+
+// Legacy blocking helpers — kept for older routines
+void score(double time, double power);
+void rightScore(double time, double power);
+void leftScore(double time, double power);
+void stopScore();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// OUTTAKE HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+void outtake(double time, double power);
+void stopOuttake();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DISPLAY / TELEMETRY TASKS
+// These tasks print live robot state to the driver controller each cycle.
+// ══════════════════════════════════════════════════════════════════════════════
+struct HeadingDisplayParams {
+    bool isRunning;  // set false to stop the display task
+};
+
+extern HeadingDisplayParams headingDisplayParams;
+
+// Shared variables written by motion functions and displayed by the tasks.
+extern double g_targetDistance;
+extern double g_targetHeading;
+
+// Display loop: shows encoder distances, IMU heading, and nav targets.
+void headingDisplayTask(void* params);   // PROS task function — void(void*)
+
+// Driver-mode display loop: shows LeftMotor3 diagnostics (RPM, voltage, temp).
+void driverDisplayTask(void* params);    // PROS task function — void(void*)
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COORDINATE FINDER
+// Prints the robot's (globalX, globalY, heading) to the Brain screen in a loop
+// so the programmer can push the robot around and record field coordinates.
+// ══════════════════════════════════════════════════════════════════════════════
+void startCoordinateFinder();
+void stopCoordinateFinder();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MATCH-LOAD PNEUMATIC HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Extend the match-load pneumatic for timeMs ms (optionally with a start delay).
+// async = true: run as a background task.
+void matchloadPneumaticStart(double timeMs, double delayMs = 0.0, bool async = true);
+
+// Blocking version: extend piston for timeMs ms (with optional start delay), then retract.
+void matchloadPistonStart(double timeMs, double delayMs = 0.0);
+
+// Immediately retract the match-load piston.
+void matchloadPistonStop();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STOP HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+void intakeHopperStop();
+void matchloadPneumaticStop();
+
+#endif // AUTONTASKS_H

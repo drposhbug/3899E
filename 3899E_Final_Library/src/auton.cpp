@@ -120,7 +120,8 @@ void navTest() {
 }
 
 void visionTest() {
-    setStartPosition(-124.5, -34.5, 0.0);
+    setStartPosition(0, 0, 0.0);
+    //setStartPosition(-124.5, -34.5, 0.0);
     startOdometryTask();
 
     requestGpsReset();
@@ -170,7 +171,9 @@ void visionTest() {
     vp.minY                         = 0;
     vp.maxY                         = 240;
 
-    visionForwardToPoint(aiVision_orangeBase, 220, 60.0, 120.0, vp);
+    //visionForwardToPoint(aiVision_redCube, 10, 100.0, 80.0, vp);
+    
+    visionDriveForward(aiVision_blueCube, 80, 100.0);
 }
 
 // Prints the route planner obstacle grid to brain screen.
@@ -511,4 +514,112 @@ void rightSideAuton(){
     
 
 
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DEMO: 15-SECOND LONG GOAL AUTONOMOUS
+//
+// PURPOSE: Shows how to combine all major auton building blocks in one routine.
+//          Read the comments — every function call is explained.
+//
+// CALL FROM main.cpp autonomous():
+//   longGoalAuto15s(true);   // red alliance
+//   longGoalAuto15s(false);  // blue alliance
+//
+// WHAT IT DOES:
+//   1. Set starting position + start odometry
+//   2. GPS reset for accurate field position
+//   3. Start intake (async — runs while robot drives)
+//   4. A* navigate to the long goal approach point
+//   5. Delay to let blocks collect, then start scoring (async — non-blocking)
+//   6. Score red or blue blocks into correct bay depending on alliance
+//
+// ALLIANCE LOGIC:
+//   Red  → approaches east long goal (LONG_GOAL_NE), scores red  (left bay)
+//   Blue → approaches west long goal (LONG_GOAL_NW), scores blue (right bay)
+//
+// TUNING NOTES:
+//   - Adjust setStartPosition() to match your actual starting tile
+//   - intakeHopperStart timeMs should cover transit + scoring duration
+//   - scoreRedStart/scoreBlueStart timeMs = how long to run scoring motors
+//   - Add requestGpsReset() + pros::delay(200) before navigateTo for better accuracy
+// ══════════════════════════════════════════════════════════════════════════════
+void longGoalAuto15s(bool isRedAlliance) {
+
+    // ── STEP 1: Set starting position ─────────────────────────────────────────
+    // Replace X, Y, heading with your robot's actual starting coordinates.
+    // Red alliance example: starting tile near east long goal, facing north (0°).
+    // Blue alliance example: starting tile near west long goal, facing south (180°).
+    if (isRedAlliance) {
+        setStartPosition(122.0, -60.0, 0.0);   // east side, facing north
+    } else {
+        setStartPosition(-122.0, -60.0, 180.0); // west side, facing south
+    }
+
+    // ── STEP 2: Start odometry task (must be called before any navigation) ────
+    startOdometryTask();
+
+    // ── STEP 3: GPS reset — fires non-blocking, improves position accuracy ────
+    // pros::delay(200) gives the GPS sensor time to settle before navigating.
+    requestGpsReset();
+    pros::delay(200);
+    APPLY_FIELD_ROTATION();
+
+    // ── STEP 4: Tell the system which alliance we are ─────────────────────────
+    // Used internally by park/strategy functions that need alliance context.
+    setAllianceRed(isRedAlliance);
+
+    // ── STEP 5: Start intake BEFORE moving — collects blocks during transit ───
+    // intakeHopperStart(timeMs, power%, delayMs, async)
+    //   timeMs = total run time — set long enough to cover transit + scoring
+    //   async  = true means this returns immediately; intake runs in background
+    intakeHopperStart(10000, 80.0, 0.0, true);
+
+    // ── STEP 6: A* navigate to long goal approach point ───────────────────────
+    // navigateTo() handles everything:
+    //   - Plans A* path from current position to the target's approach coords
+    //   - Drives each waypoint using odometry + heading correction
+    //   - Stops at the approach point ready to score
+    // arrivedAt() checks NavResult — returns true on SUCCESS or BLIND_CONTACT.
+    // If navigation fails (obstacle, timeout), skip scoring gracefully.
+    TargetID goalTarget = isRedAlliance ? LONG_GOAL_NE : LONG_GOAL_NW;
+
+    if (!arrivedAt(navigateTo(goalTarget))) {
+        // Navigation failed — stop intake and return safely
+        intakeHopperStop();
+        return;
+    }
+
+    // ── STEP 7: Brief delay after arrival — let last blocks clear the intake ──
+    // Remove or reduce this if your intake feeds directly into scoring path.
+    pros::delay(500);
+
+    // ── STEP 8: Start scoring task (non-blocking) ─────────────────────────────
+    // scoreRedStart  → opens LEFT  gate, scores red  blocks (left  bay)
+    // scoreBlueStart → opens RIGHT gate, scores blue blocks (right bay)
+    // Both fire all mechanism motors: intakeMotor1/2, hoodMotor, upperIndexer, lowerIndexer
+    // Robot is free to GPS reset or do other tasks while this runs.
+    if (isRedAlliance) {
+        scoreRedStart(4000);   // score red blocks for 4 seconds
+    } else {
+        scoreBlueStart(4000);  // score blue blocks for 4 seconds
+    }
+
+    // ── STEP 9: GPS reset while scoring runs ─────────────────────────────────
+    // Robot is stationary at goal — perfect time to get a clean GPS fix.
+    // Non-blocking: scoring task continues uninterrupted.
+    requestGpsReset();
+    pros::delay(200);
+    APPLY_FIELD_ROTATION();
+
+    // ── STEP 10: Wait for scoring to finish ───────────────────────────────────
+    // pros::delay matches scoreRedStart/scoreBlueStart timeMs above.
+    // Or call scoringStop() to halt early if needed.
+    pros::delay(4000);
+
+    // ── DONE ──────────────────────────────────────────────────────────────────
+    // At this point: blocks scored, intake stopped, robot stationary at goal.
+    // From here a full match routine would call navigateTo(PARK_*) or loop back
+    // to collect more blocks.
 }

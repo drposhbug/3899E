@@ -2231,7 +2231,7 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
     double startDist = getCurrentEncoderDistanceCM();
 
     // Convert breakDistance from percentage to cm
-    double breakDistance = std::fabs(targetDistance) * (breakDistance / 100.0);
+    double breakDistance = std::fabs(targetDistance) * (p.drive.breakDistance / 100.0);
 
     // dirSign negated at motor output for backward driving
     double dirSign = reversed ? -1.0 : 1.0;
