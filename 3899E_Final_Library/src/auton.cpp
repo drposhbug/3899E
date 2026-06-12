@@ -383,3 +383,132 @@ void autonSelector() {
         pros::delay(20);
     }
 }
+
+
+void rightSideAuton(){
+    setStartPosition(124.8, 37, -90);
+    startOdometryTask();
+    // intakeMotor1.move_voltage(12000);
+    // intakeMotor2.move_voltage(-12000);
+    StraightProfile driveProfile = LOADED_MID_FWD_80;
+    driveProfile.breakDistance          = 20.0;
+    driveProfile.minSpeed               = 15.0;
+    driveProfile.maxSpeed               = 100.0;
+    driveProfile.distanceTolerance      = 2.0;
+    driveProfile.timeout                = 5.0;
+    driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    driveProfile.kp_heading             = 0.5;
+    driveProfile.ki_heading             = 0.01;
+    driveProfile.kd_heading             = 0.0;
+    driveProfile.accelHeadingScaling    = 0.1;
+    driveProfile.decelHeadingScaling    = 0.075;
+    driveProfile.approachHeadingScaling = 0.075;
+    driveProfile.headingLockDistance    = 5.0;
+    driveProfile.launchVoltage          = 6.0;
+    driveProfile.accelFactor            = 1.2;
+    driveProfile.slipThreshold          = 0.3;
+    driveProfile.decelStepPercent       = 2.0;
+    driveProfile.lockThreshold          = 0.50;
+    driveProfile.maxCurrentA            = 8.0;
+    driveProfile.overcurrentDurationMs  = 500;
+    // driveForward(33,-90,driveProfile);
+
+
+    TurnProfile turnProfile1 = DEFAULT_TURN;
+        turnProfile1.breakDistance    = 70.0,   // % of total turn angle
+        turnProfile1.minSpeed         = 22.0,
+        turnProfile1.maxSpeed         = 70.0,
+        turnProfile1.exitTolerance    = 3.0,    // degrees
+        turnProfile1.timeout          =1.0,
+
+        // ── Internal motion constants ─────────────────────────────────────────────
+        turnProfile1.accelFactor      = 1.2,
+        turnProfile1.slipThreshold    = 1.0,    // never triggers
+        turnProfile1.decelStepPercent = 10.0,
+        turnProfile1.lockThreshold    = 1.0,    // never triggers
+        turnProfile1.maxCurrentA      = 8.0,
+        turnProfile1.overcurrentDurationMs = 500;
+        
+    // turnRight(30, turnProfile1);
+    StraightProfile driveProfile1 = LOADED_MID_FWD_80;
+        driveProfile1.breakDistance          = 30.0;
+        driveProfile1.minSpeed               = 30.0;
+        driveProfile1.maxSpeed               = 40.0;
+        driveProfile1.distanceTolerance      = 2.0;
+        driveProfile1.timeout                = 5.0;
+        driveProfile1.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+        driveProfile1.kp_heading             = 0.1;
+        driveProfile1.ki_heading             = 0.0;
+        driveProfile1.kd_heading             = 0.0;
+        driveProfile1.accelHeadingScaling    = 0.1;
+        driveProfile1.decelHeadingScaling    = 0.075;
+        driveProfile1.approachHeadingScaling = 0.075;
+        driveProfile1.headingLockDistance    = 5.0;
+        driveProfile1.launchVoltage          = 6.0;
+        driveProfile1.accelFactor            = 1.2;
+        driveProfile1.slipThreshold          = 0.3;
+        driveProfile1.decelStepPercent       = 2.0;
+        driveProfile1.lockThreshold          = 0.50;
+        driveProfile1.maxCurrentA            = 8.0;
+        driveProfile1.overcurrentDurationMs  = 500;
+    // driveForward(50,35,driveProfile1);
+    StraightProfile driveProfile2 = LOADED_MID_FWD_80;
+        driveProfile2.breakDistance          = 15.0;
+        driveProfile2.minSpeed               = 15.0;
+        driveProfile2.maxSpeed               = 30.0;
+        driveProfile2.distanceTolerance      = 2.0;
+        driveProfile2.timeout                = 1.5;
+        driveProfile2.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+        driveProfile2.kp_heading             = 0.2;
+        driveProfile2.ki_heading             = 0.0;
+        driveProfile2.kd_heading             = 0.0;
+        driveProfile2.accelHeadingScaling    = 0.1;
+        driveProfile2.decelHeadingScaling    = 0.075;
+        driveProfile2.approachHeadingScaling = 0.075;
+        driveProfile2.headingLockDistance    = 5.0;
+        driveProfile2.launchVoltage          = 6.0;
+        driveProfile2.accelFactor            = 1.2;
+        driveProfile2.slipThreshold          = 0.3;
+        driveProfile2.decelStepPercent       = 2.0;
+        driveProfile2.lockThreshold          = 0.50;
+        driveProfile2.maxCurrentA            = 8.0;
+        driveProfile2.overcurrentDurationMs  = 500;
+
+    turnLeft(-96,turnProfile1);
+    driveForward(37,-96,driveProfile);
+    turnRight(10, turnProfile1);
+    driveForward(35,10,driveProfile1);
+    turnRight(45, turnProfile1);
+    driveForward(85,45,driveProfile1);
+    turnLeft(0, turnProfile1);
+    driveForward(10,0,driveProfile);
+    // driveBackward(5,0,driveProfile1);
+    turnRight(75, turnProfile1);
+    driveForward(30,90,driveProfile2);
+    // pros::delay(600);
+    driveBackward(12,90,driveProfile);
+    turnRight(180, turnProfile1);
+    driveForward(20,180,driveProfile);
+    // turnRight(-90, turnProfile1);
+    navigateTo(LONG_GOAL_NE);
+    // driveForward(40,-90,driveProfile2);
+    //score
+
+    pros::delay(1000000);
+    driveForward(80,-150,driveProfile2);
+    pros::delay(1000);
+    driveBackward(30,-143,driveProfile);
+    pros::delay(1000);
+    turnLeft(-165,turnProfile1);
+    pros::delay(1000);
+    driveForward(130,-165,driveProfile);
+    
+
+    // turnRight(37,turnProfile1);
+    // driveForward(60,37,driveProfile);
+    // driveForward(30,90,driveProfile2);
+
+    
+
+
+}
