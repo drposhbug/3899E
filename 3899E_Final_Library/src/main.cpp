@@ -125,8 +125,8 @@ void autonomous()
     // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
-    fieldTargetsTest();
-    // visionTest();
+    // fieldTargetsTest();
+    visionTest();
     // navTest();
     // blueColorSortTest();
     //runAIMatchRoute();
@@ -146,6 +146,9 @@ void autonomous()
 
 void opcontrol() {
 
+    // driveForward(20.0, globalRotation, DEFAULT_STRAIGHT); // kick forward to release any preloaded game pieces and verify drive is working before giving control to driver
+    // turnRight(globalRotation + 160.0, DEFAULT_TURN);
+
     // while (true) {
     //     double xPos = 100*(gpsSensor.get_position().x - 0.1175);
     //     double yPos = 100*(gpsSensor.get_position().y - 0.110);
@@ -153,9 +156,9 @@ void opcontrol() {
     //     pros::delay(100);
     // }
     while (true) {
-        opScoring("RED"); // put alliance colour here as argument: "RED" or "BLUE"
-        // AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
-        pros::delay(20);
+        // opScoring("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        pros::delay(100);
     }
     // pros::screen::erase();
     // Controller.clear();

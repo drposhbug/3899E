@@ -250,10 +250,10 @@ void navTest() {
     // backwardToPoint(0.0, 0.0, driveProfile);
 
     // ── driveForward/driveBackward test (open-loop) ───────────────────
-    // driveForward(150.0, 0.0, LONG_FWD);
+    // driveForward(150.0, 0.0, DEFAULT_STRAIGHT);
     // turnOdometry(90, DEFAULT_TURN); //selectTurnProfile(180)
-    turnRight(90, DEFAULT_TURN);
-    pros::delay(500);
+    // turnRight(90, DEFAULT_TURN);
+    // pros::delay(500);
     // setStartPosition(0.0, 150.0, 0.0);
     // driveBackward(150.0, 0.0, driveProfile);
     // pros::delay(500);
@@ -303,7 +303,7 @@ void visionTest() {
     colorSortMotor.move(127);
     // ── Stage 1: visionDriveForward — open-loop encoder distance + vision steering ──
     // Robot drives 150 cm forward; vision steers once target acquired.
-    // visionDriveForward(aiVision_blueCube, 40, 150.0, 0.0, vp);
+    visionOnly(aiVision_orangeCap, 200, 50.0, vp);
 
     // ── Stage 2: visionForwardToPoint — closed-loop odometry + vision steering ──
     // Robot drives to (0, 150) using live odometry; vision corrects heading.
@@ -316,7 +316,11 @@ void visionTest() {
     pros::lcd::print(1, "which ai sensor:" )
     // ── Stage 4: visionOnly — pure vision approach, no odometry position updates ──
     // Robot drives toward target until pixel width >= 80, encoder safety, or timeout.
+<<<<<<< Updated upstream
     visionOnlyOG(aiVision_redCube, 40, 200.0, vp);
+=======
+    // visionOnly(aiVision_redCube, 40, 200.0, vp);
+>>>>>>> Stashed changes
 }
 
 void redColorSortTest() {

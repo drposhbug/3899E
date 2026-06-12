@@ -561,29 +561,51 @@ void AITracking(std::pmr::string teamColor) {
     }
     for (auto &obj : aiVision_back_objects) {
         if (pros::AIVision::is_type(obj, pros::AivisionDetectType::color)) {
-            if (teamColor == "RED") {
-                if (obj.id == 1) {
-                    int topLeftX = obj.object.color.xoffset;
-                    int topLeftY = obj.object.color.yoffset;
-                    int blockWidth = obj.object.color.width;
-                    int blockHeight = obj.object.color.height;
-                    int blockX = topLeftX + (blockWidth / 2);
-                    int blockY = topLeftY + (blockHeight / 2);
-                    pros::lcd::print(5, "Back Red Center X: %d", blockX);
-                    pros::lcd::print(6, "Back Red Center Y: %d", blockY);
-                }
+            // if (teamColor == "RED") {
+            //     if (obj.id == 1) {
+            //         int topLeftX = obj.object.color.xoffset;
+            //         int topLeftY = obj.object.color.yoffset;
+            //         int blockWidth = obj.object.color.width;
+            //         int blockHeight = obj.object.color.height;
+            //         int blockX = topLeftX + (blockWidth / 2);
+            //         int blockY = topLeftY + (blockHeight / 2);
+            //         pros::lcd::print(5, "Back Red Center X: %d", blockX);
+            //         pros::lcd::print(6, "Back Red Center Y: %d", blockY);
+            //     }
+            // }
+            // else if (teamColor == "BLUE") {
+            //     if (obj.id == 2) {
+            //         int topLeftX = obj.object.color.xoffset;
+            //         int topLeftY = obj.object.color.yoffset;
+            //         int blockWidth = obj.object.color.width;
+            //         int blockHeight = obj.object.color.height;
+            //         int blockX = topLeftX + (blockWidth / 2);
+            //         int blockY = topLeftY + (blockHeight / 2);
+            //         pros::lcd::print(5, "Back Blue Center X: %d", blockX);
+            //         pros::lcd::print(6, "Back Blue Center Y: %d", blockY);
+            //     }
+            // }
+            // Orange Cap (id=3) tracking
+            if (obj.id == 3) {
+                int topLeftX = obj.object.color.xoffset;
+                int topLeftY = obj.object.color.yoffset;
+                int capWidth = obj.object.color.width;
+                int capHeight = obj.object.color.height;
+                int capX = topLeftX + (capWidth / 2);
+                int capY = topLeftY + (capHeight / 2);
+                pros::lcd::print(6, "Back Orange Cap Center X: %d", capX);
+                pros::lcd::print(7, "Back Orange Cap Center Y: %d", capY);
             }
-            else if (teamColor == "BLUE") {
-                if (obj.id == 2) {
-                    int topLeftX = obj.object.color.xoffset;
-                    int topLeftY = obj.object.color.yoffset;
-                    int blockWidth = obj.object.color.width;
-                    int blockHeight = obj.object.color.height;
-                    int blockX = topLeftX + (blockWidth / 2);
-                    int blockY = topLeftY + (blockHeight / 2);
-                    pros::lcd::print(5, "Back Blue Center X: %d", blockX);
-                    pros::lcd::print(6, "Back Blue Center Y: %d", blockY);
-                }
+            // Orange Base (id=4) tracking
+            if (obj.id == 4) {
+                int topLeftX = obj.object.color.xoffset;
+                int topLeftY = obj.object.color.yoffset;
+                int baseWidth = obj.object.color.width;
+                int baseHeight = obj.object.color.height;
+                int baseX = topLeftX + (baseWidth / 2);
+                int baseY = topLeftY + (baseHeight / 2);
+                pros::lcd::print(9, "Back Orange Base Center X: %d", baseX);
+                pros::lcd::print(10, "Back Orange Base Center Y: %d", baseY);
             }
         }
     }

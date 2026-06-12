@@ -18,6 +18,18 @@
 // Horizontal center of the vision sensor frame (pixels)
 const double VISION_CENTER_X = 160;
 
+static pros::AIVision& getAIVisionSensor(const pros::AIVision::Color& targetSignature) {
+    if (targetSignature.id == aiVision_orangeCap.id ||
+        targetSignature.id == aiVision_orangeBase.id) {
+        return aiVision_Back;
+    }
+    return aiVision_Front;
+}
+
+static pros::AIVision& getAIVisionSensor(const pros::vision_color_code_t& targetSignature) {
+    return aiVision_Front;
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // DRIVE PHASE — global enum readable by auto-calibration system.
 // Written by each core motion function on every phase transition.
@@ -1017,13 +1029,14 @@ static void visionDriveMinimal_impl(
     int    lastWidth       = 0;
 
     while (true) {
+        pros::AIVision& visionSensor = getAIVisionSensor(targetSignature);
         pros::vision_object_s_t obj;
         if constexpr (std::is_same_v<T, pros::AIVision::Color>) {
             // AIVision: find first color object matching targetSignature.id
             obj = {};
-            int _cnt = aiVision_Front.get_object_count();
+            int _cnt = visionSensor.get_object_count();
             for (int _i = 0; _i < _cnt; _i++) {
-                pros::AIVision::Object _o = aiVision_Front.get_object(_i);
+                pros::AIVision::Object _o = visionSensor.get_object(_i);
                 if (pros::AIVision::is_type(_o, pros::AivisionDetectType::color) && _o.id == targetSignature.id) {
                     // Map AIVision fields to vision_object_s_t-compatible locals
                     obj.width          = _o.object.color.width;
@@ -1037,9 +1050,9 @@ static void visionDriveMinimal_impl(
             // AIVision: color code detection not directly supported via get_object;
             // scan all objects for matching code id
             obj = {};
-            { int _cntc = aiVision_Front.get_object_count();
+            { int _cntc = visionSensor.get_object_count();
               for (int _ic = 0; _ic < _cntc; _ic++) {
-                  pros::AIVision::Object _oc = aiVision_Front.get_object(_ic);
+                  pros::AIVision::Object _oc = visionSensor.get_object(_ic);
                   if (pros::AIVision::is_type(_oc, pros::AivisionDetectType::code)) {
                       obj.width          = _oc.object.color.width;
                       obj.x_middle_coord = _oc.object.color.xoffset + _oc.object.color.width  / 2;
@@ -1161,14 +1174,15 @@ void visionDriveV2(
         int bestObjectIndex = -1;
         int largestWidth    = 0;
 
+        pros::AIVision& visionSensor = getAIVisionSensor(targetSignature);
         // --- SECTION 1: FILTERING ---
         for (int i = 0; i < MAX_OBJECTS_TO_CHECK; i++) {
             // AIVision: iterate all objects, pick i-th color match
             pros::vision_object_s_t obj = {}; obj.signature = 255; // invalid default
             { int _matchIdx = 0;
-              int _cnt2 = aiVision_Front.get_object_count();
+              int _cnt2 = visionSensor.get_object_count();
               for (int _j = 0; _j < _cnt2; _j++) {
-                  pros::AIVision::Object _o2 = aiVision_Front.get_object(_j);
+                  pros::AIVision::Object _o2 = visionSensor.get_object(_j);
                   if (pros::AIVision::is_type(_o2, pros::AivisionDetectType::color) && _o2.id == targetSignature.id) {
                       if (_matchIdx == i) {
                           obj.width          = _o2.object.color.width;
@@ -1210,12 +1224,13 @@ void visionDriveV2(
             }
         } else {
             lostFrameCounter = 0;
+            pros::AIVision& visionSensor = getAIVisionSensor(targetSignature);
             // AIVision: get bestObjectIndex-th color match
             pros::vision_object_s_t detectedObject = {};
             { int _matchIdx2 = 0;
-              int _cnt3 = aiVision_Front.get_object_count();
+              int _cnt3 = visionSensor.get_object_count();
               for (int _j2 = 0; _j2 < _cnt3; _j2++) {
-                  pros::AIVision::Object _o3 = aiVision_Front.get_object(_j2);
+                  pros::AIVision::Object _o3 = visionSensor.get_object(_j2);
                   if (pros::AIVision::is_type(_o3, pros::AivisionDetectType::color) && _o3.id == targetSignature.id) {
                       if (_matchIdx2 == bestObjectIndex) {
                           detectedObject.width          = _o3.object.color.width;
@@ -1989,7 +2004,8 @@ void visionForwardToPoint(pros::AIVision::Color targetSignature,
         // 4. VISION SNAPSHOT
         // ───────────────────────────────────────────────────────────────
         visionCurrentlyTracked = false;
-        int objCount = aiVision_Front.get_object_count();
+        pros::AIVision& visionSensor = getAIVisionSensor(targetSignature);
+        int objCount = visionSensor.get_object_count();
 
         // DEBUG — pros::screen::erase();
         // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 1, "objCount: %d  dist: %.1f", objCount, currentDistanceToTarget);
@@ -1997,7 +2013,7 @@ void visionForwardToPoint(pros::AIVision::Color targetSignature,
         pros::AIVision::Object primaryObject = {};
         bool primaryValid = false;
         for (int _i = 0; _i < objCount; _i++) {
-            pros::AIVision::Object _obj = aiVision_Front.get_object(_i);
+            pros::AIVision::Object _obj = visionSensor.get_object(_i);
             if (pros::AIVision::is_type(_obj, pros::AivisionDetectType::color) && _obj.id == targetSignature.id) {
                 primaryObject = _obj;
                 primaryValid  = true;
@@ -2371,7 +2387,8 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
         // 4. VISION SNAPSHOT
         // ───────────────────────────────────────────────────────────────
         visionCurrentlyTracked = false;
-        int objCount = aiVision_Front.get_object_count();
+        pros::AIVision& visionSensor = getAIVisionSensor(targetSignature);
+        int objCount = visionSensor.get_object_count();
 
         // DEBUG — pros::screen::erase();
         // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 1, "objCount: %d  dist: %.1f", objCount, currentDistanceToTarget);
@@ -2379,7 +2396,7 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
         pros::AIVision::Object primaryObject = {};
         bool primaryValid = false;
         for (int _i = 0; _i < objCount; _i++) {
-            pros::AIVision::Object _obj = aiVision_Front.get_object(_i);
+            pros::AIVision::Object _obj = visionSensor.get_object(_i);
             if (pros::AIVision::is_type(_obj, pros::AivisionDetectType::color) && _obj.id == targetSignature.id) {
                 primaryObject = _obj;
                 primaryValid  = true;
@@ -2715,7 +2732,8 @@ void visionOnly(pros::AIVision::Color targetSignature,
 
         // --- VISION SNAPSHOT ---
         visionCurrentlyTracked = false;
-        int objCount = aiVision_Front.get_object_count();
+        pros::AIVision& visionSensor = getAIVisionSensor(targetSignature);
+        int objCount = visionSensor.get_object_count();
 
         // DEBUG — pros::screen::erase();
         // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 1, "objCount: %d  dist: %.1f", objCount, currentDistanceToTarget);
@@ -2723,7 +2741,7 @@ void visionOnly(pros::AIVision::Color targetSignature,
         pros::AIVision::Object primaryObject = {};
         bool primaryValid = false;
         for (int _i = 0; _i < objCount; _i++) {
-            pros::AIVision::Object _obj = aiVision_Front.get_object(_i);
+            pros::AIVision::Object _obj = visionSensor.get_object(_i);
             if (pros::AIVision::is_type(_obj, pros::AivisionDetectType::color) && _obj.id == targetSignature.id) {
                 primaryObject = _obj;
                 primaryValid  = true;
