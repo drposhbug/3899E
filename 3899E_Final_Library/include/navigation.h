@@ -281,6 +281,11 @@ void visionOnly(pros::AIVision::Color targetSignature,
                 double targetDistance,
                 const VisionProfile& p = DEFAULT_VISION);
 
+void visionOnlyOG(pros::AIVision::Color targetSignature,
+                int    targetPixelWidth,
+                double targetDistance,
+                const VisionProfile& p = DEFAULT_VISION);
+
 // ══════════════════════════════════════════════════════════════════════════════
 // GPS RESET — on-demand background task
 //

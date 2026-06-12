@@ -313,9 +313,10 @@ void visionTest() {
     // Robot drives backward to (0, 0) using live odometry; vision corrects heading.
     // visionBackwardToPoint(aiVision_redCube, 80, 0.0, 0.0, vp);
 
+    pros::lcd::print(1, "which ai sensor:" )
     // ── Stage 4: visionOnly — pure vision approach, no odometry position updates ──
     // Robot drives toward target until pixel width >= 80, encoder safety, or timeout.
-    visionOnly(aiVision_redCube, 40, 200.0, vp);
+    visionOnlyOG(aiVision_redCube, 40, 200.0, vp);
 }
 
 void redColorSortTest() {
