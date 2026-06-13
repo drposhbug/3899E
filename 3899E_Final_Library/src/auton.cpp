@@ -441,6 +441,13 @@ void autonSelector() {
 void rightSideAuton(){
     setStartPosition(124.8, 37, -90);
     startOdometryTask();
+
+    // Colour sort task — runs entire auton, sorts blocks as they pass the optical sensor.
+    // Blue right side auton: sorts blue blocks into right bay, red into left bay.
+    static ColorTaskParams colorParams;
+    colorParams.isRunning = true;
+    colorParams.delayMs   = 0;
+    pros::Task(colorDetectionTask, &colorParams, "colourSort");
     // intakeMotor1.move_voltage(12000);
     // intakeMotor2.move_voltage(-12000);
     StraightProfile driveProfile = LOADED_MID_FWD_80;

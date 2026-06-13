@@ -129,5 +129,5 @@ void opcontrol()
 {
     pros::screen::erase();
     Controller.clear();
-  //  driverControl();
+    driverControl();
 }

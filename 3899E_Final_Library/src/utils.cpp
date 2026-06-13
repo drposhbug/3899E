@@ -230,32 +230,22 @@ void colorDetectionTask(void* params) {
     int redConsecutive  = 0;
     int blueConsecutive = 0;
     const int    REQUIRED_CONSECUTIVE = 2;    // 2 x 10 ms = 20 ms confirmation
-    const double FLIPPER_DEGREES      = 100.0; // full travel to opposite hard stop
-    const int    FLIPPER_RPM          = 200;   // max speed — faster sort
+
+    // Ensure optical LED is on — set_led_pwm can reset after Brain restart.
+    opticalSensor.set_led_pwm(100);
 
     // Set coast mode — flipper rests against hard stop naturally after power cut.
     sortMotor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 
-    // Track last fire direction and when it fired.
-    // -1 = CCW (blue), +1 = CW (red), 0 = idle
-    int      lastDirection  = 0;
-    uint32_t lastFireTime   = 0;
-    const uint32_t POWER_CUT_MS = 100; // cut power after this long if no new detection
+    // Flipper drive time — how long to apply voltage for full 120 degree travel.
+    // At 12000mV on a 200RPM 5.5W motor: tune this if flipper over/under-shoots.
+    const uint32_t FLIPPER_DRIVE_MS = 150;
 
     while (p->isRunning) {
-        double hue      = opticalSensor.get_hue();
+        double hue       = opticalSensor.get_hue();
         double proximity = opticalSensor.get_proximity();
 
-        // Cut motor power if 100ms have elapsed since last fire and no new block incoming.
-        // Skip cut if proximity is high — block still in channel, may need to switch.
-        if (lastDirection != 0 &&
-            pros::millis() - lastFireTime >= POWER_CUT_MS &&
-            proximity < 10) {
-            sortMotor.move_voltage(0);
-            lastDirection = 0;
-        }
-
-        // Nothing in channel — reset counters and wait.
+        // ── Proximity gate ────────────────────────────────────────────────────
         if (proximity < 10) {
             redConsecutive  = 0;
             blueConsecutive = 0;
@@ -264,6 +254,7 @@ void colorDetectionTask(void* params) {
             continue;
         }
 
+        // ── Colour detection ──────────────────────────────────────────────────
         bool redSeen  = (hue >= RED_HUE_MIN_1 && hue <= RED_HUE_MAX_1) ||
                         (hue >= RED_HUE_MIN_2 && hue <= RED_HUE_MAX_2);
         bool blueSeen = (hue >= BLUE_HUE_MIN  && hue <= BLUE_HUE_MAX);
@@ -279,27 +270,27 @@ void colorDetectionTask(void* params) {
             blueConsecutive = 0;
         }
 
-        // Brain screen debug.
         pros::lcd::set_text(0, "hue:" + std::to_string((int)hue) +
-                               " prx:" + std::to_string((int)proximity) +
-                               " r:" + std::to_string(redConsecutive) +
-                               " b:" + std::to_string(blueConsecutive));
+                               " prx:" + std::to_string((int)proximity));
 
+        // ── Fire flipper ──────────────────────────────────────────────────────
+        // Apply voltage for fixed time then cut — simple and reliable.
+        // Motor coasts to hard stop after power cut (COAST brake mode).
         if (redConsecutive >= REQUIRED_CONSECUTIVE) {
             redConsecutive  = 0;
             blueConsecutive = 0;
             pros::lcd::set_text(1, "SORT: RED -> CW");
-            sortMotor.move_relative(FLIPPER_DEGREES, FLIPPER_RPM);
-            lastDirection = +1;
-            lastFireTime  = pros::millis();
+            sortMotor.move_voltage(12000);      // CW — red lane
+            pros::delay(FLIPPER_DRIVE_MS);      // hold voltage for travel time
+            sortMotor.move(0);                  // cut power — coasts to hard stop
 
         } else if (blueConsecutive >= REQUIRED_CONSECUTIVE) {
             redConsecutive  = 0;
             blueConsecutive = 0;
             pros::lcd::set_text(1, "SORT: BLUE -> CCW");
-            sortMotor.move_relative(-FLIPPER_DEGREES, FLIPPER_RPM);
-            lastDirection = -1;
-            lastFireTime  = pros::millis();
+            sortMotor.move_voltage(-12000);     // CCW — blue lane
+            pros::delay(FLIPPER_DRIVE_MS);      // hold voltage for travel time
+            sortMotor.move(0);                  // cut power — coasts to hard stop
         }
 
         pros::delay(10);  // ~100 Hz loop
