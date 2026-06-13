@@ -20,5 +20,7 @@ void blueColorSortTest();  // test color sort with blue cubes
 void autonSelector();
 
 void autonLeft15();
+void leftAuton();
 void skills();
+void autonLeftAStar(std::pmr::string teamColor);  // Left side with A*, matchload, and long goal score
 #endif // AUTON_H

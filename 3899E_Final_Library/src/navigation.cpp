@@ -19,15 +19,14 @@
 const double VISION_CENTER_X = 160;
 
 static pros::AIVision& getAIVisionSensor(const pros::AIVision::Color& targetSignature) {
-    if (targetSignature.id == aiVision_orangeCap.id ||
-        targetSignature.id == aiVision_orangeBase.id) {
+    if (targetSignature.id == aiVision_orangeBase.id) {
         return aiVision_Back;
     }
-    return aiVision_Front;
+    return aiVision_Front; //FRONT
 }
 
 static pros::AIVision& getAIVisionSensor(const pros::vision_color_code_t& targetSignature) {
-    return aiVision_Front;
+    return aiVision_Front; //FRONT
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -2283,7 +2282,7 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
     double startDist = getCurrentEncoderDistanceCM();
 
     // Convert breakDistance from percentage to cm
-    double breakDistance = std::fabs(targetDistance) * (breakDistance / 100.0);
+    double breakDistance = std::fabs(targetDistance) * (p.drive.breakDistance / 100.0); //changed breakDistance to profile breakdistance NEWLY ADDED
 
     // dirSign negated at motor output for backward driving
     double dirSign = reversed ? -1.0 : 1.0;
@@ -2477,7 +2476,8 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
         }
 
         double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
-
+        
+        double directedHeadingCorrection = dirSign * headingCorrection; //NEWLY ADDED
         // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 7, "targetH:%.1f fusedH:%.1f", targetHeading, fusedTargetHeading);
         // DEBUG — pros::screen::print(pros::E_TEXT_MEDIUM, 8, "correction:%.3f  vOffset:%.2f", headingCorrection, lastVisionHorizontalOffset);
 
@@ -2511,8 +2511,8 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
                                         ? tractionVoltageLeft : tractionVoltageRight;
 
             // Apply heading correction on top of synchronized base
-            motorVoltageLeft  = syncedMotorVoltage + (headingCorrection * p.drive.accelHeadingScaling);
-            motorVoltageRight = syncedMotorVoltage - (headingCorrection * p.drive.accelHeadingScaling);
+            motorVoltageLeft  = syncedMotorVoltage + (directedHeadingCorrection * p.drive.accelHeadingScaling);
+            motorVoltageRight = syncedMotorVoltage - (directedHeadingCorrection * p.drive.accelHeadingScaling);
 
             // Exit checks synced base, not PID-skewed motor output
             if (std::fabs(syncedMotorVoltage) >= maxSpeedVoltage)
@@ -2525,8 +2525,8 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
         else if (currentDistanceToTarget > breakDistance && accelCompleted)
         {
             currentDrivePhase = PHASE_CRUISE;
-            motorVoltageLeft  = maxSpeedVoltage + headingCorrection;
-            motorVoltageRight = maxSpeedVoltage - headingCorrection;
+            motorVoltageLeft  = maxSpeedVoltage + directedHeadingCorrection;
+            motorVoltageRight = maxSpeedVoltage - directedHeadingCorrection;
         }
 
         // PHASE 3: DECELERATION
@@ -2551,7 +2551,7 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
 
             double syncedDecelVoltage = (std::fabs(leftDecelVoltage) < std::fabs(rightDecelVoltage))
                 ? leftDecelVoltage : rightDecelVoltage;
-            double steeringCorrection = headingCorrection * p.drive.decelHeadingScaling;
+            double steeringCorrection = directedHeadingCorrection * p.drive.decelHeadingScaling;
 
             leftDrive.set_brake_mode(syncedBrakeMode);
             rightDrive.set_brake_mode(syncedBrakeMode);
@@ -2576,8 +2576,8 @@ void visionDriveForward(pros::AIVision::Color targetSignature,
             currentDrivePhase = PHASE_APPROACH;
             leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
             rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-            motorVoltageLeft  = minSpeedVoltage + (headingCorrection * p.drive.approachHeadingScaling);
-            motorVoltageRight = minSpeedVoltage - (headingCorrection * p.drive.approachHeadingScaling);
+            motorVoltageLeft  = minSpeedVoltage + (directedHeadingCorrection * p.drive.approachHeadingScaling);
+            motorVoltageRight = minSpeedVoltage - (directedHeadingCorrection * p.drive.approachHeadingScaling);
         }
 
         // ───────────────────────────────────────────────────────────────

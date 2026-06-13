@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "interaction (WORKING)",
+    "project_name": "game",
     "target": "v5",
     "templates": {
       "kernel": {

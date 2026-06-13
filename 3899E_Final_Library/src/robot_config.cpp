@@ -264,8 +264,10 @@ void robotInit()
     aiVision_Front.reset();
     aiVision_Front.set_color(aiVision_redCube);
     aiVision_Front.set_color(aiVision_blueCube);
+    aiVision_Front.set_color(aiVision_orangeCap);
     aiVision_Back.reset();
-    aiVision_Back.set_color(aiVision_orangeCap);
+    aiVision_Back.set_color(aiVision_orangeBase);
+    aiVision_Back.set_color(aiVision_redCube);
     aiVision_Front.enable_detection_types(pros::AivisionModeType::colors);
     aiVision_Back.enable_detection_types(pros::AivisionModeType::colors);
 

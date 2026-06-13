@@ -561,18 +561,18 @@ void AITracking(std::pmr::string teamColor) {
     }
     for (auto &obj : aiVision_back_objects) {
         if (pros::AIVision::is_type(obj, pros::AivisionDetectType::color)) {
-            // if (teamColor == "RED") {
-            //     if (obj.id == 1) {
-            //         int topLeftX = obj.object.color.xoffset;
-            //         int topLeftY = obj.object.color.yoffset;
-            //         int blockWidth = obj.object.color.width;
-            //         int blockHeight = obj.object.color.height;
-            //         int blockX = topLeftX + (blockWidth / 2);
-            //         int blockY = topLeftY + (blockHeight / 2);
-            //         pros::lcd::print(5, "Back Red Center X: %d", blockX);
-            //         pros::lcd::print(6, "Back Red Center Y: %d", blockY);
-            //     }
-            // }
+            if (teamColor == "RED") {
+                if (obj.id == 1) {
+                    int topLeftX = obj.object.color.xoffset;
+                    int topLeftY = obj.object.color.yoffset;
+                    int blockWidth = obj.object.color.width;
+                    int blockHeight = obj.object.color.height;
+                    int blockX = topLeftX + (blockWidth / 2);
+                    int blockY = topLeftY + (blockHeight / 2);
+                    pros::lcd::print(7, "Back Red Center X: %d", blockX);
+                    pros::lcd::print(8, "Back Red Center Y: %d", blockY);
+                }
+            }
             // else if (teamColor == "BLUE") {
             //     if (obj.id == 2) {
             //         int topLeftX = obj.object.color.xoffset;
@@ -593,8 +593,8 @@ void AITracking(std::pmr::string teamColor) {
                 int capHeight = obj.object.color.height;
                 int capX = topLeftX + (capWidth / 2);
                 int capY = topLeftY + (capHeight / 2);
-                pros::lcd::print(6, "Back Orange Cap Center X: %d", capX);
-                pros::lcd::print(7, "Back Orange Cap Center Y: %d", capY);
+                pros::lcd::print(5, "Back Orange Cap Center X: %d", capX);
+                pros::lcd::print(6, "Back Orange Cap Center Y: %d", capY);
             }
             // Orange Base (id=4) tracking
             if (obj.id == 4) {
@@ -604,8 +604,8 @@ void AITracking(std::pmr::string teamColor) {
                 int baseHeight = obj.object.color.height;
                 int baseX = topLeftX + (baseWidth / 2);
                 int baseY = topLeftY + (baseHeight / 2);
-                pros::lcd::print(9, "Back Orange Base Center X: %d", baseX);
-                pros::lcd::print(10, "Back Orange Base Center Y: %d", baseY);
+                pros::lcd::print(5, "Back Orange Base Center X: %d", baseX);
+                pros::lcd::print(6, "Back Orange Base Center Y: %d", baseY);
             }
         }
     }
@@ -678,7 +678,7 @@ void opScoring(std::pmr::string teamColor) {
     opticalSensor.set_led_pwm(100); // Ensure the LED is on for accurate readings
     blockCount = 0;
     wasColor = false;
-    bool intakeFull = true;
+    bool intakeFull = false;
     int retryCount = 0;
     const int MAX_RETRIES_PER_BLOCK = 3;  // Backtrack if vision fails 3 times in a row
     StraightProfile dp = DEFAULT_STRAIGHT;
@@ -824,8 +824,11 @@ void opScoring(std::pmr::string teamColor) {
         // turnRight(90, DEFAULT_TURN);
         // pros::lcd::print(5, "Post-turn GPS heading: %.1f", gpsSensor.get_heading());
         // pros::delay(50000);
-        NavResult 
-        result = navigateTo(LONG_GOAL_SE);
+        if (teamColor == "RED") {
+            NavResult result = navigateTo(LONG_GOAL_SE);
+        } else {
+            NavResult result = navigateTo(LONG_GOAL_NW);
+        }
         pros::delay(500);
         setStartPosition(globalX, globalY, gpsSensor.get_heading()-headingOffset);
         // turnRight(90, DEFAULT_TURN);
@@ -841,42 +844,49 @@ void opScoring(std::pmr::string teamColor) {
         lever.move(0);
         // turnRight(270, DEFAULT_TURN);
 
-        pros::delay(50000);
-        turnToPoint(-60, 120, DEFAULT_TURN); //47,47 in inches
-        pros::delay(1000);
-        forwardToPoint(-60, 120, dp); //47,47 in inches
-        turnRight(270, DEFAULT_TURN);
-        // pros::delay(500000);
-        // turnToPoint(0 , 0 , DEFAULT_TURN); //47,47 in inches
-        // pros::delay(500);
-        // turnToPoint(180, 180, DEFAULT_TURN); //47,47 in inches
-        // pros::delay(5000);
-        // turnToPoint(290, 120, DEFAULT_TURN); //47,47 in inches
+        // pros::delay(50000);
+        // turnToPoint(-60, 120, DEFAULT_TURN); //47,47 in inches
+        // pros::delay(1000);
+        // forwardToPoint(-60, 120, dp); //47,47 in inches
+        // turnRight(270, DEFAULT_TURN);
         // // pros::delay(500000);
-        pros::delay(7000);
-        scorePiston.set_value(true);
-        forwardToPoint(-60, 100, dp); //47,47 in inches
-        // xPos = 100*(gpsSensor.get_position().x - gpsXOffset);
-        // yPos = 100*(gpsSensor.get_position().y - gpsYOffset);
-        // pros::lcd::print(4, "X: %.2f | Y: %.2f | Heading: %.2f", xPos, yPos, heading);
-        // pros::lcd::print(5, "X: %.2f | Y: %.2f | Heading: %.2f", globalX, globalY, globalRotation);
-        // pros::delay(70000);
-        turnToPoint(-45, 100, DEFAULT_TURN);
-        forwardToPoint(-45, 100, dp);
+        // // turnToPoint(0 , 0 , DEFAULT_TURN); //47,47 in inches
+        // // pros::delay(500);
+        // // turnToPoint(180, 180, DEFAULT_TURN); //47,47 in inches
+        // // pros::delay(5000);
+        // // turnToPoint(290, 120, DEFAULT_TURN); //47,47 in inches
+        // // // pros::delay(500000);
+        // pros::delay(7000);
         // scorePiston.set_value(true);
-        turnToPoint(-45, 400, DEFAULT_TURN);
-        driveForward(-50, globalRotation, dp);
-        pros::delay(50000);
-        //score
-        scoreFlap.set_value(true);
-        lever.move(127);
-        pros::delay(2000);
-        lever.move(-127);
-        pros::delay(2000);
-        lever.move(0);
-        //reset lever
-        // pros::lcd::print(9, "Scoring Red Ball!");
-        driveForward(30, globalRotation, dp); // Back away from the wall after scoring
+        // forwardToPoint(-60, 100, dp); //47,47 in inches
+        // // xPos = 100*(gpsSensor.get_position().x - gpsXOffset);
+        // // yPos = 100*(gpsSensor.get_position().y - gpsYOffset);
+        // // pros::lcd::print(4, "X: %.2f | Y: %.2f | Heading: %.2f", xPos, yPos, heading);
+        // // pros::lcd::print(5, "X: %.2f | Y: %.2f | Heading: %.2f", globalX, globalY, globalRotation);
+        // // pros::delay(70000);
+        // turnToPoint(-45, 100, DEFAULT_TURN);
+        // forwardToPoint(-45, 100, dp);
+        // // scorePiston.set_value(true);
+        // turnToPoint(-45, 400, DEFAULT_TURN);
+        // driveForward(-50, globalRotation, dp);
+        // pros::delay(50000);
+        // //score
+        // scoreFlap.set_value(true);
+        // lever.move(127);
+        // pros::delay(2000);
+        // lever.move(-127);
+        // pros::delay(2000);
+        // lever.move(0);
+        // //reset lever
+        // // pros::lcd::print(9, "Scoring Red Ball!");
+        // driveForward(30, globalRotation, dp); // Back away from the wall after scoring
+        if (teamColor == "RED") {
+            driveForward(20.0, globalRotation, DEFAULT_STRAIGHT); // kick forward to release any preloaded game pieces and verify drive is working before giving control to driver
+            turnRight(315, DEFAULT_TURN);
+        } else {
+            driveForward(20.0, globalRotation, DEFAULT_STRAIGHT); // kick forward to release any preloaded game pieces and verify drive is working before giving control to driver
+            turnRight(135, DEFAULT_TURN);
+        }
         scoreFlap.set_value(false);
         scorePiston.set_value(false);
         intakeFull = false; // Reset for next ball

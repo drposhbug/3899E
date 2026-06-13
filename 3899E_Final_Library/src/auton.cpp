@@ -303,7 +303,8 @@ void visionTest() {
     colorSortMotor.move(127);
     // ── Stage 1: visionDriveForward — open-loop encoder distance + vision steering ──
     // Robot drives 150 cm forward; vision steers once target acquired.
-    visionDriveBackward(aiVision_orangeCap, 200, 50.0, 0.0, vp);
+    // visionDriveBackward(aiVision_orangeCap, 200, 50.0, 0.0, vp);
+    visionDriveBackward(aiVision_redCube, 50, 50.0, 0.0, vp);
 
     // ── Stage 2: visionForwardToPoint — closed-loop odometry + vision steering ──
     // Robot drives to (0, 150) using live odometry; vision corrects heading.
@@ -655,3 +656,301 @@ void skills() {
     forwardToPoint(-90, 90, DEFAULT_STRAIGHT);
     backwardToPoint(162, 0, DEFAULT_STRAIGHT);
 }   
+
+void leftAuton() {
+    setStartPosition(124.8, -37, -90);
+    startOdometryTask();
+    // intakeMotor1.move_voltage(12000);
+    // intakeMotor2.move_voltage(-12000);
+    StraightProfile driveProfile = LOADED_MID_FWD_80;
+    driveProfile.breakDistance          = 20.0;
+    driveProfile.minSpeed               = 15.0;
+    driveProfile.maxSpeed               = 100.0;
+    driveProfile.distanceTolerance      = 2.0;
+    driveProfile.timeout                = 5.0;
+    driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    driveProfile.kp_heading             = 0.5;
+    driveProfile.ki_heading             = 0.01;
+    driveProfile.kd_heading             = 0.0;
+    driveProfile.accelHeadingScaling    = 0.1;
+    driveProfile.decelHeadingScaling    = 0.075;
+    driveProfile.approachHeadingScaling = 0.075;
+    driveProfile.headingLockDistance    = 5.0;
+    driveProfile.launchVoltage          = 6.0;
+    driveProfile.accelFactor            = 1.2;
+    driveProfile.slipThreshold          = 0.3;
+    driveProfile.decelStepPercent       = 2.0;
+    driveProfile.lockThreshold          = 0.50;
+    driveProfile.maxCurrentA            = 8.0;
+    driveProfile.overcurrentDurationMs  = 500;
+    // driveForward(33,-90,driveProfile);
+
+
+    TurnProfile turnProfile1 = DEFAULT_TURN;
+        turnProfile1.breakDistance    = 70.0,   // % of total turn angle
+        turnProfile1.minSpeed         = 22.0,
+        turnProfile1.maxSpeed         = 70.0,
+        turnProfile1.exitTolerance    = 3.0,    // degrees
+        turnProfile1.timeout          =1.0,
+
+        // ── Internal motion constants ─────────────────────────────────────────────
+        turnProfile1.accelFactor      = 1.2,
+        turnProfile1.slipThreshold    = 1.0,    // never triggers
+        turnProfile1.decelStepPercent = 10.0,
+        turnProfile1.lockThreshold    = 1.0,    // never triggers
+        turnProfile1.maxCurrentA      = 8.0,
+        turnProfile1.overcurrentDurationMs = 500;
+        
+    // turnRight(30, turnProfile1);
+    StraightProfile driveProfile1 = LOADED_MID_FWD_80;
+        driveProfile1.breakDistance          = 30.0;
+        driveProfile1.minSpeed               = 30.0;
+        driveProfile1.maxSpeed               = 40.0;
+        driveProfile1.distanceTolerance      = 2.0;
+        driveProfile1.timeout                = 5.0;
+        driveProfile1.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+        driveProfile1.kp_heading             = 0.1;
+        driveProfile1.ki_heading             = 0.0;
+        driveProfile1.kd_heading             = 0.0;
+        driveProfile1.accelHeadingScaling    = 0.1;
+        driveProfile1.decelHeadingScaling    = 0.075;
+        driveProfile1.approachHeadingScaling = 0.075;
+        driveProfile1.headingLockDistance    = 5.0;
+        driveProfile1.launchVoltage          = 6.0;
+        driveProfile1.accelFactor            = 1.2;
+        driveProfile1.slipThreshold          = 0.3;
+        driveProfile1.decelStepPercent       = 2.0;
+        driveProfile1.lockThreshold          = 0.50;
+        driveProfile1.maxCurrentA            = 8.0;
+        driveProfile1.overcurrentDurationMs  = 500;
+    // driveForward(50,35,driveProfile1);
+    StraightProfile driveProfile2 = LOADED_MID_FWD_80;
+        driveProfile2.breakDistance          = 15.0;
+        driveProfile2.minSpeed               = 15.0;
+        driveProfile2.maxSpeed               = 30.0;
+        driveProfile2.distanceTolerance      = 2.0;
+        driveProfile2.timeout                = 1.5;
+        driveProfile2.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+        driveProfile2.kp_heading             = 0.2;
+        driveProfile2.ki_heading             = 0.0;
+        driveProfile2.kd_heading             = 0.0;
+        driveProfile2.accelHeadingScaling    = 0.1;
+        driveProfile2.decelHeadingScaling    = 0.075;
+        driveProfile2.approachHeadingScaling = 0.075;
+        driveProfile2.headingLockDistance    = 5.0;
+        driveProfile2.launchVoltage          = 6.0;
+        driveProfile2.accelFactor            = 1.2;
+        driveProfile2.slipThreshold          = 0.3;
+        driveProfile2.decelStepPercent       = 2.0;
+        driveProfile2.lockThreshold          = 0.50;
+        driveProfile2.maxCurrentA            = 8.0;
+        driveProfile2.overcurrentDurationMs  = 500;
+
+    turnLeft(-84,turnProfile1);
+    driveForward(37,-84,driveProfile);
+    turnLeft(170, turnProfile1);
+    driveForward(35,170,driveProfile1);
+    turnRight(135, turnProfile1);
+    driveForward(85,135,driveProfile1);
+    turnLeft(180, turnProfile1);
+    driveForward(10,180,driveProfile);
+    // driveBackward(5,0,driveProfile1);
+    turnRight(105, turnProfile1);
+    driveForward(30,90,driveProfile2);
+    // pros::delay(600);
+    driveBackward(12,90,driveProfile);
+    turnRight(180, turnProfile1);
+    driveForward(20,180,driveProfile);
+    // turnRight(-90, turnProfile1);
+    navigateTo(LONG_GOAL_SE);
+    // driveForward(40,-90,driveProfile2);
+    //score
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LEFT SIDE AUTONOMOUS — A* Route + Matchload + Score
+// 
+// Route: Start (-119, 34, 0°) → A* to (-43, 44) → Turn to face (-119, 120)
+//        → Matchload (LOADER_NW) → Back into Long Goal (LONG_GOAL_NW) to score
+//
+// Color sort enabled based on team selection (Red or Blue)
+// ══════════════════════════════════════════════════════════════════════════════
+void autonLeftAStar(std::pmr::string teamColor) {
+    // Screen-based team color selector
+    startOdometryTask();
+    pros::screen::erase();
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "SELECT TEAM COLOR");
+    pros::screen::print(pros::E_TEXT_MEDIUM, 3, "LEFT = Red");
+    pros::screen::print(pros::E_TEXT_MEDIUM, 4, "RIGHT = Blue");
+    pros::screen::print(pros::E_TEXT_MEDIUM, 5, "A = Start");
+    bool isRedTeam;
+    
+    if (teamColor == "RED") {
+        bool isRedTeam = true;  // default to red
+    } else {
+        bool isRedTeam = false;
+    }
+    bool confirmed = false;
+
+    // Clear screen and start autonomous
+    pros::screen::erase();
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Starting Auton...");
+    pros::delay(500);
+    
+    // ── Initialize systems ─────────────────────────────────────────────────────
+    startOdometryTask();
+    if (teamColor == "RED") {
+        setStartPosition(-119.0, 34.0, 90.0);
+    } else {
+        setStartPosition(-119.0, 34.0, 270.0);
+    }
+    
+    // Start color sort based on team selection
+    if (isRedTeam) {
+        blueColorSortStart();
+        Controller.print(0, 0, "Sorting BLUE blocks out");
+    } else {
+        redColorSortStart();
+        Controller.print(0, 0, "Sorting RED blocks out");
+    }
+    
+    // Start intake and color sort motors
+    intakeMotor.move(127);
+    colorSortMotor.move(127);
+    
+    // ── Setup drive profile ────────────────────────────────────────────────────
+    StraightProfile driveProfile = DEFAULT_STRAIGHT;
+    driveProfile.breakDistance          = 30.0;   // cm before target to begin decel
+    driveProfile.minSpeed               = 20.0;   // % minimum approach speed
+    driveProfile.maxSpeed               = 80.0;   // % peak cruise speed
+    driveProfile.distanceTolerance      = 1.0;    // cm exit bubble
+    driveProfile.timeout                = 5.0;    // seconds
+    driveProfile.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
+    driveProfile.kp_heading             = 2.0;    // heading PID proportional
+    driveProfile.ki_heading             = 0.0;    // heading PID integral
+    driveProfile.kd_heading             = 5.0;    // heading PID derivative
+    driveProfile.accelHeadingScaling    = 0.2;    // correction weight during accel
+    driveProfile.decelHeadingScaling    = 0.1;    // correction weight during decel
+    driveProfile.approachHeadingScaling = 0.1;    // correction weight during approach
+    driveProfile.headingLockDistance    = 3.0;    // cm — freeze heading near target
+    driveProfile.launchVoltage          = 3.0;    // V — initial kick voltage
+    driveProfile.accelFactor            = 1.2;    // traction ramp multiplier
+    driveProfile.slipThreshold          = 0.3;    // RPM slip before traction cuts in
+    driveProfile.decelStepPercent       = 0.30;   // ABS voltage reduction per step
+    driveProfile.lockThreshold          = 0.3;    // wheel lockup ratio
+    driveProfile.maxCurrentA            = 4.0;    // amps — wall stall trip threshold
+    driveProfile.overcurrentDurationMs  = 300;    // ms — how long before breaker fires
+    
+    // ── Setup turn profile ─────────────────────────────────────────────────────
+    TurnProfile turnProfile = DEFAULT_TURN;
+    turnProfile.breakDistance  = 10.0;   // degrees before target to begin decel
+    turnProfile.minSpeed       = 15.0;   // % minimum approach speed
+    turnProfile.maxSpeed       = 30.0;   // % peak turn speed
+    turnProfile.exitTolerance  = 3;     // degrees — stop when within this
+    turnProfile.timeout        = 3.0;    // seconds — release if stuck
+    
+    // ── PHASE 1: A* Route from (-119, 34) to (-43, 44) ────────────────────────
+    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Route Phase 1...");
+    
+    // Plan A* path from current position to target waypoint
+    RoutePath path = routePlan(globalX, globalY, -43.0, 44.0);
+    
+    if (path.count == 0) {
+        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "No path found!");
+        Controller.rumble("---");
+        return;
+    }
+    
+    // Execute the planned route
+    bool routeSuccess = routeExecute(path);
+    if (!routeSuccess) {
+        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Route blocked!");
+        Controller.rumble("---");
+    } else {
+        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Route complete");
+        Controller.rumble(".");
+    }
+    
+    pros::delay(300);
+    
+    // ── PHASE 2: Turn to face towards (-119, 120) ─────────────────────────────
+    // Calculate heading to face the target direction
+    double targetPointX = -119.0;
+    double targetPointY = 120.0;
+    double dx = targetPointX - globalX;
+    double dy = targetPointY - globalY;
+    double targetHeading = atan2(dx, dy) * 180.0 / 3.14159265359;  // convert radians to degrees
+    
+    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Phase 2: Turning...");
+    forwardToPoint(targetPointX, targetPointY, driveProfile);
+    pros::delay(200);
+    
+    // ── PHASE 3: Navigate to Matchloader (West side, North) ────────────────────
+    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Phase 3: Matchloader...");
+    matchloader.set_value(true);
+
+    // Use the team color for matchloader signature
+    pros::AIVision::Color matchloaderColor = isRedTeam ? aiVision_redCube : aiVision_blueCube;
+    
+    // Navigate to west-side north matchloader
+    if (isRedTeam) {
+        NavResult matchloadResult = navigateTo(LOADER_NW, matchloaderColor);
+    }
+    else {
+        NavResult matchloadResult = navigateTo(LOADER_SE, matchloaderColor);
+    }
+    // const char* matchloadResultStr =
+    //     matchloadResult == NavResult::SUCCESS       ? "SUCCESS"  :
+    //     matchloadResult == NavResult::BLIND_CONTACT ? "CONTACT"  :
+    //     matchloadResult == NavResult::BLIND_TIMEOUT ? "TIMEOUT"  :
+    //     matchloadResult == NavResult::VISION_LOST   ? "VIS LOST" : "BLOCKED";
+    
+    // pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Matchload: %s", matchloadResultStr);
+    
+    // Extend matchloader pneumatic for 200ms
+    pros::delay(300);
+    // matchloader.set_value(true);
+    pros::delay(2000);
+    matchloader.set_value(false);
+    pros::delay(200);
+    
+    // Stop intake briefly
+    // intakeMotor.move(0);
+    // colorSortMotor.move(0);
+    
+    // ── PHASE 4: Back into Long Goal (West side, North) to score ─────────────
+    pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Phase 4: Scoring...");
+    scorePiston.set_value(true);
+
+    // Navigate to west-side north long goal
+    if (isRedTeam) {
+        NavResult scoreResult = navigateTo(LONG_GOAL_NW);
+    } else{
+        NavResult scoreResult = navigateTo(LONG_GOAL_SE);
+    }
+    // const char* scoreResultStr =
+    //     scoreResult == NavResult::SUCCESS       ? "SUCCESS"  :
+    //     scoreResult == NavResult::BLIND_CONTACT ? "CONTACT"  :
+    //     scoreResult == NavResult::BLIND_TIMEOUT ? "TIMEOUT"  :
+    //     scoreResult == NavResult::VISION_LOST   ? "VIS LOST" : "BLOCKED";
+    
+    // pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Score: %s", scoreResultStr);
+    
+    // Score the cubes
+    scoreFlap.set_value(true);
+    pros::delay(300);
+    lever.move(127);
+    pros::delay(1200);
+    lever.move(-127);
+    pros::delay(1200);
+    lever.move(-1);
+    // scoreStart(500.0, 100.0);  // Score for 500ms at 100% power
+    
+    // Final status
+    pros::screen::print(pros::E_TEXT_MEDIUM, 4, "Autonomous Complete!");
+    Controller.rumble(".");
+    
+    // Stop all motors
+    intakeMotor.move(0);
+    colorSortMotor.move(0);
+}

@@ -8,7 +8,7 @@
 #include "odometry.h"
 #include "ai.h"
 
-// std::pmr::string teamColor = "RED";  // default to red, set to "BLUE" if blue alliance
+std::pmr::string teamColor = "BLUE";  // default to red, set to "BLUE" if blue alliance
 
 void initialize()
 {
@@ -24,6 +24,12 @@ void initialize()
     leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
     rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
     gpsSensor.set_offset(-0.11, 0.1175); // X offset 15cm right, Y offset -25cm back
+
+    if (teamColor == "RED") {
+        blueColorSortStart();
+    } else {
+        redColorSortStart();
+    }
 
     // // Reset and enable color blob detection on the front camera
     // aiVision_Front.reset();
@@ -96,6 +102,10 @@ static bool posDisplayRunning = true;
 void autonomous()
 {
     pros::screen::erase();
+    colorSortMotor.move(127);
+    pros::delay(300);
+    colorSortMotor.move(0);
+    
     // matchloader.set_value(true);
 
     // PosDisplay — uncomment to show live position during testing
@@ -126,7 +136,7 @@ void autonomous()
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
     // fieldTargetsTest();
-    visionTest();
+    // visionTest();
     // navTest();
     // blueColorSortTest();
     //runAIMatchRoute();
@@ -135,20 +145,31 @@ void autonomous()
     //systemTest();
     //coordinateFinder();
     // autonLeft15();
+    // leftAuton();
+    autonLeftAStar("BLUE"); //PUT TEAM COLOUR IN, DETERMINES COLOUR SORT AND A STAR NAV
     //skills();
     // ─────────────────────────────────────────────────────────────────────────
 
     // Hold for remainder of autonomous period — prevents task cleanup killing the screen
+    
+    pros::delay(15000);
     while (true) {
-        pros::delay(100);
+        opScoring("BLUE"); // put alliance colour here as argument: "RED" or "BLUE"
+        // AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        pros::delay(20);
     }
 }
 
 void opcontrol() {
 
-    // driveForward(20.0, globalRotation, DEFAULT_STRAIGHT); // kick forward to release any preloaded game pieces and verify drive is working before giving control to driver
-    // turnRight(globalRotation + 160.0, DEFAULT_TURN);
-
+    // if (teamColor == "RED") {
+    //     driveForward(20.0, globalRotation, DEFAULT_STRAIGHT); // kick forward to release any preloaded game pieces and verify drive is working before giving control to driver
+    //     turnRight(315, DEFAULT_TURN);
+    // } else {
+    //     driveForward(20.0, globalRotation, DEFAULT_STRAIGHT); // kick forward to release any preloaded game pieces and verify drive is working before giving control to driver
+    //     turnRight(135, DEFAULT_TURN);
+    // }
+    
     // while (true) {
     //     double xPos = 100*(gpsSensor.get_position().x - 0.1175);
     //     double yPos = 100*(gpsSensor.get_position().y - 0.110);
@@ -156,12 +177,12 @@ void opcontrol() {
     //     pros::delay(100);
     // }
     while (true) {
-        // opScoring("RED"); // put alliance colour here as argument: "RED" or "BLUE"
-        AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
-        pros::delay(100);
+        opScoring("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        // AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        pros::delay(20);
     }
     // pros::screen::erase();
     // Controller.clear();
-    driverControl();
+    // driverControl();
     // coordinateFinder();
 }
