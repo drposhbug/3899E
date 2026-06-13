@@ -227,45 +227,45 @@ const VisionProfile VISION_LONG_GOAL_FWD = {
         // ── Motion shape ──────────────────────────────────────────────────────
         .breakDistance          = 35.0,   // %
         .minSpeed               = 15.0,   // %
-        .maxSpeed               = 30.0,   // %
+        .maxSpeed               = 40.0,   // %
         .distanceTolerance      = 2.0,    // cm
         .timeout                = 3.0,    // s
         .brakeMode              = pros::E_MOTOR_BRAKE_BRAKE,
 
         // ── Heading PID ───────────────────────────────────────────────────────
-        .kp_heading             = 0.25,
+        .kp_heading             = 0.1,
         .ki_heading             = 0.0,
         .kd_heading             = 0.0,
 
         // ── Phase heading scaling ─────────────────────────────────────────────
-        .accelHeadingScaling    = 0.2,
-        .decelHeadingScaling    = 0.1,
-        .approachHeadingScaling = 0.1,
+        .accelHeadingScaling    = 1.0,
+        .decelHeadingScaling    = 1.0,
+        .approachHeadingScaling = 1.0,
 
-        .headingLockDistance    = 5.0,    // cm
+        .headingLockDistance    = 1.0,    // cm
 
         // ── Traction / ABS ────────────────────────────────────────────────────
         .launchVoltage          = 3.0,    // V — gentle launch
         .accelFactor            = 1.2,
         .slipThreshold          = 0.3,
         .decelStepPercent       = 2.0,
-        .lockThreshold          = 0.50,
+        .lockThreshold          = 0.3,
 
         // ── Circuit breaker — trips on goal contact ───────────────────────────
-        .maxCurrentA            = 2.0,    // A
-        .overcurrentDurationMs  = 250,    // ms — faster trip than default
+        .maxCurrentA            = 4.0,    // A
+        .overcurrentDurationMs  = 500,    // ms
     },
 
     // ── Vision fusion ─────────────────────────────────────────────────────────
-    .kp_vision_heading      = 0.04,
-    .kp_distToHeadScaling   = 5.0,
+    .kp_vision_heading      = 0.1,
+    .kp_distToHeadScaling   = 3.0,
 
     // ── Object detection filter ───────────────────────────────────────────────
     .minObjectWidth         = 10,
     .minX                   = 0,
     .maxX                   = 320,
     .minY                   = 0,
-    .maxY                   = 240,
+    .maxY                   = 300,
 };
 
 
@@ -471,30 +471,29 @@ const StraightProfile LONG_BWD = {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SHORT_TURN — point turn, <= TURN_SHORT_MAX_DEG (50°)
-// Seeded from DEFAULT_TURN — tune independently when needed.
+// Calibrated turn profiles — field-tuned at specific angles.
+// selectTurnProfile() picks the nearest by angle automatically.
 // ──────────────────────────────────────────────────────────────────────────────
-const TurnProfile SHORT_TURN = {
-    .breakDistance    = 70.0,
-    .minSpeed         = 22.0,
-    .maxSpeed         = 70.0,
+
+// TURN_30 — field-tuned at 30°
+const TurnProfile TURN_30 = {
+    .breakDistance    = 80.0,
+    .minSpeed         = 19.5,
+    .maxSpeed         = 60.0,
     .exitTolerance    = 3.0,
     .timeout          = 5.0,
 
     .accelFactor      = 1.2,
     .slipThreshold    = 1.0,
-    .decelStepPercent = 10.0,
+    .decelStepPercent = 5.0,
     .lockThreshold    = 1.0,
     .maxCurrentA      = 8.0,
     .overcurrentDurationMs = 500,
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// MID_TURN — point turn, 50°–100°
-// Seeded from DEFAULT_TURN — tune independently when needed.
-// ──────────────────────────────────────────────────────────────────────────────
-const TurnProfile MID_TURN = {
-    .breakDistance    = 70.0,
+// TURN_45 — field-tuned at 45°
+const TurnProfile TURN_45 = {
+    .breakDistance    = 80.0,
     .minSpeed         = 22.0,
     .maxSpeed         = 70.0,
     .exitTolerance    = 3.0,
@@ -502,26 +501,55 @@ const TurnProfile MID_TURN = {
 
     .accelFactor      = 1.2,
     .slipThreshold    = 1.0,
-    .decelStepPercent = 10.0,
+    .decelStepPercent = 5.0,
     .lockThreshold    = 1.0,
     .maxCurrentA      = 8.0,
     .overcurrentDurationMs = 500,
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// LONG_TURN — point turn, 100°+
-// Seeded from DEFAULT_TURN — tune independently when needed.
-// ──────────────────────────────────────────────────────────────────────────────
-const TurnProfile LONG_TURN = {
-    .breakDistance    = 70.0,
-    .minSpeed         = 22.0,
-    .maxSpeed         = 70.0,
+// TURN_90 — field-tuned at 90°
+const TurnProfile TURN_90 = {
+    .breakDistance    = 74.0,
+    .minSpeed         = 24.2,
+    .maxSpeed         = 80.0,
     .exitTolerance    = 3.0,
     .timeout          = 5.0,
 
     .accelFactor      = 1.2,
     .slipThreshold    = 1.0,
-    .decelStepPercent = 10.0,
+    .decelStepPercent = 5.0,
+    .lockThreshold    = 1.0,
+    .maxCurrentA      = 8.0,
+    .overcurrentDurationMs = 500,
+};
+
+// TURN_180 — field-tuned at 180°
+const TurnProfile TURN_180 = {
+    .breakDistance    = 71.0,
+    .minSpeed         = 25.0,
+    .maxSpeed         = 100.0,
+    .exitTolerance    = 3.0,
+    .timeout          = 5.0,
+
+    .accelFactor      = 1.2,
+    .slipThreshold    = 1.0,
+    .decelStepPercent = 5.0,
+    .lockThreshold    = 1.0,
+    .maxCurrentA      = 8.0,
+    .overcurrentDurationMs = 500,
+};
+
+// TURN_270 — field-tuned at 270°
+const TurnProfile TURN_270 = {
+    .breakDistance    = 58.0,
+    .minSpeed         = 25.0,
+    .maxSpeed         = 100.0,
+    .exitTolerance    = 3.0,
+    .timeout          = 5.0,
+
+    .accelFactor      = 1.3,
+    .slipThreshold    = 1.0,
+    .decelStepPercent = 5.0,
     .lockThreshold    = 1.0,
     .maxCurrentA      = 8.0,
     .overcurrentDurationMs = 500,
@@ -531,10 +559,13 @@ const TurnProfile LONG_TURN = {
 // ══════════════════════════════════════════════════════════════════════════════
 // PROFILE SELECTORS
 //
-// Each function reads the threshold constants from motion_config.h and returns
-// a const reference to the appropriate named profile. No copies made.
-// Change STRAIGHT_SHORT_MAX_CM / STRAIGHT_MID_MAX_CM / TURN_SHORT_MAX_DEG /
-// TURN_MID_MAX_DEG in motion_config.h to reclassify segments globally.
+// selectTurnProfile — picks the nearest calibrated turn profile by angle.
+// Midpoints between calibrated angles define the boundaries:
+//   <  37.5°  → TURN_30   (midpoint 30/45)
+//   <  67.5°  → TURN_45   (midpoint 45/90)
+//   < 135.0°  → TURN_90   (midpoint 90/180)
+//   < 225.0°  → TURN_180  (midpoint 180/270)
+//   >= 225.0° → TURN_270
 // ══════════════════════════════════════════════════════════════════════════════
 
 const StraightProfile& selectFwdProfile(double distCm) {
@@ -550,7 +581,9 @@ const StraightProfile& selectBwdProfile(double distCm) {
 }
 
 const TurnProfile& selectTurnProfile(double degrees) {
-    if (degrees <= TURN_SHORT_MAX_DEG) return SHORT_TURN;
-    if (degrees <= TURN_MID_MAX_DEG)   return MID_TURN;
-    return LONG_TURN;
+    if (degrees <  37.5)  return TURN_30;
+    if (degrees <  67.5)  return TURN_45;
+    if (degrees < 135.0)  return TURN_90;
+    if (degrees < 225.0)  return TURN_180;
+    return TURN_270;
 }

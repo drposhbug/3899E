@@ -80,6 +80,33 @@ void intakeHopperStop() {
     intakeMotor2.move(0);
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// INTAKE INDEXER TASK
+// Runs upperIndexerMotor in reverse (pulling blocks in) and keeps hood retracted
+// during the sweep/intake phase. Killed before scoring fires.
+// ──────────────────────────────────────────────────────────────────────────────
+static std::atomic<bool> g_intakeIndexerRunning{false};
+
+static void intakeIndexerTask(void*) {
+    while (g_intakeIndexerRunning.load()) {
+        upperIndexerMotor.move_voltage(-12000);  // opposite of scoring direction
+        pros::delay(10);
+    }
+    upperIndexerMotor.move(0);
+}
+
+void startIntakeIndexer() {
+    if (g_intakeIndexerRunning.load()) return;  // already running
+    g_intakeIndexerRunning.store(true);
+    pros::Task(intakeIndexerTask, nullptr, "intakeIndexer");
+}
+
+void stopIntakeIndexer() {
+    g_intakeIndexerRunning.store(false);
+    pros::delay(20);  // let task exit cleanly
+    upperIndexerMotor.move(0);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MATCHLOAD TASK  (intake motors)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -230,8 +257,8 @@ void leftScore(double time, double power) {
     int32_t voltage = static_cast<int32_t>((power / 8.34) * 1000);
 
     while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
-        intakeMotor1.move_voltage(voltage);
-        intakeMotor2.move_voltage(voltage);
+        intakeMotor1.move_voltage(-voltage);
+        intakeMotor2.move_voltage(-voltage);
         pros::delay(10);
     }
 
@@ -249,8 +276,8 @@ void rightScore(double time, double power) {
     int32_t voltage = static_cast<int32_t>((power / 8.34) * 1000);
 
     while (pros::millis() - startTime < static_cast<uint32_t>(time)) {
-        intakeMotor1.move_voltage(voltage);
-        intakeMotor2.move_voltage(voltage);
+        intakeMotor1.move_voltage(-voltage);
+        intakeMotor2.move_voltage(-voltage);
         pros::delay(10);
     }
 
@@ -381,7 +408,7 @@ void scoreStart(double timeMs, double power) {
 
 // scoreRedStart — async, left gate = red blocks
 static double g_scoreRedTimeMs = 0;
-void scoreRedTask(void*) { leftScore(g_scoreRedTimeMs, 80.0); }
+void scoreRedTask(void*) { leftScore(g_scoreRedTimeMs, 100.0); }
 void scoreRedStart(double timeMs) {
     g_scoreRedTimeMs = timeMs;
     pros::Task(scoreRedTask, nullptr, "scoreRed");
@@ -389,7 +416,7 @@ void scoreRedStart(double timeMs) {
 
 // scoreBlueStart — async, right gate = blue blocks
 static double g_scoreBlueTimeMs = 0;
-void scoreBlueTask(void*) { rightScore(g_scoreBlueTimeMs, 80.0); }
+void scoreBlueTask(void*) { rightScore(g_scoreBlueTimeMs, 100.0); }
 void scoreBlueStart(double timeMs) {
     g_scoreBlueTimeMs = timeMs;
     pros::Task(scoreBlueTask, nullptr, "scoreBlue");
@@ -401,6 +428,39 @@ void scoringStop() {
     intakeMotor2.move(0);
     leftGatePneumatics.set_value(true);
     rightGatePneumatics.set_value(true);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// sweepScore — full scoring sequence for sweep-and-score routine.
+//
+// Fires all components simultaneously (not sequentially):
+//   hood extends + upper/lower indexer + hood motor spin → gate opens for 3s
+//   → all motors stop → hood retracts
+//
+// isRed: true = left gate (red alliance), false = right gate (blue alliance)
+// Blocking — caller waits for sequence to complete (~3.2s total).
+// For async use, wrap in a pros::Task at the call site.
+// ──────────────────────────────────────────────────────────────────────────────
+void sweepScore(bool isRed) {
+    intakeHopperStop();
+    stopIntakeIndexer();  // stop indexer and release hood before scoring
+
+    frontHoodPneumatics.set_value(true);
+    upperIndexerMotor.move_voltage(12000);
+    lowerIndexerMotor.move_voltage(12000);
+    hoodMotor.move_voltage(-12000);
+
+    if (isRed) leftScore(3000, 100.0);   // red → left gate (blocks 3s)
+    else       rightScore(3000, 100.0);  // blue → right gate (blocks 3s)
+
+    upperIndexerMotor.move(0);
+    lowerIndexerMotor.move(0);
+    hoodMotor.move(0);
+    frontHoodPneumatics.set_value(false);
+
+    // Restart intake for next sweep cycle
+    intakeHopperStart(120000.0, -100.0, 0.0, true);
+    startIntakeIndexer();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

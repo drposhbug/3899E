@@ -22,16 +22,17 @@ void initialize()
     robotInit();
     pros::lcd::initialize();
 
+    // Extend front hood immediately at power-on.
+    frontHoodPneumatics.set_value(true);
+
     // ── Persistent background tasks — survive all period transitions ──────────
     // Odometry: runs at 100Hz, updates globalX/Y/heading continuously.
     // setStartPosition() must still be called in each routine to set origin.
     startOdometryTask();
 
-    // Colour sort: watches optical sensor port 3, fires sort flipper port 8.
-    static ColorTaskParams sortParams;
-    sortParams.isRunning = true;
-    sortParams.delayMs   = 0;
-    pros::Task(colorDetectionTask, &sortParams, "colourSort");
+    // Colour sort — NOT launched here. Must start after setAllianceRed() is called
+    // in each auton routine so the flipper knows which colour to reject.
+    // Launched in blueRightIsolation / redRightIsolation etc.
 
     // Position display: live X/Y/heading on brain screen line 0.
     pros::Task([]{
@@ -68,23 +69,23 @@ void competition_initialize() {}
 //   Second call = Interaction Period (105 seconds)
 // Static flag persists between the two calls.
 // NOTE: restart the Brain if a match is reset mid-match.
-static bool isIsolationPeriod = true;
+static bool firstAutoFlag = true;
 
 void autonomous()
 {
-    if (isIsolationPeriod) {
+    if (firstAutoFlag) {
         // ══ ISOLATION PERIOD (first 15s) ══════════════════════════════════════
-        isIsolationPeriod = false;  // flip flag — next call = Interaction
+        firstAutoFlag = false;  // flip flag — next call = Interaction
 
         // Uncomment ONE routine:
         // ── Competition ───────────────────────────────────────────────────────
         // blueRightIsolation();
         // blueLeftIsolation();
-        // redRightIsolation();
+        redRightIsolation();
         // redLeftIsolation();
         // ── Test / Dev ────────────────────────────────────────────────────────
         //coordinateFinder();
-        visionTest();
+        // visionTest();
         // navTest();
         // routeTest();
         // fieldTargetsTest();
@@ -92,6 +93,7 @@ void autonomous()
         // setAllianceRed(true); sweepAndScore();
         // setAllianceRed(true); longGoalAuto15s(true);
         // runAIMatchRoute();
+    //    testSweepIntake();
         // ─────────────────────────────────────────────────────────────────────
 
     } else {
@@ -99,7 +101,7 @@ void autonomous()
         // Uncomment ONE routine (competition only — test slots leave this blank):
         // blueRightInteraction();
         // blueLeftInteraction();
-        // redRightInteraction();
+        redRightInteraction();
         // redLeftInteraction();
     }
 

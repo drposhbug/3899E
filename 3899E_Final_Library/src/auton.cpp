@@ -303,7 +303,7 @@ void sweepTest(bool isRed) {
     pros::screen::print(pros::E_TEXT_MEDIUM, 0, "SWEEP TEST — 30s");
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Alliance: %s", isRed ? "RED" : "BLUE");
 
-    sweepAndScore(80, 500, 8, 0, 25.0, 0.02, 0.8, 500.0, 20.0);
+    sweepAndScore(80, 500, 8, 0, 25.0, 0.02, 0.8, 500.0, 20.0, 0);
 
     pros::screen::print(pros::E_TEXT_MEDIUM, 2, "SWEEP DONE — at nearest goal");
     Controller.rumble(".");
@@ -405,8 +405,8 @@ void autonSelector() {
                 case 5:  coordinateFinder();                            break;
                 case 6:  visionTest();                                  break;
                 case 7:  gpsTest();                                     break;
-                case 8:  setAllianceRed(true);  sweepAndScore();             break;
-                case 9:  setAllianceRed(false); sweepAndScore();             break;
+                case 8:  setAllianceRed(true);  sweepAndScore(80, 500, 8, 0, 25.0, 0.02, 0.8, 500.0, 20.0, 0); break;
+                case 9:  setAllianceRed(false); sweepAndScore(80, 500, 8, 1, 25.0, 0.02, 0.8, 500.0, 20.0, 0); break;
             }
             break;
         }
@@ -511,7 +511,7 @@ void rightSideAuton(){
         driveProfile2.maxCurrentA            = 8.0;
         driveProfile2.overcurrentDurationMs  = 500;
 
-    intakeHopperStart(10000, 80.0, 0.0, true);
+    intakeHopperStart(10000, 100.0, 0.0, true);
     
     turnLeft(-96,turnProfile1);
     driveForward(37,-96,driveProfile);
@@ -606,7 +606,7 @@ void longGoalAuto15s(bool isRedAlliance) {
         0
     };
     pros::Task colorSortTask(colorDetectionTask, &colorParams, "Color Sort");
-    intakeHopperStart(10000, 80.0, 0.0, true);
+    intakeHopperStart(10000, 100.0, 0.0, true);
  // turnRight(, DEFAULT_TURN);
 
     StraightProfile customFwd = MID_FWD;
@@ -623,12 +623,12 @@ void longGoalAuto15s(bool isRedAlliance) {
     // ── STEP 6: Manual waypoints (odometry point-to-point) ───────────────────
     forwardToPoint(75.0,  37.0,  customFwd);  // heading ~82
 
-    turnRight(30, MID_TURN);
+    turnRight(30, TURN_45);
       pros::delay(300);
 
     forwardToPoint(117.0,  96.0, customFwd);  // heading ~200
 
-    turnLeft(2, MID_TURN);
+    turnLeft(2, TURN_45);
     forwardToPoint(117.0, 151.0,  customFwd);  // heading ~275
 
     //turnLeft(180, DEFAULT_TURN);
@@ -722,7 +722,7 @@ void TestTurn(bool isRedAlliance) {
 */
 //turn 270
 
- TurnProfile customTurn = MID_TURN;
+ TurnProfile customTurn = TURN_270;
  
     customTurn.breakDistance         = 58;  // was 80 — start braking earlier
     customTurn.minSpeed              = 25;  // was 22 — crawl into target
@@ -746,7 +746,7 @@ void TestTurn(bool isRedAlliance) {
     // ── STEP 8: Brief settle delay, then score ────────────────────────────────
     pros::delay(500);
 
-    //scoreBlueStart(4000);  // right bay
+    scoreBlueStart(4000);  // right bay
 
     // ── STEP 9: GPS reset while scoring ──────────────────────────────────────
   //  requestGpsReset();
@@ -789,7 +789,7 @@ void longGoalAuto15sOg(bool isRedAlliance) {
     while (!timeUp()) {
 
         // ── Goal 1: (81.442, 117.722) ─────────────────────────────────────────
-        intakeHopperStart(15000, 80.0, 0.0, true);
+        intakeHopperStart(15000, 100.0, 0.0, true);
         RoutePath p1 = routePlan(globalX, globalY, 81.442, 117.722);
         if (p1.count > 0) routeExecute(p1);
 
@@ -805,7 +805,7 @@ void longGoalAuto15sOg(bool isRedAlliance) {
         if (timeUp()) break;
 
         // ── Goal 2: (82.528, -131.304) ────────────────────────────────────────
-        intakeHopperStart(15000, 80.0, 0.0, true);
+        intakeHopperStart(15000, 100.0, 0.0, true);
         RoutePath p2 = routePlan(globalX, globalY, 82.528, -131.304);
         if (p2.count > 0) routeExecute(p2);
 
@@ -888,14 +888,19 @@ void blueRightIsolation() {
     // !! QUADRANT I START: X POSITIVE, Y POSITIVE !!
     // East side (+X), north of center (+Y), facing West (-90°) toward opponent.
     // Tune these coordinates to match your exact starting tile.
-    setStartPosition(122.0, 60.0, -90.0);
+    setStartPosition(122.0, 60.0, 270.0);
 
     // Alliance must be set before any navigation or sweep calls.
     setAllianceRed(false);  // BLUE alliance
 
     // GPS reset — non-blocking, improves position accuracy before moving.
-    requestGpsReset();
-    pros::delay(200);
+   // requestGpsReset();
+  //  pros::delay(200);
+
+
+
+  //  turnLeft(2, MID_TURN);
+    //forwardToPoint(117.0, 151.0,  customFwd);  // heading ~275
 
     // Colour sort task — runs entire match, fires flipper when block passes sensor.
     // Blue blocks → right bay. Red blocks → left bay.
@@ -906,7 +911,15 @@ void blueRightIsolation() {
 
     // Intake — start collecting blocks immediately from match start.
     // 15000ms covers the full isolation period with buffer.
-    intakeHopperStart(15000, 80.0, 0.0, true);
+    intakeHopperStart(15000, 100.0, 0.0, true);
+    startIntakeIndexer();
+
+    forwardToPoint(75.0,  37.0,  DEFAULT_STRAIGHT);  // heading ~82
+
+    turnRight(30, TURN_45);
+      pros::delay(300);
+
+    forwardToPoint(117.0,  96.0, DEFAULT_STRAIGHT);  // heading ~200
 
     // ── Isolation routine ─────────────────────────────────────────────────────
     // Stay on east side (X > 0). Navigate to east long goal — safe during isolation.
@@ -916,8 +929,18 @@ void blueRightIsolation() {
         pros::delay(3000);  // hold at goal, let intake collect
     }
 
+    const NamedTarget& t = getTarget(LONG_GOAL_NE);
+    visionForwardToPoint(aiVision_orangeBase, 60, t.targetX, t.targetY, VISION_LONG_GOAL_FWD);
+    sweepScore(false);  // full sequence — hood + indexers + right gate (blue)
+
     // Stop intake at end of isolation — interaction period relaunches it.
+    stopIntakeIndexer();
     intakeHopperStop();
+
+    // Kill colour sort task cleanly — interaction period will relaunch after
+    // setAllianceRed() is called, preventing duplicate task conflict.
+    colorParams.isRunning = false;
+    pros::delay(50);
 }
 
 // ── INTERACTION PERIOD (1 minute 45 seconds) ─────────────────────────────────
@@ -929,43 +952,218 @@ void blueRightIsolation() {
 // for strategyPark() to navigate to the east wall park zone.
 // Total: 85s sweep + 20s park = 105s interaction period.
 void blueRightInteraction() {
+    // Alliance MUST be set first — sweepAndScore and colour sort both read this.
+    setAllianceRed(false);  // BLUE alliance
+
     // GPS reset at start of interaction — corrects any drift from isolation.
     requestGpsReset();
     pros::delay(200);
 
-    // Colour sort — relaunch for interaction period.
+    // Colour sort — relaunch now that alliance is set. Isolation killed the
+    // previous instance via colorParams.isRunning = false, so no duplicate.
     static ColorTaskParams colorParams;
     colorParams.isRunning = true;
     colorParams.delayMs   = 0;
     pros::Task(colorDetectionTask, &colorParams, "colourSort");
 
-    // sweepAndScore — vision chases blue blocks across full field.
-    // When maxCubes (8) collected, sweepScoreNearest() fires:
-    //   - Tries all four long goals nearest-first, skips blocked ones
-    //   - Scores, resets counter, resumes sweep
-    //
-    // !! TIMEOUT = 85000ms (85s) — NOT the full 105s !!
-    // This exits with 20 seconds remaining so strategyPark() can run.
-    //
-    // sweepAndScore(pixelWidth, debounceMs, maxCubes, colourMode,
-    //               sweepSpeed, kpVisionHeading, kpDistToHead,
-    //               backupMs, scanTurnSpeed, timeoutMs)
-    sweepAndScore(
-        80,       // targetPixelWidth — pixel width to confirm block collected
-        500,      // debounceMs — confirmation window before counting a block
-        8,        // maxCubes — trigger score run after this many collected
-        1,        // colourMode: 1 = blue blocks only (BLUE alliance)
-        25.0,     // sweepSpeed — drive speed during scan (%)
-        0.02,     // kpVisionHeading — vision heading PID gain
-        0.8,      // kpDistToHead — distance-weighted heading gain
-        500.0,    // backupMs — reverse time after stall (ms)
-        20.0,     // scanTurnSpeed — rotation speed during block search (%)
-        85000     // timeoutMs — 85s leaves 20s for park (85 + 20 = 105s total)
-    );
+    // Run sweep as a task so main thread can kill it hard at 85s regardless
+    // of where the robot is mid-navigation or mid-score.
+    volatile bool sweepDone = false;
+    pros::Task sweepTask([&]{
+        sweepAndScore(
+            80,       // targetPixelWidth
+            500,      // debounceMs
+            8,        // maxCubes
+            1,        // colourMode: 1 = blue blocks only (BLUE alliance)
+            25.0,     // sweepSpeed
+            0.02,     // kpVisionHeading
+            0.8,      // kpDistToHead
+            500.0,    // backupMs
+            20.0,     // scanTurnSpeed
+            85000     // timeoutMs
+        );
+        sweepDone = true;
+    }, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "sweepTask");
 
-    // ── PARK — last 20 seconds ────────────────────────────────────────────────
+    // Wait up to 85s then kill sweep no matter what it's doing
+    uint32_t start = pros::millis();
+    while (!sweepDone && pros::millis() - start < 85000) {
+        pros::delay(50);
+    }
+    if (!sweepDone) sweepTask.remove();
+
+    // Stop everything cleanly before park
+    leftDrive.move(0);
+    rightDrive.move(0);
+    intakeHopperStop();
+    stopIntakeIndexer();
+
     // strategyPark() reads g_isRedAlliance (set to false above) and navigates
-    // to PARK_OPPONENT (east wall, X = +159cm) — correct zone for blue alliance.
-    // A* plans the path from wherever the robot currently is.
+    // to PARK_OPPONENT (east wall) — correct zone for blue alliance.
     strategyPark();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RED RIGHT — Slot 3
+// Starts west side (X negative), north of center (+Y), facing East (90°).
+//   Isolation:   redRightIsolation();
+//   Interaction: redRightInteraction();
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── ISOLATION PERIOD (15 seconds) ────────────────────────────────────────────
+// Stay on west side (X < 0). Collect red blocks on own side only.
+void redRightIsolation() {
+    // !! QUADRANT II START: X NEGATIVE, Y POSITIVE !!
+    // West side (-X), north of center (+Y), facing East (90°) toward opponent.
+    setStartPosition(-122.0, -36.0, 90.0);
+  requestGpsReset();
+    pros::delay(200);
+    // Alliance must be set before any navigation or sweep calls.
+    setAllianceRed(true);  // RED alliance
+
+    // Colour sort task — red blocks → left bay. Blue blocks → right bay.
+    static ColorTaskParams colorParams;
+    colorParams.isRunning = true;
+    colorParams.delayMs   = 0;
+    pros::Task(colorDetectionTask, &colorParams, "colourSort");
+
+    // Intake — start collecting blocks immediately from match start.
+    intakeHopperStart(15000, 100.0, 0.0, true);
+    startIntakeIndexer();
+
+
+    StraightProfile customFwd = MID_FWD;
+    customFwd.breakDistance     = 70.0;
+    customFwd.minSpeed          = 13.0;
+    customFwd.maxSpeed          = 70.0;
+    customFwd.distanceTolerance = 1.0;
+    customFwd.timeout           = 8.0;
+    customFwd.brakeMode         = pros::E_MOTOR_BRAKE_BRAKE;
+    customFwd.kp_heading        = 0.6;
+    customFwd.ki_heading        = 0.0;
+    customFwd.kd_heading        = 0.0;
+
+    // ── STEP 6: Manual waypoints (odometry point-to-point) ───────────────────
+    forwardToPoint(-37.0,  -64.0,  customFwd);  // heading ~82
+
+    turnRight(240, TURN_270);
+      pros::delay(300);
+
+    forwardToPoint(-117.0,  -96.0, customFwd);  // heading ~200
+
+    // Navigate to SW long goal — closer from red right start, stays X < 0.
+    // DO NOT navigate to east-side goals during isolation — crosses center line.
+    if (arrivedAt(navigateTo(LONG_GOAL_SW))) {
+        pros::delay(3000);  // hold at goal, let intake collect
+    }
+
+    const NamedTarget& t = getTarget(LONG_GOAL_SW);
+    visionForwardToPoint(aiVision_orangeBase, 60, t.targetX, t.targetY, VISION_LONG_GOAL_FWD);
+    sweepScore(true);  // full sequence — hood + indexers + left gate
+
+    // Stop intake at end of isolation — interaction period relaunches it.
+    stopIntakeIndexer();
+    intakeHopperStop();
+
+    // Kill colour sort task cleanly — interaction period will relaunch after
+    // setAllianceRed() is called, preventing duplicate task conflict.
+    colorParams.isRunning = false;
+    pros::delay(50);
+}
+
+// ── INTERACTION PERIOD (1 minute 45 seconds) ─────────────────────────────────
+void redRightInteraction() {
+    // Alliance MUST be set first — sweepAndScore and colour sort both read this.
+    setAllianceRed(true);  // RED alliance
+
+    // GPS reset at start of interaction — corrects any drift from isolation.
+    requestGpsReset();
+    pros::delay(200);
+
+    // Colour sort — relaunch now that alliance is set.
+    static ColorTaskParams colorParams;
+    colorParams.isRunning = true;
+    colorParams.delayMs   = 0;
+    pros::Task(colorDetectionTask, &colorParams, "colourSort");
+
+    // Run sweep as a task so main thread can kill it hard at 85s regardless
+    // of where the robot is mid-navigation or mid-score.
+    volatile bool sweepDone = false;
+    pros::Task sweepTask([&]{
+        sweepAndScore(
+            80,       // targetPixelWidth
+            500,      // debounceMs
+            8,        // maxCubes
+            0,        // colourMode: 0 = red blocks only (RED alliance)
+            25.0,     // sweepSpeed
+            0.02,     // kpVisionHeading
+            0.8,      // kpDistToHead
+            500.0,    // backupMs
+            20.0,     // scanTurnSpeed
+            85000     // timeoutMs
+        );
+        sweepDone = true;
+    }, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "sweepTask");
+
+    // Wait up to 85s then kill sweep no matter what it's doing
+    uint32_t start = pros::millis();
+    while (!sweepDone && pros::millis() - start < 85000) {
+        pros::delay(50);
+    }
+    if (!sweepDone) sweepTask.remove();
+
+    // Stop everything cleanly before park
+    leftDrive.move(0);
+    rightDrive.move(0);
+    intakeHopperStop();
+    stopIntakeIndexer();
+
+    // strategyPark() reads g_isRedAlliance (set to true above) and navigates
+    // to PARK_ALLIANCE (west wall) — correct zone for red alliance.
+    strategyPark();
+    turnRight(90, TURN_270);
+    driveBackward(90, 90, DEFAULT_STRAIGHT);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// testSweepScore — fires all scoring components simultaneously as a background task.
+//
+// Reads alliance from getIsRedAlliance() — call setAllianceRed() before this.
+// Main thread returns immediately; score sequence runs in background:
+//   hood extends + all motors spin + correct gate opens → 3s → everything resets
+//
+// Call from Slot 6 (dev/test only).
+// ══════════════════════════════════════════════════════════════════════════════
+void testSweepScore(bool isRed) {
+    setAllianceRed(isRed);  // ensure global is set before task reads it
+
+    pros::screen::erase();
+    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "testSweepScore — %s — FIRING",
+                        isRed ? "RED (left gate)" : "BLUE (right gate)");
+
+    pros::Task([]{
+        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Scoring...");
+        sweepScore(getIsRedAlliance());
+        pros::screen::print(pros::E_TEXT_MEDIUM, 2, "DONE");
+    }, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "testSweepScore");
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// testSweepIntake — runs intake motors + upper indexer exactly as during sweep.
+// Hood stays down. Runs for 5 seconds then stops.
+// Use to verify intake direction before a match.
+// ══════════════════════════════════════════════════════════════════════════════
+void testSweepIntake() {
+    pros::screen::erase();
+    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "testSweepIntake — running 5s");
+
+    intakeHopperStart(5000, -100.0, 0.0, true);  // intake motors
+    startIntakeIndexer();                         // upper indexer -12000, hood down
+
+    pros::delay(5000);
+
+    stopIntakeIndexer();
+    intakeHopperStop();
+
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "DONE");
 }

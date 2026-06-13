@@ -35,6 +35,16 @@ void rightScore(double time, double power);  // right-lane only
 void leftScore(double time, double power);   // left-lane only
 void stopScore();
 
+// Full sweep-score sequence — hood + indexers + gate all fire simultaneously.
+// isRed: true = left gate (red), false = right gate (blue). Blocking (~3.2s).
+// Wrap in pros::Task for async use.
+void sweepScore(bool isRed);
+
+// Intake indexer task — runs upperIndexerMotor in reverse (pulling blocks in)
+// and keeps hood retracted during sweep. Kill before scoring, restart after.
+void startIntakeIndexer();
+void stopIntakeIndexer();
+
 // ══════════════════════════════════════════════════════════════════════════════
 // OUTTAKE HELPERS
 // ══════════════════════════════════════════════════════════════════════════════

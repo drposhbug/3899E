@@ -50,8 +50,8 @@ static const Direction DIRS[8] = {
 // ---------------------------------------------------------------------------
 
 static void cmToCell(double x, double y, int& col, int& row) {
-    col = (int)((x + FIELD_HALF_CM) / CELL_SIZE_CM);
-    row = (int)((y + FIELD_HALF_CM) / CELL_SIZE_CM);
+    col = (int)std::round((x + FIELD_HALF_CM) / CELL_SIZE_CM);
+    row = (int)std::round((y + FIELD_HALF_CM) / CELL_SIZE_CM);
     if (col < 0) col = 0;  if (col >= GRID_N) col = GRID_N - 1;
     if (row < 0) row = 0;  if (row >= GRID_N) row = GRID_N - 1;
 }

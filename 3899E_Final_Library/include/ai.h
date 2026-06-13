@@ -206,6 +206,9 @@ void strategyPark();               // Navigate to park zone
 // Set alliance color at match start — determines which park zone to use
 void setAllianceRed(bool isRed);
 
+// Returns current alliance — true = red, false = blue
+bool getIsRedAlliance();
+
 // Returns park zone X coordinate for active alliance
 double getParkX();
 
@@ -256,6 +259,7 @@ void sweepAndScore(
     double   backupMs         = 500.0, // ms to reverse after each chase
     double   scanTurnSpeed    = 25.0,  // % speed while spinning to find blocks
     uint32_t timeLimitMs      = 0      // ms total runtime; 0 = unlimited
+    // alliance read from g_isRedAlliance — call setAllianceRed() before sweepAndScore()
 );
 
 #endif // AI_H

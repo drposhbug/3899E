@@ -171,23 +171,25 @@ extern const VisionProfile   VISION_LONG_GOAL_FWD;  // orangeBase forward approa
 // ─────────────────────────────────────────────────────────────────────────────
 constexpr double STRAIGHT_SHORT_MAX_CM = 50.0;   // cm  — SHORT/MID boundary
 constexpr double STRAIGHT_MID_MAX_CM   = 80.0;   // cm  — MID/LONG boundary
-constexpr double TURN_SHORT_MAX_DEG    = 50.0;   // deg — SHORT/MID boundary
-constexpr double TURN_MID_MAX_DEG      = 100.0;  // deg — MID/LONG boundary
 
 // ── Tiered forward straight profiles ─────────────────────────────────────────
-extern const StraightProfile SHORT_FWD;   // <= STRAIGHT_SHORT_MAX_CM
-extern const StraightProfile MID_FWD;     // <= STRAIGHT_MID_MAX_CM
-extern const StraightProfile LONG_FWD;    // >  STRAIGHT_MID_MAX_CM
+extern const StraightProfile SHORT_FWD;      // <= STRAIGHT_SHORT_MAX_CM
+extern const StraightProfile MID_FWD;        // <= STRAIGHT_MID_MAX_CM
+extern const StraightProfile LONG_FWD;       // >  STRAIGHT_MID_MAX_CM
+extern const StraightProfile LONG_FWD_CM;    // >= 100cm — fixed cm breakDistance, use with forwardToPointBreakCm only
 
 // ── Tiered backward straight profiles ────────────────────────────────────────
 extern const StraightProfile SHORT_BWD;   // <= STRAIGHT_SHORT_MAX_CM
 extern const StraightProfile MID_BWD;     // <= STRAIGHT_MID_MAX_CM
 extern const StraightProfile LONG_BWD;    // >  STRAIGHT_MID_MAX_CM
 
-// ── Tiered turn profiles ──────────────────────────────────────────────────────
-extern const TurnProfile SHORT_TURN;      // <= TURN_SHORT_MAX_DEG
-extern const TurnProfile MID_TURN;        // <= TURN_MID_MAX_DEG
-extern const TurnProfile LONG_TURN;       // >  TURN_MID_MAX_DEG
+// ── Calibrated turn profiles — field-tuned per angle ─────────────────────────
+// selectTurnProfile() picks the nearest by angle. Call sites never hardcode values.
+extern const TurnProfile TURN_30;    // tuned at 30°
+extern const TurnProfile TURN_45;    // tuned at 45°
+extern const TurnProfile TURN_90;    // tuned at 90°
+extern const TurnProfile TURN_180;   // tuned at 180°
+extern const TurnProfile TURN_270;   // tuned at 270°
 
 // ── Selectors — return const ref to the correct named profile ─────────────────
 // Call with the measured segment distance or turn angle; profile is chosen

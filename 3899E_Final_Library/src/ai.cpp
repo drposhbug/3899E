@@ -1,4 +1,4 @@
-/*----------------------------------------------------------------------------
+//*----------------------------------------------------------------------------
  * ai.cpp — VAIRC-specific AI functions for the V5 Brain (Team 3899E)
  *
  * Contains all VAIRC match logic:
@@ -334,9 +334,8 @@ NavResult blindApproach(TargetType target) {
             return NavResult::BLIND_TIMEOUT;
         }
         if (p.useStall) {
-            double avgV = (fabs(leftDrive.get_actual_velocity()) +
-                           fabs(rightDrive.get_actual_velocity())) / 2.0;
-            avgV *= DRIVE_MOTOR_RPM_ADJ;
+            double avgV = (std::fabs(globalLeftEncoderRPM) +
+                           std::fabs(globalRightEncoderRPM)) / 2.0;
             if (avgV < STALL_DETECTION_RPM) {
                 if (!stallStarted) { stallStart = pros::millis(); stallStarted = true; }
                 else if (pros::millis() - stallStart >= static_cast<uint32_t>(STALL_CONFIRM_MS)) {
@@ -545,10 +544,15 @@ NavResult navigateTo(TargetID id,
 
 static bool g_isRedAlliance = true;
 void setAllianceRed(bool isRed) { g_isRedAlliance = isRed; }
+bool getIsRedAlliance()         { return g_isRedAlliance; }
 double getParkX() { return g_isRedAlliance ? RED_PARK_X : BLUE_PARK_X; }
 
 // Mechanism stubs — replace with actual function calls when defined
-static void doScore()   { score(1000, 100); }
+// doScore — calls sweepScore() from autontasks.cpp.
+// Alliance read from g_isRedAlliance — set via setAllianceRed() before calling.
+static void doScore() {
+    sweepScore(g_isRedAlliance);
+}
 static void doDescore() { outtake(1000, 80); }
 static void doIntake()  { intakeHopperStart(3000, 80); }
 static void doNothing() {}
@@ -768,7 +772,8 @@ void sweepAndScore(
     double   kpDistToHead,
     double   backupMs,
     double   scanTurnSpeed,
-    uint32_t timeLimitMs)      // 0 = unlimited
+    uint32_t timeLimitMs)     // 0 = unlimited
+    // Alliance read from g_isRedAlliance — set via setAllianceRed() before calling
 {
     static constexpr double SCAN_MAX_DEG = 360.0;
     static constexpr double SCAN_STEP_MS = 20.0;
@@ -798,7 +803,8 @@ void sweepAndScore(
     uint32_t lastCountMs = 0;
 
     // ── Intake runs throughout ────────────────────────────────────────────────
-    intakeHopperStart(120000.0, -80.0, 0.0, true);
+    intakeHopperStart(120000.0, -100.0, 0.0, true);
+    startIntakeIndexer();  // upper indexer pulls blocks in, hood stays down
 
     // ── Exit condition ────────────────────────────────────────────────────────
     auto shouldExit = [&]() -> bool {
@@ -847,6 +853,7 @@ void sweepAndScore(
             pros::AIVision::Color chaseSig = bestRed ? aiVision_redCube : aiVision_blueCube;
 
             volatile bool chaseRunning = true;
+            bool stalledAndBacked = false;
             pros::Task chaseTask([&]{
                 visionOnly(chaseSig, 9999, 999.0, sweepProfile);
                 chaseRunning = false;
@@ -854,17 +861,36 @@ void sweepAndScore(
 
             uint32_t stallStart   = 0;
             bool     stallStarted = false;
+            constexpr double   SWEEP_STALL_CURRENT_A  = 3.0;   // A — current trip threshold
+            constexpr uint32_t SWEEP_STALL_CONFIRM_MS = 150;   // ms both must persist
 
             while (chaseRunning) {
                 double avgEncRPM = (std::fabs(globalLeftEncoderRPM) +
                                     std::fabs(globalRightEncoderRPM)) / 2.0;
-                if (avgEncRPM < STALL_DETECTION_RPM) {
+                double totalCurrentA = (leftDrive.get_current_draw() +
+                                        rightDrive.get_current_draw()) / 1000.0;
+
+                // Stall if EITHER encoder RPM near-zero OR current spike detected
+                bool stallCondition = (avgEncRPM < STALL_DETECTION_RPM) ||
+                                      (totalCurrentA > SWEEP_STALL_CURRENT_A);
+
+                if (stallCondition) {
                     if (!stallStarted) { stallStart = pros::millis(); stallStarted = true; }
-                    else if (pros::millis() - stallStart >= static_cast<uint32_t>(STALL_CONFIRM_MS)) {
+                    else if (pros::millis() - stallStart >= SWEEP_STALL_CONFIRM_MS) {
                         chaseTask.remove();
                         chaseRunning = false;
+                        // Back up and retry — don't just sit there
+                        leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                        rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                        int32_t backMv = static_cast<int32_t>(
+                            -sweepSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+                        leftDrive.move_voltage(backMv);
+                        rightDrive.move_voltage(backMv);
+                        pros::delay(1500);  // 1.5s — enough to clear obstacle
                         leftDrive.move(0);
                         rightDrive.move(0);
+                        pros::delay(100);
+                        stalledAndBacked = true;
                         break;
                     }
                 } else {
@@ -883,17 +909,19 @@ void sweepAndScore(
                 pros::screen::print(pros::E_TEXT_MEDIUM, 3, "R:%d B:%d", redCount, blueCount);
             }
 
-            // 4. BACK UP
-            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-            int32_t backMv = static_cast<int32_t>(
-                -sweepSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
-            leftDrive.move_voltage(backMv);
-            rightDrive.move_voltage(backMv);
-            pros::delay(static_cast<uint32_t>(backupMs));
-            leftDrive.move(0);
-            rightDrive.move(0);
-            pros::delay(100);
+            // 4. BACK UP — skip if stall watchdog already backed up
+            if (!stalledAndBacked) {
+                leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                int32_t backMv = static_cast<int32_t>(
+                    -sweepSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+                leftDrive.move_voltage(backMv);
+                rightDrive.move_voltage(backMv);
+                pros::delay(static_cast<uint32_t>(backupMs));
+                leftDrive.move(0);
+                rightDrive.move(0);
+                pros::delay(100);
+            }
 
         } else {
             // 5. NOTHING VISIBLE — spin to scan
@@ -954,5 +982,6 @@ void sweepAndScore(
     rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     leftDrive.move(0);
     rightDrive.move(0);
+    stopIntakeIndexer();
     intakeHopperStop();
 }
