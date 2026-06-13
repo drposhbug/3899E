@@ -32,19 +32,9 @@
 // 180°: GPS North is physically the blue alliance wall — negate both axes.
 // SET TO FALSE at competition venue where field is correctly oriented.
 // Each robot sets this independently in their own auton.cpp.
-#define FIELD_ROTATION_180  true
 
 // Helper macro — applies 180° coordinate transform to globalX/globalY
 // after a GPS reset. Call immediately after pros::delay() post-requestGpsReset().
-// No-op when FIELD_ROTATION_180 is false.
-#if FIELD_ROTATION_180
-    #define APPLY_FIELD_ROTATION() do { \
-        globalX = -globalX;             \
-        globalY = -globalY;             \
-    } while(0)
-#else
-    #define APPLY_FIELD_ROTATION() do {} while(0)
-#endif
 // ══════════════════════════════════════════════════════════════════════════════
 // ROUTE FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════
@@ -55,7 +45,6 @@ void runAIMatchRoute() {
     startOdometryTask();
     requestGpsReset();
     pros::delay(200);
-    APPLY_FIELD_ROTATION();
     setAllianceRed(true);              // set to false for blue alliance
     runAIMatch();
 }
@@ -120,11 +109,11 @@ void navTest() {
 }
 
 void visionTest() {
-    setStartPosition(0, 0, 0.0);
+    setStartPosition(0, -176, 0.0);
     //setStartPosition(-124.5, -34.5, 0.0);
     startOdometryTask();
 
-    requestGpsReset();
+    //requestGpsReset();
     pros::delay(200);
 
     // ── Tune all parameters here, then copy final values to VISION_LONG_GOAL_FWD ──
@@ -133,24 +122,24 @@ void visionTest() {
     // ── Motion shape ──────────────────────────────────────────────────────────
     vp.drive.breakDistance          = 35.0;   // %
     vp.drive.minSpeed               = 15.0;   // %
-    vp.drive.maxSpeed               = 50.0;   // %
+    vp.drive.maxSpeed               = 40.0;   // %
     vp.drive.distanceTolerance      = 2.0;    // cm
-    vp.drive.timeout                = 5.0;    // s
+    vp.drive.timeout                = 3.0;    // s
     vp.drive.brakeMode              = pros::E_MOTOR_BRAKE_BRAKE;
 
     // ── Heading PID ───────────────────────────────────────────────────────────
-    vp.drive.kp_heading             = 0.05;
+    vp.drive.kp_heading             = 0.1;
     vp.drive.ki_heading             = 0.0;
     vp.drive.kd_heading             = 0.0;
 
     // ── Phase heading scaling ─────────────────────────────────────────────────
-    vp.drive.accelHeadingScaling    = 0.2;
-    vp.drive.decelHeadingScaling    = 0.1;
-    vp.drive.approachHeadingScaling = 0.1;
-    vp.drive.headingLockDistance    = 15.0;   // cm
+    vp.drive.accelHeadingScaling    = 1;
+    vp.drive.decelHeadingScaling    = 1;
+    vp.drive.approachHeadingScaling = 1;
+    vp.drive.headingLockDistance    = 1;   // cm
 
     // ── Traction / ABS ────────────────────────────────────────────────────────
-    vp.drive.launchVoltage          = 6.0;    // V
+    vp.drive.launchVoltage          = 3.0;    // V
     vp.drive.accelFactor            = 1.2;
     vp.drive.slipThreshold          = 0.3;
     vp.drive.decelStepPercent       = 2.0;    // %
@@ -161,19 +150,20 @@ void visionTest() {
     vp.drive.overcurrentDurationMs  = 500;    // ms
 
     // ── Vision fusion ─────────────────────────────────────────────────────────
-    vp.kp_vision_heading            = 0.05;   // heading PID gain after vision locks
-    vp.kp_distToHeadScaling         = 5.0;
+    vp.kp_vision_heading            = 0.1;   // heading PID gain after vision locks
+    vp.kp_distToHeadScaling         = 3.0;
 
     // ── Object detection filter ───────────────────────────────────────────────
     vp.minObjectWidth               = 10;     // px — minimum valid detection
     vp.minX                         = 0;
     vp.maxX                         = 320;
     vp.minY                         = 0;
-    vp.maxY                         = 240;
+    vp.maxY                         = 300;
 
-    //visionForwardToPoint(aiVision_redCube, 10, 100.0, 80.0, vp);
+    visionForwardToPoint(aiVision_redCube, 32, -62, 10.0, vp);
     
-    visionDriveForward(aiVision_blueCube, 80, 100.0);
+    //visionDriveForward(aiVision_blueCube, 80, 150.0);
+    //visionOnly(aiVision_blueCube, 80, 150.0, vp);
 }
 
 // Prints the route planner obstacle grid to brain screen.
@@ -274,7 +264,6 @@ void fieldTargetsTest() {
     // so A* starts from a corrected position rather than setStartPosition estimate
     requestGpsReset();
     pros::delay(200);  // 8 samples × 15ms = 120ms; 200ms gives it room to complete
-    //APPLY_FIELD_ROTATION();
 
     pros::lcd::print(0, "START X:%.0f Y:%.0f H:%.0f",
                      globalX, globalY, getContinuousStandardHeading());
@@ -347,7 +336,6 @@ void sweepAndReturn(bool isRed) {
 
  //   requestGpsReset();
    // pros::delay(200);
-    //APPLY_FIELD_ROTATION();
 
     // Snapshot position after GPS settle — this is where we return to.
     double homeX = globalX;
@@ -363,7 +351,6 @@ void sweepAndReturn(bool isRed) {
     // ── A* back to start ──────────────────────────────────────────────────────
  //   requestGpsReset();
    // pros::delay(200);
-    //APPLY_FIELD_ROTATION();
 
     RoutePath returnPath = routePlan(globalX, globalY, homeX, homeY);
     if (returnPath.count > 0) {
@@ -534,12 +521,6 @@ void rightSideAuton(){
         driveProfile2.maxCurrentA            = 8.0;
         driveProfile2.overcurrentDurationMs  = 500;
 
-          ColorTaskParams colorParams = {
-        true,
-        Color::RED,
-        0
-    };
-    pros::Task colorSortTask(colorDetectionTask, &colorParams, "Color Sort");
     intakeHopperStart(10000, 80.0, 0.0, true);
     
     turnLeft(-96,turnProfile1);
@@ -624,7 +605,6 @@ void longGoalAuto15s(bool isRedAlliance) {
     // ── STEP 3: GPS reset ─────────────────────────────────────────────────────
  requestGpsReset();
    // pros::delay(200);
-    //APPLY_FIELD_ROTATION();
 
     // ── STEP 4: Alliance ──────────────────────────────────────────────────────
     setAllianceRed(false);   // blue alliance
@@ -685,7 +665,6 @@ void longGoalAuto15s(bool isRedAlliance) {
     // ── STEP 9: GPS reset while scoring ──────────────────────────────────────
   //  requestGpsReset();
     //pros::delay(200);
-    //APPLY_FIELD_ROTATION();
 
     // ── STEP 10: Wait for scoring to finish ───────────────────────────────────
     pros::delay(4000);
@@ -783,7 +762,6 @@ void TestTurn(bool isRedAlliance) {
     // ── STEP 9: GPS reset while scoring ──────────────────────────────────────
   //  requestGpsReset();
     //pros::delay(200);
-    //APPLY_FIELD_ROTATION();
 
     // ── STEP 10: Wait for scoring to finish ───────────────────────────────────
     pros::delay(4000);
@@ -802,7 +780,6 @@ void longGoalAuto15sOg(bool isRedAlliance) {
     startOdometryTask();
     requestGpsReset();
     pros::delay(200);
-    APPLY_FIELD_ROTATION();
     setAllianceRed(isRedAlliance);
 
     // Start colour sort for the whole match.
@@ -835,8 +812,7 @@ void longGoalAuto15sOg(bool isRedAlliance) {
         if (isRedAlliance) scoreRedStart(4000); else scoreBlueStart(4000);
         requestGpsReset();
         pros::delay(200);
-        APPLY_FIELD_ROTATION();
-        pros::delay(3800);  // total ~4 s scoring wait
+            pros::delay(3800);  // total ~4 s scoring wait
 
         if (timeUp()) break;
 
@@ -852,8 +828,7 @@ void longGoalAuto15sOg(bool isRedAlliance) {
         if (isRedAlliance) scoreRedStart(4000); else scoreBlueStart(4000);
         requestGpsReset();
         pros::delay(200);
-        APPLY_FIELD_ROTATION();
-        pros::delay(3800);
+            pros::delay(3800);
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
@@ -870,3 +845,140 @@ void longGoalAuto15sOg(bool isRedAlliance) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 */
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BLUE ALLIANCE — RIGHT SIDE AUTONOMOUS
+//
+// ── COORDINATE SYSTEM REFERENCE ──────────────────────────────────────────────
+// VEX GPS origin (0,0) = field center. +X = East, +Y = North.
+//
+//   Quadrant II  (-X, +Y) | Quadrant I  (+X, +Y)
+//   West-North              | East-North
+//   ─────────────────────────────────────────────
+//   Quadrant III (-X, -Y) | Quadrant IV (+X, -Y)
+//   West-South              | East-South
+//
+// !! BLUE ALLIANCE RIGHT SIDE STARTS IN QUADRANT I: X POSITIVE, Y POSITIVE !!
+// Blue alliance is on the EAST side of the field (+X).
+// "Right side" from blue's perspective = NORTH of center (+Y).
+// All starting coordinates are POSITIVE on both axes.
+//
+// ── HEADING REFERENCE ────────────────────────────────────────────────────────
+// VEX heading: North = 0°, clockwise positive. -90° = 270° (same thing).
+//   North =   0°  (+Y direction)
+//   East  =  90°  (+X direction)
+//   South = 180°  (-Y direction)
+//   West  = -90°  (-X direction) ← robot faces opponent (red/west) at start
+//
+// Blue right-side robot faces WEST (toward red alliance) at start.
+// Starting heading = -90° (West). Equivalent to 270°, -90° preferred for clarity.
+//
+// ── ISOLATION vs INTERACTION ─────────────────────────────────────────────────
+// ISOLATION  (first 15s):  Robot must stay on east side (X > 0). Collect blocks
+//                          on own side only. NO crossing center line (X must stay > 0).
+// INTERACTION (next 1m45s): Full field. Sweep activates, scores at nearest goal.
+//
+// ── SWEEPANDSCORE PARAMS ─────────────────────────────────────────────────────
+// sweepAndScore(targetPixelWidth, debounceMs, maxCubes, colourMode,
+//               sweepSpeed, kpVisionHeading, kpDistToHead,
+//               backupMs, scanTurnSpeed [, timeoutMs])
+//   colourMode: 0=red only, 1=blue only, 2=largest cluster
+//   For BLUE alliance: use colourMode=1 (chase blue blocks only)
+//   maxCubes: once reached, sweepScoreNearest() navigates A* to nearest
+//             long goal and scores automatically — built into sweepAndScore.
+//
+// ── CALL FROM autonomous() in main.cpp ───────────────────────────────────────
+//   Isolation:   blueRightIsolation();
+//   Interaction: blueRightInteraction();
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── ISOLATION PERIOD (15 seconds) ────────────────────────────────────────────
+// Stay on east side (X > 0). Collect blue blocks on own side only.
+// No sweep — sweep is interaction-only to avoid crossing center line.
+void blueRightIsolation() {
+    // !! QUADRANT I START: X POSITIVE, Y POSITIVE !!
+    // East side (+X), north of center (+Y), facing West (-90°) toward opponent.
+    // Tune these coordinates to match your exact starting tile.
+    setStartPosition(122.0, 60.0, -90.0);
+    startOdometryTask();
+
+    // Alliance must be set before any navigation or sweep calls.
+    setAllianceRed(false);  // BLUE alliance
+
+    // GPS reset — non-blocking, improves position accuracy before moving.
+    requestGpsReset();
+    pros::delay(200);
+
+    // Colour sort task — runs entire match, fires flipper when block passes sensor.
+    // Blue blocks → right bay. Red blocks → left bay.
+    static ColorTaskParams colorParams;
+    colorParams.isRunning = true;
+    colorParams.delayMs   = 0;
+    pros::Task(colorDetectionTask, &colorParams, "colourSort");
+
+    // Intake — start collecting blocks immediately from match start.
+    // 15000ms covers the full isolation period with buffer.
+    intakeHopperStart(15000, 80.0, 0.0, true);
+
+    // ── Isolation routine ─────────────────────────────────────────────────────
+    // Stay on east side (X > 0). Navigate to east long goal — safe during isolation.
+    // LONG_GOAL_NE = north end of east long goal, approach from east corridor.
+    // DO NOT navigate to west-side goals during isolation — crosses center line.
+    if (arrivedAt(navigateTo(LONG_GOAL_NE))) {
+        pros::delay(3000);  // hold at goal, let intake collect
+    }
+
+    // Stop intake at end of isolation — interaction period relaunches it.
+    intakeHopperStop();
+}
+
+// ── INTERACTION PERIOD (1 minute 45 seconds) ─────────────────────────────────
+// Full field open. Sweep activates, vision chases blue blocks.
+// When maxCubes reached, sweepScoreNearest() A* navigates to nearest
+// available long goal and scores — this is built into sweepAndScore().
+//
+// PARK SAFETY: sweepAndScore runs for 85s (not 105s), leaving the last 20s
+// for strategyPark() to navigate to the east wall park zone.
+// Total: 85s sweep + 20s park = 105s interaction period.
+void blueRightInteraction() {
+    // GPS reset at start of interaction — corrects any drift from isolation.
+    requestGpsReset();
+    pros::delay(200);
+
+    // Colour sort — relaunch for interaction period.
+    static ColorTaskParams colorParams;
+    colorParams.isRunning = true;
+    colorParams.delayMs   = 0;
+    pros::Task(colorDetectionTask, &colorParams, "colourSort");
+
+    // sweepAndScore — vision chases blue blocks across full field.
+    // When maxCubes (8) collected, sweepScoreNearest() fires:
+    //   - Tries all four long goals nearest-first, skips blocked ones
+    //   - Scores, resets counter, resumes sweep
+    //
+    // !! TIMEOUT = 85000ms (85s) — NOT the full 105s !!
+    // This exits with 20 seconds remaining so strategyPark() can run.
+    //
+    // sweepAndScore(pixelWidth, debounceMs, maxCubes, colourMode,
+    //               sweepSpeed, kpVisionHeading, kpDistToHead,
+    //               backupMs, scanTurnSpeed, timeoutMs)
+    sweepAndScore(
+        80,       // targetPixelWidth — pixel width to confirm block collected
+        500,      // debounceMs — confirmation window before counting a block
+        8,        // maxCubes — trigger score run after this many collected
+        1,        // colourMode: 1 = blue blocks only (BLUE alliance)
+        25.0,     // sweepSpeed — drive speed during scan (%)
+        0.02,     // kpVisionHeading — vision heading PID gain
+        0.8,      // kpDistToHead — distance-weighted heading gain
+        500.0,    // backupMs — reverse time after stall (ms)
+        20.0,     // scanTurnSpeed — rotation speed during block search (%)
+        85000     // timeoutMs — 85s leaves 20s for park (85 + 20 = 105s total)
+    );
+
+    // ── PARK — last 20 seconds ────────────────────────────────────────────────
+    // strategyPark() reads g_isRedAlliance (set to false above) and navigates
+    // to PARK_OPPONENT (east wall, X = +159cm) — correct zone for blue alliance.
+    // A* plans the path from wherever the robot currently is.
+    strategyPark();
+}

@@ -69,12 +69,9 @@ void routeAddObstacle(double x, double y);
 // Call after replanning — robots move, stale obstacles corrupt future routes.
 void routeClearObstacles();
 
-// Block park zones in the dynamic grid at match start so A* routes around them.
-// Called automatically by buildStaticGrid() — no manual call needed.
-void routeInitParkZones();
-
-// Open park zones in the dynamic grid so A* can route into them.
-// Call once when parking is triggered (~20s remaining).
+// Open park zones for routing — call at the 20-second mark so A* can
+// plan into the park zone. Removes the dynamic obstacle layer blocking
+// park zone cells.
 void routeOpenParkZones();
 
 // ── Utilities ─────────────────────────────────────────────────────────

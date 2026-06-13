@@ -34,100 +34,79 @@ void initialize()
     //         gpsResetSucceeded.load() ? "OK" : "FAIL", globalX, globalY);
     //     pros::delay(100);
     // }
-
-    // Jetson diagnostic display — disabled during field targets debugging
-    // Uncomment after debugging is complete
-    // pros::Task([]{
-    //     while (true) {
-    //         pros::lcd::print(0, "pkts:%d err:%d tmo:%d",
-    //             g_jetson.get_packets(),
-    //             g_jetson.get_errors(),
-    //             g_jetson.get_timeouts());
-    //         int32_t strat = getStrategy();
-    //         JetsonDetection det;
-    //         if (getLatestDetection(CLASS_FWD_RED_BLOCK, 0.4f, &det)) {
-    //             pros::lcd::print(1, "strat:%d hOff:%.2f dist:%.1fcm",
-    //                 strat, det.hOffset, det.distanceCm);
-    //         } else {
-    //             pros::lcd::print(1, "strat:%d  no target", strat);
-    //         }
-    //         pros::delay(100);
-    //     }
-    // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "JetsonDisplay");
 }
 
 void disabled() {}
 
-void competition_initialize() {
-    autonSelector();
-}
+void competition_initialize() {}
 
-static bool posDisplayRunning = true;
+// ── VAIRC match state ─────────────────────────────────────────────────────────
+// autonomous() is called TWICE by VAIRC field control:
+//   First call  = Isolation Period  (15 seconds)
+//   Second call = Interaction Period (105 seconds)
+// static flags persist between the two calls.
+// NOTE: restart the Brain if a match is reset mid-match.
+static bool isIsolationPeriod = true;
+static bool tasksStarted      = false;
 
 void autonomous()
 {
-    // ── Background tasks — launch once, run for entire autonomous period ───────
-    // Colour sort: watches optical sensor on port 3, fires sort flipper (port 16).
-    // Runs continuously regardless of which routine is selected below.
-    static ColorTaskParams sortParams;
-    sortParams.isRunning = true;
-    sortParams.delayMs   = 0;
-    pros::Task(colorDetectionTask, &sortParams, "colourSort");
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Background tasks — launch ONCE, persist through both periods ──────────
+    if (!tasksStarted) {
+        tasksStarted = true;
 
+        static ColorTaskParams sortParams;
+        sortParams.isRunning = true;
+        sortParams.delayMs   = 0;
+        pros::Task(colorDetectionTask, &sortParams, "colourSort");
 
-    // PosDisplay — live position + heading on brain screen line 0
-    pros::Task([]{
-        while (posDisplayRunning) {
-            pros::screen::print(pros::E_TEXT_MEDIUM, 0,
-                "X:%.1f Y:%.1f H:%.1f",
-                globalX, globalY, getContinuousStandardHeading());
-            pros::delay(100);
-        }
-    }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "PosDisplay");
-
-    // DEBUG velocity display task — remove before competition
-    // Comment back in after fieldTargetsTest debugging is done
-    // pros::Task([&]{
-    //     while (true) {
-    //         double mRPM = leftDrive.get_actual_velocity() * DRIVE_MOTOR_RPM_ADJ;
-    //         double eRPM = globalLeftEncoderRPM * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
-    //         if (std::fabs(mRPM) > 1.0 || std::fabs(eRPM) > 0.1) {
-    //             dispMotorRPM   = mRPM;
-    //             dispEncoderRPM = eRPM;
-    //         }
-    //         pros::lcd::print(2, "mRPM:%7.1f eRPM:%7.2f", dispMotorRPM, dispEncoderRPM);
-    //         pros::lcd::print(3, "slip: mRPM/eRPM ratio");
-    //         pros::delay(50);
-    //     }
-    // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
-
-    // ── Uncomment one to test at home ─────────────────────────────────────────
-    // fieldTargetsTest();
-    //gpsTest();
-    //visionTest();
-    //navTest();
-    //runAIMatchRoute();
-    //routeTest();
-    //routeGridTest();
-    //systemTest();
-    //coordinateFinder();
-   // rightSideAuton();
-   // setAllianceRed(true);   // 0=red  1=blue — set before sweepAndScore
-   //longGoalAuto15s(); 
-  // sweepAndScore(true);
-   TestTurn();    // defaults: 80px, 500ms, 8 cubes, red only, 40% speed
-    // ─────────────────────────────────────────────────────────────────────────
-
-    // Hold for remainder of autonomous period — prevents task cleanup killing the screen
-    while (true) {
-        pros::delay(100);
+        pros::Task([]{
+            while (true) {
+                pros::screen::print(pros::E_TEXT_MEDIUM, 0,
+                    "X:%.1f Y:%.1f H:%.1f",
+                    globalX, globalY, getContinuousStandardHeading());
+                pros::delay(100);
+            }
+        }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "PosDisplay");
     }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (isIsolationPeriod) {
+        // ══ ISOLATION PERIOD (first 15s) ══════════════════════════════════════
+        isIsolationPeriod = false;  // flip flag — next call = Interaction
+
+        // Uncomment ONE routine:
+        // ── Competition ───────────────────────────────────────────────────────
+        // blueRightIsolation();
+        // blueLeftIsolation();
+        // redRightIsolation();
+        // redLeftIsolation();
+        // ── Test / Dev ────────────────────────────────────────────────────────
+        //visionTest();
+        // navTest();
+        // routeTest();
+        // fieldTargetsTest();
+        // rightSideAuton();
+        //setAllianceRed(true); sweepAndScore();
+        // setAllianceRed(true); longGoalAuto15s(true);
+        // runAIMatchRoute();
+        // ─────────────────────────────────────────────────────────────────────
+
+    } else {
+        // ══ INTERACTION PERIOD (next 1m45s) ═══════════════════════════════════
+        // Uncomment ONE routine (competition only — test slots leave this blank):
+        // blueRightInteraction();
+        // blueLeftInteraction();
+        // redRightInteraction();
+        // redLeftInteraction();
+    }
+
+    while (true) pros::delay(100);
 }
 
 void opcontrol()
 {
     pros::screen::erase();
     Controller.clear();
-    driverControl();
+  //  driverControl();
 }

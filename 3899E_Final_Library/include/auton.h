@@ -17,6 +17,14 @@ void fieldTargetsTest();
 void rightSideAuton();
 void longGoalAuto15s(bool isRedAlliance = false); 
 void TestTurn(bool isRedAlliance = false);  // default: blue alliance
-void sweepAndScore();
+void sweepTest(bool isRed);
+void sweepAndReturn(bool isRed);
+
+// ── BLUE ALLIANCE RIGHT SIDE ──────────────────────────────────────────────────
+// Quadrant I start: X positive, Y positive. Heading -90° (facing West/opponent).
+// Call blueRightIsolation() from isolation period (15s, stay on east side X > 0).
+// Call blueRightInteraction() from interaction period (1m45s, full field sweep).
+void blueRightIsolation();
+void blueRightInteraction();
 
 #endif // AUTON_H

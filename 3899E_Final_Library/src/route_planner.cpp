@@ -9,8 +9,7 @@
 // Fixes applied vs original:
 //   - HEAP_CAPACITY = GRID_CELLS * 4 prevents MinHeap overflow on re-pushes
 //   - Octile distance heuristic replaces sqrtf (exact for 8-dir, faster)
-//   - LOS forward scan (replaces string pulling) collapses A* path into
-//     minimum straight legs; starts from robot's actual cm position
+//   - String pulling (line-of-sight DDA) reduces waypoint count after A*
 // ======================================================================
 
 #include "route_planner.h"
@@ -81,71 +80,37 @@ static void buildStaticGrid() {
             g_dynamicGrid[r][c] = false;
         }
 
-    for (int r = 0; r < GRID_N; r++) {
-        for (int c = 0; c < GRID_N; c++) {
-
-            // ── 1. Wall border — outer ring always blocked ──────────────
-            // Keeps robot center ≥1 cell (15.24cm) from any field wall.
-            if (r == 0 || r == GRID_N-1 || c == 0 || c == GRID_N-1) {
-                g_staticGrid[r][c] = true;
-                continue;
-            }
-
-            // ── 2. Long goals ───────────────────────────────────────────
-            // 10 cells wide × 4 cells tall, 1 passable row between outer
-            // edge and wall border on both north and south sides.
-            // North: cols 7-16, rows 18-21
-            // South: cols 7-16, rows  2- 5
-            if (c >= LONG_GOAL_COL_MIN && c <= LONG_GOAL_COL_MAX) {
-                if ((r >= LONG_GOAL_ROW_N_MIN && r <= LONG_GOAL_ROW_N_MAX) ||
-                    (r >= LONG_GOAL_ROW_S_MIN && r <= LONG_GOAL_ROW_S_MAX)) {
-                    g_staticGrid[r][c] = true;
-                    continue;
-                }
-            }
-
-            // ── 3. Center goals ─────────────────────────────────────────
-            // 6×6 block (4×4 physical X + 1 cell buffer all sides)
-            // Cols 9-14, rows 9-14
-            if (c >= CENTER_GOAL_COL_MIN && c <= CENTER_GOAL_COL_MAX &&
-                r >= CENTER_GOAL_ROW_MIN && r <= CENTER_GOAL_ROW_MAX) {
-                g_staticGrid[r][c] = true;
-                continue;
-            }
-
-            // ── 4. Match loader posts ───────────────────────────────────
-            // Physical radius only — robot approaches these to score.
-            // Circle check against cell center in cm.
-            {
-                double cx, cy;
-                cellToCm(c, r, cx, cy);
-                for (int p = 0; p < NUM_ML_POSTS; p++) {
-                    double dx = cx - ML_POSTS[p].x;
-                    double dy = cy - ML_POSTS[p].y;
-                    if (dx*dx + dy*dy <= ML_POST_RADIUS * ML_POST_RADIUS) {
-                        g_staticGrid[r][c] = true;
-                        break;
-                    }
-                }
-            }
-        }
+    // Wall border — 1-cell ring on all sides
+    for (int i = 0; i < GRID_N; i++) {
+        g_staticGrid[0][i]        = true;  // south wall
+        g_staticGrid[GRID_N-1][i] = true;  // north wall
+        g_staticGrid[i][0]        = true;  // west wall
+        g_staticGrid[i][GRID_N-1] = true;  // east wall
     }
 
-    // ── 5. Park zones — dynamic layer ──────────────────────────────────
-    // Blocked from match start. Opened at 20s mark via routeOpenParkZones().
-    // Dynamic grid only — robot must be able to enter to park.
-    // Skip outer wall ring — those cells are already statically blocked.
-    for (int r = 1; r < GRID_N-1; r++) {
-        for (int c = 1; c < GRID_N-1; c++) {
-            double cx, cy;
-            cellToCm(c, r, cx, cy);
-            for (int z = 0; z < NUM_PARK_ZONES; z++) {
-                if (cx >= PARK_ZONES[z].xMin && cx <= PARK_ZONES[z].xMax &&
-                    cy >= PARK_ZONES[z].yMin && cy <= PARK_ZONES[z].yMax) {
-                    g_dynamicGrid[r][c] = true;
-                }
-            }
-        }
+    // Long goals — north: cols 7–16, rows 18–21
+    for (int r = LONG_GOAL_ROW_N_MIN; r <= LONG_GOAL_ROW_N_MAX; r++)
+        for (int c = LONG_GOAL_COL_MIN; c <= LONG_GOAL_COL_MAX; c++)
+            g_staticGrid[r][c] = true;
+
+    // Long goals — south: cols 7–16, rows 2–5
+    for (int r = LONG_GOAL_ROW_S_MIN; r <= LONG_GOAL_ROW_S_MAX; r++)
+        for (int c = LONG_GOAL_COL_MIN; c <= LONG_GOAL_COL_MAX; c++)
+            g_staticGrid[r][c] = true;
+
+    // Center goals — cols 9–14, rows 9–14
+    for (int r = CENTER_GOAL_ROW_MIN; r <= CENTER_GOAL_ROW_MAX; r++)
+        for (int c = CENTER_GOAL_COL_MIN; c <= CENTER_GOAL_COL_MAX; c++)
+            g_staticGrid[r][c] = true;
+
+    // Park zones — start blocked in dynamic grid, opened at 20s via routeOpenParkZones()
+    // Red park (west): cols 1–2, rows 10–13
+    // Blue park (east): cols 21–22, rows 10–13
+    for (int r = 10; r <= 13; r++) {
+        g_dynamicGrid[r][1] = true;
+        g_dynamicGrid[r][2] = true;
+        g_dynamicGrid[r][21] = true;
+        g_dynamicGrid[r][22] = true;
     }
 
     g_staticBuilt = true;
@@ -193,37 +158,13 @@ void routeClearObstacles() {
             g_dynamicGrid[r][c] = false;
 }
 
-void routeInitParkZones() {
-    // Call once at match start — blocks park zones in dynamic grid so A*
-    // routes around them during normal play.
-    buildStaticGrid();
-    for (int r = 1; r < GRID_N-1; r++) {
-        for (int c = 1; c < GRID_N-1; c++) {
-            double cx, cy;
-            cellToCm(c, r, cx, cy);
-            for (int z = 0; z < NUM_PARK_ZONES; z++) {
-                if (cx >= PARK_ZONES[z].xMin && cx <= PARK_ZONES[z].xMax &&
-                    cy >= PARK_ZONES[z].yMin && cy <= PARK_ZONES[z].yMax) {
-                    g_dynamicGrid[r][c] = true;
-                }
-            }
-        }
-    }
-}
-
 void routeOpenParkZones() {
-    // Call at 20-second mark — clears park zones so robot can navigate into them.
-    for (int r = 1; r < GRID_N-1; r++) {
-        for (int c = 1; c < GRID_N-1; c++) {
-            double cx, cy;
-            cellToCm(c, r, cx, cy);
-            for (int z = 0; z < NUM_PARK_ZONES; z++) {
-                if (cx >= PARK_ZONES[z].xMin && cx <= PARK_ZONES[z].xMax &&
-                    cy >= PARK_ZONES[z].yMin && cy <= PARK_ZONES[z].yMax) {
-                    g_dynamicGrid[r][c] = false;
-                }
-            }
-        }
+    // Clear only the park zone cells — leaves any other dynamic obstacles intact
+    for (int r = 10; r <= 13; r++) {
+        g_dynamicGrid[r][1]  = false;
+        g_dynamicGrid[r][2]  = false;
+        g_dynamicGrid[r][21] = false;
+        g_dynamicGrid[r][22] = false;
     }
 }
 
@@ -281,11 +222,11 @@ static int     g_cameFrom[GRID_CELLS];
 static bool    g_inClosed[GRID_CELLS];
 
 // ---------------------------------------------------------------------------
-// lineOfSight — DDA rasterization obstacle check
+// String pulling — line-of-sight check using DDA rasterization
 //
 // Returns true if the straight line from (c0,r0) to (c1,r1) passes through
-// only passable cells. Used by the LOS forward scan to validate each proposed
-// merged leg against both static and dynamic obstacle grids.
+// only passable cells. Used post-A* to collapse staircase paths into fewer,
+// longer straight segments.
 // ---------------------------------------------------------------------------
 
 static bool lineOfSight(int c0, int r0, int c1, int r1) {
@@ -402,57 +343,26 @@ RoutePath routePlan(double startX, double startY,
         rawCount++;
     }
 
-    // ── LOS forward scan — collapse A* path into minimum straight legs ────────
-    //
-    // Walk forward through raw waypoints extending a straight line from the
-    // current anchor as far as possible. As long as lineOfSight(anchor→candidate)
-    // is clear, keep going — no waypoint is emitted yet. The moment LOS blocks,
-    // the previous candidate was the farthest safe point: emit it, make it the
-    // new anchor, continue from there.
-    //
-    // Anchor is tracked in cm (not snapped to grid cell) so the first leg runs
-    // from the robot's actual position, not a cell centre. cmToCell is called
-    // only at check time for the Bresenham traversal.
-    //
-    // Result: one waypoint per genuine direction change or obstacle avoidance
-    // turn. Open-field cross-field routes collapse to a single waypoint.
-
-    // Prepend actual robot position as the scan origin so the first leg starts
-    // from where the robot is, not the first A* cell centre.
-    double allX[GRID_CELLS + 1], allY[GRID_CELLS + 1];
-    int allCount = 0;
-    allX[allCount] = startX;  allY[allCount] = startY;  allCount++;
-    for (int i = 0; i < rawCount; i++) {
-        allX[allCount] = rawX[i];  allY[allCount] = rawY[i];  allCount++;
-    }
-
+    // String pulling — walk forward; skip any waypoint with clear line-of-sight
+    // to a further one. Collapses staircase diagonals into clean straight legs.
     int writeIdx = 0;
-    int anchor   = 0;
-
-    for (int candidate = 1; candidate < allCount; candidate++) {
-        int ac, ar, cc, cr;
-        cmToCell(allX[anchor],    allY[anchor],    ac, ar);
-        cmToCell(allX[candidate], allY[candidate], cc, cr);
-
-        if (!lineOfSight(ac, ar, cc, cr)) {
-            // LOS blocked — candidate-1 was the last safe endpoint.
-            // Emit it and restart the scan from there.
-            int safe = candidate - 1;
-            if (safe > anchor && writeIdx < ROUTE_MAX_WAYPOINTS) {
-                result.x[writeIdx] = allX[safe];
-                result.y[writeIdx] = allY[safe];
-                writeIdx++;
-            }
-            anchor = (safe > anchor) ? safe : anchor + 1;
-        }
-        // LOS clear — keep extending, nothing emitted yet.
-    }
-
-    // Always emit the exact goal coordinate as the final waypoint.
-    if (writeIdx < ROUTE_MAX_WAYPOINTS) {
-        result.x[writeIdx] = allX[allCount - 1];
-        result.y[writeIdx] = allY[allCount - 1];
+    int k = 0;
+    while (k < rawCount && writeIdx < ROUTE_MAX_WAYPOINTS) {
+        result.x[writeIdx] = rawX[k];
+        result.y[writeIdx] = rawY[k];
         writeIdx++;
+
+        if (k >= rawCount - 1) break;
+
+        // Find furthest waypoint reachable in a straight line from k
+        int skip = k + 1;
+        for (int check = rawCount - 1; check > k + 1; check--) {
+            int cc0, rr0, cc1, rr1;
+            cmToCell(rawX[k],     rawY[k],     cc0, rr0);
+            cmToCell(rawX[check], rawY[check], cc1, rr1);
+            if (lineOfSight(cc0, rr0, cc1, rr1)) { skip = check; break; }
+        }
+        k = skip;
     }
     result.count = writeIdx;
 
@@ -466,10 +376,14 @@ RoutePath routePlan(double startX, double startY,
 // ---------------------------------------------------------------------------
 // routeExecute — drives path waypoint-by-waypoint using forwardToPoint
 //
-// Uses DEFAULT_STRAIGHT for all legs. Tiered profile selection (SHORT/MID/LONG_FWD)
-// and per-waypoint turn insertion live in navigateTo() in ai.cpp, which is the
-// primary execution path. routeExecute is retained for direct path execution
-// where that logic isn't needed (e.g. 15" bot pre-approach sequences).
+// Profile selection uses DEFAULT_STRAIGHT from motion_config.h — all tuning
+// belongs there, not here. Do not hardcode profile values in this file.
+//
+// TODO (post field validation): select profile based on leg distance and
+// heading delta between waypoints:
+//   short legs  (<30cm)  → tighter breakDistance, lower maxSpeed
+//   long legs   (>90cm)  → full cruise profile
+//   sharp turns (>45deg) → insert turnOdometry between waypoints
 //
 // Returns true if all waypoints reached, false if any timed out (blocked).
 // ---------------------------------------------------------------------------
