@@ -246,15 +246,16 @@ int getStrategyCode();
 // Exit: when count of trigger colour(s) hits maxCubes.
 //   colourMode=2 exits when EITHER colour hits maxCubes.
 void sweepAndScore(
-    int    targetPixelWidth = 80,    // px — width at exit counts as intaked
-    int    debounceMs       = 500,   // ms before counting next cube
-    int    maxCubes         = 8,     // cube count triggers scoring run
-    int    colourMode       = 0,     // 0=red  1=blue  2=both
-    double sweepSpeed       = 40.0,  // % — single speed throughout
-    double kpVisionHeading  = 0.05,  // heading PID gain after vision locks
-    double kpDistToHead     = 5.0,   // steering aggressiveness toward block
-    double backupMs         = 500.0, // ms to reverse after each chase
-    double scanTurnSpeed    = 25.0   // % speed while spinning to find blocks
+    int      targetPixelWidth = 80,    // px — width at exit counts as intaked
+    int      debounceMs       = 500,   // ms before counting next cube
+    int      maxCubes         = 8,     // cube count triggers scoring run
+    int      colourMode       = 0,     // 0=red  1=blue  2=both
+    double   sweepSpeed       = 40.0,  // % — single speed throughout
+    double   kpVisionHeading  = 0.05,  // heading PID gain after vision locks
+    double   kpDistToHead     = 5.0,   // steering aggressiveness toward block
+    double   backupMs         = 500.0, // ms to reverse after each chase
+    double   scanTurnSpeed    = 25.0,  // % speed while spinning to find blocks
+    uint32_t timeLimitMs      = 0      // ms total runtime; 0 = unlimited
 );
 
 #endif // AI_H

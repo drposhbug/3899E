@@ -333,6 +333,54 @@ void sweepTest(bool isRed) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// SWEEP AND RETURN
+// Sweeps the field collecting blocks, scores at nearest goal, then A* navigates
+// back to the starting position.
+// ══════════════════════════════════════════════════════════════════════════════
+void sweepAndReturn(bool isRed) {
+    for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
+    pros::screen::erase();
+
+    setStartPosition(0.0, 0.0, 0.0);  // TODO: update to actual start coords
+    startOdometryTask();
+    setAllianceRed(isRed);
+
+ //   requestGpsReset();
+   // pros::delay(200);
+    //APPLY_FIELD_ROTATION();
+
+    // Snapshot position after GPS settle — this is where we return to.
+    double homeX = globalX;
+    double homeY = globalY;
+
+    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "SWEEP — home (%.0f, %.0f)", homeX, homeY);
+
+    // ── Sweep ─────────────────────────────────────────────────────────────────
+    sweepAndScore(80, 500, 8, isRed ? 0 : 1, 25.0, 0.02, 0.8, 500.0, 20.0, 30000);
+
+    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "SWEEP DONE — returning home");
+
+    // ── A* back to start ──────────────────────────────────────────────────────
+ //   requestGpsReset();
+   // pros::delay(200);
+    //APPLY_FIELD_ROTATION();
+
+    RoutePath returnPath = routePlan(globalX, globalY, homeX, homeY);
+    if (returnPath.count > 0) {
+        bool reached = routeExecute(returnPath);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 2, reached ? "HOME — done" : "HOME — blocked");
+        Controller.rumble(reached ? ". ." : "---");
+    } else {
+        pros::screen::print(pros::E_TEXT_MEDIUM, 2, "HOME — no path found");
+        Controller.rumble("---");
+    }
+
+    while (true) {
+        pros::delay(100);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // AUTON SELECTOR
 // Left/Right on controller to cycle options, A to confirm and run.
 // ══════════════════════════════════════════════════════════════════════════════

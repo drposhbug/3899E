@@ -759,18 +759,24 @@ static bool sweepScoreNearest() {
 // Parameters — all have defaults; call sweepAndScore() for red-only with defaults.
 // ─────────────────────────────────────────────────────────────────────────────
 void sweepAndScore(
-    int    targetPixelWidth,   // px — width at exit that counts as intaked
-    int    debounceMs,         // ms to hold off before counting next cube
-    int    maxCubes,           // cube count that triggers a scoring run
-    int    colourMode,         // 0=red only  1=blue only  2=both (largest wins)
-    double sweepSpeed,         // % — single speed for chase, backup, and scan
-    double kpVisionHeading,    // heading PID gain after vision locks
-    double kpDistToHead,       // steering aggressiveness toward block
-    double backupMs,           // ms to reverse after each chase
-    double scanTurnSpeed)      // % speed while spinning to find blocks
+    int      targetPixelWidth,
+    int      debounceMs,
+    int      maxCubes,
+    int      colourMode,
+    double   sweepSpeed,
+    double   kpVisionHeading,
+    double   kpDistToHead,
+    double   backupMs,
+    double   scanTurnSpeed,
+    uint32_t timeLimitMs)      // 0 = unlimited
 {
     static constexpr double SCAN_MAX_DEG = 360.0;
     static constexpr double SCAN_STEP_MS = 20.0;
+
+    const uint32_t sweepStart = pros::millis();
+    auto timeUp = [&]() -> bool {
+        return timeLimitMs > 0 && pros::millis() - sweepStart >= timeLimitMs;
+    };
 
     // ── Vision profile — DEFAULT_VISION, single speed, encoder stall ──────────
     VisionProfile sweepProfile = DEFAULT_VISION;
@@ -792,7 +798,7 @@ void sweepAndScore(
     uint32_t lastCountMs = 0;
 
     // ── Intake runs throughout ────────────────────────────────────────────────
-    intakeHopperStart(120000.0, 80.0, 0.0, true);
+    intakeHopperStart(120000.0, -80.0, 0.0, true);
 
     // ── Exit condition ────────────────────────────────────────────────────────
     auto shouldExit = [&]() -> bool {
@@ -803,7 +809,7 @@ void sweepAndScore(
     };
 
     // ── Main sweep loop ───────────────────────────────────────────────────────
-    while (!shouldExit()) {
+    while (!shouldExit() && !timeUp()) {
         updateOdometry();
 
         // 1. SCAN — find best (widest) visible block, skip park-zone headings
@@ -938,6 +944,8 @@ void sweepAndScore(
 
             redCount  = 0;
             blueCount = 0;
+
+            if (timeUp()) break;
         }
     }
 
