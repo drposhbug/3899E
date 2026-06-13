@@ -13,14 +13,36 @@ void initialize()
     pros::screen::print(pros::E_TEXT_MEDIUM, 0, "GPS diag start");
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "GPS err:%.3fm", gpsSensor.get_error());
     pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Raw X:%.3f Y:%.3fm",
-    gpsSensor.get_position().x, gpsSensor.get_position().y);
+        gpsSensor.get_position().x, gpsSensor.get_position().y);
+
     passiveEncoderLeft.set_reversed(true);
     passiveEncoderRight.set_reversed(false);
     passiveEncoderX.set_reversed(false);
 
     robotInit();
-
     pros::lcd::initialize();
+
+    // ── Persistent background tasks — survive all period transitions ──────────
+    // Odometry: runs at 100Hz, updates globalX/Y/heading continuously.
+    // setStartPosition() must still be called in each routine to set origin.
+    startOdometryTask();
+
+    // Colour sort: watches optical sensor port 3, fires sort flipper port 8.
+    static ColorTaskParams sortParams;
+    sortParams.isRunning = true;
+    sortParams.delayMs   = 0;
+    pros::Task(colorDetectionTask, &sortParams, "colourSort");
+
+    // Position display: live X/Y/heading on brain screen line 0.
+    pros::Task([]{
+        while (true) {
+            pros::screen::print(pros::E_TEXT_MEDIUM, 0,
+                "X:%.1f Y:%.1f H:%.1f",
+                globalX, globalY, getContinuousStandardHeading());
+            pros::delay(100);
+        }
+    }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "PosDisplay");
+    // ─────────────────────────────────────────────────────────────────────────
 
     // GPS live display — disabled for now
     // pros::screen::erase();
@@ -44,33 +66,12 @@ void competition_initialize() {}
 // autonomous() is called TWICE by VAIRC field control:
 //   First call  = Isolation Period  (15 seconds)
 //   Second call = Interaction Period (105 seconds)
-// static flags persist between the two calls.
+// Static flag persists between the two calls.
 // NOTE: restart the Brain if a match is reset mid-match.
 static bool isIsolationPeriod = true;
-static bool tasksStarted      = false;
 
 void autonomous()
 {
-    // ── Background tasks — launch ONCE, persist through both periods ──────────
-    if (!tasksStarted) {
-        tasksStarted = true;
-
-        static ColorTaskParams sortParams;
-        sortParams.isRunning = true;
-        sortParams.delayMs   = 0;
-        pros::Task(colorDetectionTask, &sortParams, "colourSort");
-
-        pros::Task([]{
-            while (true) {
-                pros::screen::print(pros::E_TEXT_MEDIUM, 0,
-                    "X:%.1f Y:%.1f H:%.1f",
-                    globalX, globalY, getContinuousStandardHeading());
-                pros::delay(100);
-            }
-        }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "PosDisplay");
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
     if (isIsolationPeriod) {
         // ══ ISOLATION PERIOD (first 15s) ══════════════════════════════════════
         isIsolationPeriod = false;  // flip flag — next call = Interaction
@@ -82,12 +83,13 @@ void autonomous()
         // redRightIsolation();
         // redLeftIsolation();
         // ── Test / Dev ────────────────────────────────────────────────────────
-        //visionTest();
+        //coordinateFinder();
+        visionTest();
         // navTest();
         // routeTest();
         // fieldTargetsTest();
         // rightSideAuton();
-        //setAllianceRed(true); sweepAndScore();
+        // setAllianceRed(true); sweepAndScore();
         // setAllianceRed(true); longGoalAuto15s(true);
         // runAIMatchRoute();
         // ─────────────────────────────────────────────────────────────────────

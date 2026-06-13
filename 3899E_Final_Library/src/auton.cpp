@@ -42,7 +42,6 @@
 // Full VAIRC match — Jetson drives strategy, V5 executes via ai.cpp
 void runAIMatchRoute() {
     setStartPosition(0.0, 0.0, 0.0);  // update start coords before competition
-    startOdometryTask();
     requestGpsReset();
     pros::delay(200);
     setAllianceRed(true);              // set to false for blue alliance
@@ -56,7 +55,6 @@ void routeTest() {
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Route Test");
 
     setStartPosition(0.0, 0.0, 0.0);
-    startOdometryTask();
 
     // Plan route from center field to top long goal approach
     RoutePath path = routePlan(globalX, globalY, 0.0, 97.0);  // 25cm short of goal face
@@ -78,7 +76,6 @@ void routeTest() {
 
 void navTest() {
     setStartPosition(0.0, 0.0, 0.0);
-    startOdometryTask();
 
     StraightProfile driveProfile = LOADED_MID_FWD_80;
     driveProfile.breakDistance          = 60.0;
@@ -111,7 +108,6 @@ void navTest() {
 void visionTest() {
     setStartPosition(0, -176, 0.0);
     //setStartPosition(-124.5, -34.5, 0.0);
-    startOdometryTask();
 
     //requestGpsReset();
     pros::delay(200);
@@ -160,7 +156,7 @@ void visionTest() {
     vp.minY                         = 0;
     vp.maxY                         = 300;
 
-    visionForwardToPoint(aiVision_redCube, 32, -62, 10.0, vp);
+    visionForwardToPoint(aiVision_redCube, 60, 32, -62, vp);
     
     //visionDriveForward(aiVision_blueCube, 80, 150.0);
     //visionOnly(aiVision_blueCube, 80, 150.0, vp);
@@ -210,7 +206,6 @@ void systemTest() {
 // Push robot around and watch live GPS/odometry coordinates on brain screen.
 void coordinateFinder() {
     setStartPosition(0.0, 0.0, 0.0);
-    startOdometryTask();
     startCoordinateFinder();
 }
 
@@ -219,7 +214,6 @@ void coordinateFinder() {
 // Press A on controller to trigger a GPS reset at any time.
 void gpsTest() {
     setStartPosition(0.0, 0.0, 0.0);
-    startOdometryTask();
 
     pros::screen::erase();
     pros::screen::print(pros::E_TEXT_MEDIUM, 0, "GPS TEST — push robot around");
@@ -258,7 +252,6 @@ void fieldTargetsTest() {
     pros::screen::erase();
 
     setStartPosition(124.5, 34.5, 0.0);
-    startOdometryTask();
 
     // GPS reset before routing — wait up to 200ms for task to finish
     // so A* starts from a corrected position rather than setStartPosition estimate
@@ -303,7 +296,6 @@ void sweepTest(bool isRed) {
     pros::screen::erase();
 
     setStartPosition(0.0, 0.0, 0.0);
-    startOdometryTask();
 
     requestGpsReset();
     pros::delay(200);
@@ -331,7 +323,6 @@ void sweepAndReturn(bool isRed) {
     pros::screen::erase();
 
     setStartPosition(0.0, 0.0, 0.0);  // TODO: update to actual start coords
-    startOdometryTask();
     setAllianceRed(isRed);
 
  //   requestGpsReset();
@@ -427,7 +418,6 @@ void autonSelector() {
 
 void rightSideAuton(){
     setStartPosition(124.8, 37, -90);
-    startOdometryTask();
 
     // Colour sort task — runs entire auton, sorts blocks as they pass the optical sensor.
     // Blue right side auton: sorts blue blocks into right bay, red into left bay.
@@ -600,7 +590,6 @@ void longGoalAuto15s(bool isRedAlliance) {
     setStartPosition(124.0, 37.0, 270);
 
     // ── STEP 2: Start odometry task ───────────────────────────────────────────
-    startOdometryTask();
 
     // ── STEP 3: GPS reset ─────────────────────────────────────────────────────
  requestGpsReset();
@@ -777,7 +766,6 @@ void longGoalAuto15sOg(bool isRedAlliance) {
     } else {
         setStartPosition(-122.0, -60.0, 180.0);
     }
-    startOdometryTask();
     requestGpsReset();
     pros::delay(200);
     setAllianceRed(isRedAlliance);
@@ -901,7 +889,6 @@ void blueRightIsolation() {
     // East side (+X), north of center (+Y), facing West (-90°) toward opponent.
     // Tune these coordinates to match your exact starting tile.
     setStartPosition(122.0, 60.0, -90.0);
-    startOdometryTask();
 
     // Alliance must be set before any navigation or sweep calls.
     setAllianceRed(false);  // BLUE alliance
