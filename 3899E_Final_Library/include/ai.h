@@ -181,6 +181,11 @@ NavResult navigateToTarget(double goalX, double goalY,
 // Blind approach only — for when already in position for final push.
 NavResult blindApproach(TargetType target);
 
+// arrivedAt — returns true if NavResult indicates the robot reached its target.
+// Treats SUCCESS and BLIND_CONTACT as success; everything else as failure.
+// Usage: if (!arrivedAt(navigateTo(LONG_GOAL_SW))) { return; }
+bool arrivedAt(NavResult result);
+
 // ============================================================================
 // SECTION 7 — Strategy functions
 // ============================================================================
@@ -226,9 +231,30 @@ void setStrategyCode(int code);
 int getStrategyCode();
 
 // ============================================================================
-// SECTION 9 — Behavior stubs
+// SECTION 9 — Sweep behaviors
 // ============================================================================
 
-void visionSweepNorth();   // North-side block hoarding (to be implemented)
+// sweepAndScore — reactive block sweep using VEX AI Vision sensor.
+//
+// Chases largest visible block (by pixel width), counts intakes, scores at
+// nearest long goal when maxCubes reached, resets and resumes.
+//
+// Stall detection: passive encoder wheels (globalLeftEncoderRPM/Right).
+// Park zones geofenced — detections pointing into park zone are skipped.
+//
+// colourMode: 0=red only  1=blue only  2=both (largest cluster wins)
+// Exit: when count of trigger colour(s) hits maxCubes.
+//   colourMode=2 exits when EITHER colour hits maxCubes.
+void sweepAndScore(
+    int    targetPixelWidth = 80,    // px — width at exit counts as intaked
+    int    debounceMs       = 500,   // ms before counting next cube
+    int    maxCubes         = 8,     // cube count triggers scoring run
+    int    colourMode       = 0,     // 0=red  1=blue  2=both
+    double sweepSpeed       = 40.0,  // % — single speed throughout
+    double kpVisionHeading  = 0.05,  // heading PID gain after vision locks
+    double kpDistToHead     = 5.0,   // steering aggressiveness toward block
+    double backupMs         = 500.0, // ms to reverse after each chase
+    double scanTurnSpeed    = 25.0   // % speed while spinning to find blocks
+);
 
 #endif // AI_H

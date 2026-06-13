@@ -306,7 +306,9 @@ void fieldTargetsTest() {
 // SWEEP TEST
 // Runs visionSweepNorth() standalone — no match timer, no Jetson required.
 // Alliance set via setAllianceRed() in the selector before calling this.
-// ══════════════════════════════════════════════════════════════════════════════
+// 
+
+// ═════════════════════════════════════════════════════════════════════════════
 void sweepTest(bool isRed) {
     for (int i = 0; i < 8; i++) pros::lcd::clear_line(i);
     pros::screen::erase();
@@ -320,7 +322,7 @@ void sweepTest(bool isRed) {
     pros::screen::print(pros::E_TEXT_MEDIUM, 0, "SWEEP TEST — 30s");
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Alliance: %s", isRed ? "RED" : "BLUE");
 
-    visionSweepNorth();
+    sweepAndScore(80, 500, 8, 0, 25.0, 0.02, 0.8, 500.0, 20.0);
 
     pros::screen::print(pros::E_TEXT_MEDIUM, 2, "SWEEP DONE — at nearest goal");
     Controller.rumble(".");
@@ -377,8 +379,8 @@ void autonSelector() {
                 case 5:  coordinateFinder();                            break;
                 case 6:  visionTest();                                  break;
                 case 7:  gpsTest();                                     break;
-                case 8:  setAllianceRed(true);  sweepTest(true);             break;
-                case 9:  setAllianceRed(false); sweepTest(false);            break;
+                case 8:  setAllianceRed(true);  sweepAndScore();             break;
+                case 9:  setAllianceRed(false); sweepAndScore();             break;
             }
             break;
         }
@@ -477,6 +479,14 @@ void rightSideAuton(){
         driveProfile2.maxCurrentA            = 8.0;
         driveProfile2.overcurrentDurationMs  = 500;
 
+          ColorTaskParams colorParams = {
+        true,
+        Color::RED,
+        0
+    };
+    pros::Task colorSortTask(colorDetectionTask, &colorParams, "Color Sort");
+    intakeHopperStart(10000, 80.0, 0.0, true);
+    
     turnLeft(-96,turnProfile1);
     driveForward(37,-96,driveProfile);
     turnRight(10, turnProfile1);
@@ -496,6 +506,8 @@ void rightSideAuton(){
     navigateTo(LONG_GOAL_NE);
     // driveForward(40,-90,driveProfile2);
     //score
+
+    scoreBlueStart(4000);
 
     pros::delay(1000000);
     driveForward(80,-150,driveProfile2);
@@ -548,78 +560,196 @@ void rightSideAuton(){
 void longGoalAuto15s(bool isRedAlliance) {
 
     // ── STEP 1: Set starting position ─────────────────────────────────────────
-    // Replace X, Y, heading with your robot's actual starting coordinates.
-    // Red alliance example: starting tile near east long goal, facing north (0°).
-    // Blue alliance example: starting tile near west long goal, facing south (180°).
-    if (isRedAlliance) {
-        setStartPosition(122.0, -60.0, 0.0);   // east side, facing north
-    } else {
-        setStartPosition(-122.0, -60.0, 180.0); // west side, facing south
-    }
+    // TODO: replace 0.0 with your actual starting heading.
+    setStartPosition(124.0, 37.0, 270);
 
-    // ── STEP 2: Start odometry task (must be called before any navigation) ────
+    // ── STEP 2: Start odometry task ───────────────────────────────────────────
     startOdometryTask();
 
-    // ── STEP 3: GPS reset — fires non-blocking, improves position accuracy ────
-    // pros::delay(200) gives the GPS sensor time to settle before navigating.
-    requestGpsReset();
-    pros::delay(200);
-    APPLY_FIELD_ROTATION();
+    // ── STEP 3: GPS reset ─────────────────────────────────────────────────────
+ requestGpsReset();
+   // pros::delay(200);
+    //APPLY_FIELD_ROTATION();
 
-    // ── STEP 4: Tell the system which alliance we are ─────────────────────────
-    // Used internally by park/strategy functions that need alliance context.
-    setAllianceRed(isRedAlliance);
+    // ── STEP 4: Alliance ──────────────────────────────────────────────────────
+    setAllianceRed(false);   // blue alliance
 
-    // ── STEP 5: Start intake BEFORE moving — collects blocks during transit ───
-    // intakeHopperStart(timeMs, power%, delayMs, async)
-    //   timeMs = total run time — set long enough to cover transit + scoring
-    //   async  = true means this returns immediately; intake runs in background
+    // ── STEP 5: Start colour sort + intake before moving ─────────────────────
+    // Eject red (opponent colour on blue alliance).
+    ColorTaskParams colorParams = {
+        true,
+        Color::RED,
+        0
+    };
+    pros::Task colorSortTask(colorDetectionTask, &colorParams, "Color Sort");
     intakeHopperStart(10000, 80.0, 0.0, true);
+ // turnRight(, DEFAULT_TURN);
 
-    // ── STEP 6: A* navigate to long goal approach point ───────────────────────
-    // navigateTo() handles everything:
-    //   - Plans A* path from current position to the target's approach coords
-    //   - Drives each waypoint using odometry + heading correction
-    //   - Stops at the approach point ready to score
-    // arrivedAt() checks NavResult — returns true on SUCCESS or BLIND_CONTACT.
-    // If navigation fails (obstacle, timeout), skip scoring gracefully.
-    TargetID goalTarget = isRedAlliance ? LONG_GOAL_NE : LONG_GOAL_NW;
+    StraightProfile customFwd = MID_FWD;
+    customFwd.breakDistance     = 70.0;
+    customFwd.minSpeed          = 13.0;
+    customFwd.maxSpeed          = 70.0;
+    customFwd.distanceTolerance = 1.0;
+    customFwd.timeout           = 8.0;
+    customFwd.brakeMode         = pros::E_MOTOR_BRAKE_BRAKE;
+    customFwd.kp_heading        = 0.6;
+    customFwd.ki_heading        = 0.0;
+    customFwd.kd_heading        = 0.0;
 
-    if (!arrivedAt(navigateTo(goalTarget))) {
-        // Navigation failed — stop intake and return safely
-        intakeHopperStop();
-        return;
+    // ── STEP 6: Manual waypoints (odometry point-to-point) ───────────────────
+    forwardToPoint(75.0,  37.0,  customFwd);  // heading ~82
+
+    turnRight(30, MID_TURN);
+      pros::delay(300);
+
+    forwardToPoint(117.0,  96.0, customFwd);  // heading ~200
+
+    turnLeft(2, MID_TURN);
+    forwardToPoint(117.0, 151.0,  customFwd);  // heading ~275
+
+    //turnLeft(180, DEFAULT_TURN);
+    //forwardToPoint(-119.0, -175.0, LOADED_MID_FWD_80);  // heading ~180
+
+    // ── STEP 7: A* to south-west long goal ───────────────────────────────────
+   if (!arrivedAt(navigateTo(LONG_GOAL_NE))) {
+        colorParams.isRunning = false;
+       intakeHopperStop();
+
+       return;
     }
 
-    // ── STEP 7: Brief delay after arrival — let last blocks clear the intake ──
-    // Remove or reduce this if your intake feeds directly into scoring path.
+    // Stop colour sort before scoring — don't want it firing during score run.
+    colorParams.isRunning = false;
+    pros::delay(20);  // let task exit its 10ms loop cleanly
+
+    // ── STEP 8: Brief settle delay, then score ────────────────────────────────
     pros::delay(500);
 
-    // ── STEP 8: Start scoring task (non-blocking) ─────────────────────────────
-    // scoreRedStart  → opens LEFT  gate, scores red  blocks (left  bay)
-    // scoreBlueStart → opens RIGHT gate, scores blue blocks (right bay)
-    // Both fire all mechanism motors: intakeMotor1/2, hoodMotor, upperIndexer, lowerIndexer
-    // Robot is free to GPS reset or do other tasks while this runs.
-    if (isRedAlliance) {
-        scoreRedStart(4000);   // score red blocks for 4 seconds
-    } else {
-        scoreBlueStart(4000);  // score blue blocks for 4 seconds
-    }
+    scoreBlueStart(4000);  // right bay
 
-    // ── STEP 9: GPS reset while scoring runs ─────────────────────────────────
-    // Robot is stationary at goal — perfect time to get a clean GPS fix.
-    // Non-blocking: scoring task continues uninterrupted.
+    // ── STEP 9: GPS reset while scoring ──────────────────────────────────────
+  //  requestGpsReset();
+    //pros::delay(200);
+    //APPLY_FIELD_ROTATION();
+
+    // ── STEP 10: Wait for scoring to finish ───────────────────────────────────
+    pros::delay(4000);
+    
+}
+
+void TestTurn(bool isRedAlliance) {
+
+    TurnProfile customTurn = MID_TURN;
+    customTurn.breakDistance         = 80.0;
+    customTurn.minSpeed              = 22.0;
+    customTurn.maxSpeed              = 60.0;
+    customTurn.exitTolerance         = 3.0;
+    customTurn.timeout               = 5.0;
+    customTurn.accelFactor           = 1.2;
+    customTurn.slipThreshold         = 1.0;
+    customTurn.decelStepPercent      = 10.0;
+    customTurn.lockThreshold         = 1.0;
+    customTurn.maxCurrentA           = 8.0;
+    customTurn.overcurrentDurationMs = 500;
+    turnRight(30, customTurn);
+    
+
+    // Stop colour sort before scoring — don't want it firing during score run.
+  //  colorParams.isRunning = false;
+  //  pros::delay(20);  // let task exit its 10ms loop cleanly
+
+    // ── STEP 8: Brief settle delay, then score ────────────────────────────────
+    pros::delay(500);
+
+    //scoreBlueStart(4000);  // right bay
+
+    // ── STEP 9: GPS reset while scoring ──────────────────────────────────────
+  //  requestGpsReset();
+    //pros::delay(200);
+    //APPLY_FIELD_ROTATION();
+
+    // ── STEP 10: Wait for scoring to finish ───────────────────────────────────
+    pros::delay(4000);
+    
+}
+/*
+
+void longGoalAuto15sOg(bool isRedAlliance) {
+
+    // ── Setup ─────────────────────────────────────────────────────────────────
+    if (isRedAlliance) {
+        setStartPosition(122.0, -60.0, 0.0);
+    } else {
+        setStartPosition(-122.0, -60.0, 180.0);
+    }
+    startOdometryTask();
     requestGpsReset();
     pros::delay(200);
     APPLY_FIELD_ROTATION();
+    setAllianceRed(isRedAlliance);
 
-    // ── STEP 10: Wait for scoring to finish ───────────────────────────────────
-    // pros::delay matches scoreRedStart/scoreBlueStart timeMs above.
-    // Or call scoringStop() to halt early if needed.
-    pros::delay(4000);
+    // Start colour sort for the whole match.
+    ColorTaskParams colorParams = {
+        true,
+        isRedAlliance ? Color::BLUE : Color::RED,
+        0
+    };
+    pros::Task colorSortTask(colorDetectionTask, &colorParams, "Color Sort");
 
-    // ── DONE ──────────────────────────────────────────────────────────────────
-    // At this point: blocks scored, intake stopped, robot stationary at goal.
-    // From here a full match routine would call navigateTo(PARK_*) or loop back
-    // to collect more blocks.
+    // ── Full-match loop (1 min 45 sec = 105 000 ms) ───────────────────────────
+    const uint32_t MATCH_MS  = 105000;
+    const uint32_t matchStart = pros::millis();
+
+    auto timeUp = [&]() {
+        return pros::millis() - matchStart >= MATCH_MS;
+    };
+
+    while (!timeUp()) {
+
+        // ── Goal 1: (81.442, 117.722) ─────────────────────────────────────────
+        intakeHopperStart(15000, 80.0, 0.0, true);
+        RoutePath p1 = routePlan(globalX, globalY, 81.442, 117.722);
+        if (p1.count > 0) routeExecute(p1);
+
+        intakeHopperStop();
+        if (timeUp()) break;
+
+        pros::delay(300);
+        if (isRedAlliance) scoreRedStart(4000); else scoreBlueStart(4000);
+        requestGpsReset();
+        pros::delay(200);
+        APPLY_FIELD_ROTATION();
+        pros::delay(3800);  // total ~4 s scoring wait
+
+        if (timeUp()) break;
+
+        // ── Goal 2: (82.528, -131.304) ────────────────────────────────────────
+        intakeHopperStart(15000, 80.0, 0.0, true);
+        RoutePath p2 = routePlan(globalX, globalY, 82.528, -131.304);
+        if (p2.count > 0) routeExecute(p2);
+
+        intakeHopperStop();
+        if (timeUp()) break;
+
+        pros::delay(300);
+        if (isRedAlliance) scoreRedStart(4000); else scoreBlueStart(4000);
+        requestGpsReset();
+        pros::delay(200);
+        APPLY_FIELD_ROTATION();
+        pros::delay(3800);
+    }
+
+    // ── Cleanup ───────────────────────────────────────────────────────────────
+    colorParams.isRunning = false;
+    pros::delay(20);
+    intakeHopperStop();
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// REPEAT NE / SE GOAL SWEEP — 1 min 45 sec
+// Assumes odometry is already running (call after another routine, or add
+// setup steps if calling standalone).
+// Alternates A* between LONG_GOAL_NE and LONG_GOAL_SE for 105 seconds.
+// ══════════════════════════════════════════════════════════════════════════════
+
+*/

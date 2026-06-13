@@ -554,7 +554,7 @@ static void doIntake()  { intakeHopperStart(3000, 80); }
 static void doNothing() {}
 
 // Shared result check — mechanism fires on any successful arrival
-static bool arrivedAt(NavResult r) {
+ bool arrivedAt(NavResult r) {
     return r == NavResult::SUCCESS      ||
            r == NavResult::BLIND_CONTACT ||
            r == NavResult::BLIND_TIMEOUT;
@@ -695,119 +695,223 @@ void runAIMatch() {
 }
 
 // ============================================================================
-// SECTION 6 — Behavior stubs
+// SECTION 6 — Sweep behaviors
 // ============================================================================
 
-// ── visionSweepNorth ──────────────────────────────────────────────────────────
+// ── Park zone geofence helper ─────────────────────────────────────────────────
+// Returns true if the heading from (rx,ry) projects into a park zone.
+// Projects 80cm forward and checks against PARK_ZONES[] from robot_geometry.h.
+static bool headingIntoParkZone(double rx, double ry, double detHeadingDeg) {
+    double rad = detHeadingDeg * M_PI / 180.0;
+    double px  = rx + 80.0 * std::sin(rad);
+    double py  = ry + 80.0 * std::cos(rad);
+    for (int z = 0; z < NUM_PARK_ZONES; z++) {
+        const RobotGeometry::Zone& zone = PARK_ZONES[z];
+        if (px >= zone.xMin && px <= zone.xMax &&
+            py >= zone.yMin && py <= zone.yMax)
+            return true;
+    }
+    return false;
+}
+
+// ── Nearest long goal scorer ──────────────────────────────────────────────────
+// Tries all 4 long goals nearest→furthest. Skips BLOCKED_REROUTE.
+// Returns true if scored at any goal.
+static bool sweepScoreNearest() {
+    const TargetID longGoals[4] = { LONG_GOAL_NE, LONG_GOAL_SE, LONG_GOAL_NW, LONG_GOAL_SW };
+    updateOdometry();
+
+    // Build distance order
+    int    order[4] = {0, 1, 2, 3};
+    double dists[4] = {};
+    for (int i = 0; i < 4; i++) {
+        const NamedTarget& t = getTarget(longGoals[i]);
+        dists[i] = std::hypot(t.approachX - globalX, t.approachY - globalY);
+    }
+    // Insertion sort by distance
+    for (int i = 1; i < 4; i++) {
+        int ki = order[i]; double kd = dists[i]; int j = i - 1;
+        while (j >= 0 && dists[order[j]] > kd) { order[j+1] = order[j]; j--; }
+        order[j+1] = ki; dists[i] = kd;
+    }
+
+    for (int i = 0; i < 4; i++) {
+        NavResult r = navigateTo(longGoals[order[i]]);
+        if (r != NavResult::BLOCKED_REROUTE) {
+            doScore();
+            return true;
+        }
+    }
+    return false;
+}
+
+// ── sweepAndScore ─────────────────────────────────────────────────────────────
 // Reactive block sweep using VEX AI Vision sensor.
 //
-// Loop:
-//   1. Look for alliance-colour blocks via aiVision
-//   2. Block visible → steer toward it and drive
-//   3. No block visible → spin in place until one appears (max 360°)
-//   4. Stall detected (hit wall/block pile) → back up 20cm, then scan again
-//   5. After 30s → navigate to nearest long goal
+// Chases largest visible block (filtered by colourMode), counts intakes by
+// pixel width threshold, scores at nearest unblocked long goal when maxCubes
+// reached, resets counters and resumes sweep.
 //
-// Alliance colour selected from g_isRedAlliance set by setAllianceRed().
-// Intake runs continuously throughout.
+// Stall detection uses passive encoder wheels (globalLeftEncoderRPM /
+// globalRightEncoderRPM) — reliable ground speed, not motor velocity.
+// Park zones geofenced — detections pointing into park zone skipped.
 //
-// Tuning constants at top — do not inline-override elsewhere.
+// Parameters — all have defaults; call sweepAndScore() for red-only with defaults.
 // ─────────────────────────────────────────────────────────────────────────────
+void sweepAndScore(
+    int    targetPixelWidth,   // px — width at exit that counts as intaked
+    int    debounceMs,         // ms to hold off before counting next cube
+    int    maxCubes,           // cube count that triggers a scoring run
+    int    colourMode,         // 0=red only  1=blue only  2=both (largest wins)
+    double sweepSpeed,         // % — single speed for chase, backup, and scan
+    double kpVisionHeading,    // heading PID gain after vision locks
+    double kpDistToHead,       // steering aggressiveness toward block
+    double backupMs,           // ms to reverse after each chase
+    double scanTurnSpeed)      // % speed while spinning to find blocks
+{
+    static constexpr double SCAN_MAX_DEG = 360.0;
+    static constexpr double SCAN_STEP_MS = 20.0;
 
-void visionSweepNorth() {
-
-    // ── Tuning constants ──────────────────────────────────────────────────────
-    static constexpr double SWEEP_DURATION_MS  = 30000.0; // total sweep time (ms)
-    static constexpr double SWEEP_TURN_SPEED   = 25.0;    // % speed while scanning
-    static constexpr double SCAN_MAX_DEG       = 360.0;   // max scan before giving up
-    static constexpr double SCAN_STEP_MS       = 20.0;    // scan loop interval (ms)
-    static constexpr int    MIN_BLOCK_WIDTH_PX = 8;       // minimum detection width (px)
-    static constexpr int    CHASE_PIXEL_WIDTH  = 60;      // stop chase when block this wide
-    static constexpr double CHASE_DISTANCE_CM  = 50.0;    // safety distance cap per chase
-    static constexpr double BACKUP_MS          = 500.0;   // ms to back up after each chase
-
-    // ── visionOnly profile for block chasing ─────────────────────────────────
-    // Seeded from DEFAULT_VISION — short timeout, low current trip for block contact.
+    // ── Vision profile — DEFAULT_VISION, single speed, encoder stall ──────────
     VisionProfile sweepProfile = DEFAULT_VISION;
-    sweepProfile.drive.maxSpeed            = 40.0;   // % — slow enough to intake reliably
-    sweepProfile.drive.minSpeed            = 15.0;   // %
-    sweepProfile.drive.timeout             = 3.0;    // s per chase — move on if no contact
-    sweepProfile.drive.maxCurrentA         = 4.0;    // A — trips on block/wall contact
-    sweepProfile.drive.overcurrentDurationMs = 300;  // ms
-    sweepProfile.minObjectWidth            = MIN_BLOCK_WIDTH_PX;
-    sweepProfile.kp_distToHeadScaling      = 0.4;
+    sweepProfile.drive.maxSpeed              = sweepSpeed;
+    sweepProfile.drive.minSpeed              = sweepSpeed;  // single speed
+    sweepProfile.drive.timeout               = 999.0;       // no timeout — stall handles exit
+    sweepProfile.drive.maxCurrentA           = 50.0;        // current trip disabled
+    sweepProfile.drive.overcurrentDurationMs = 9999;
+    sweepProfile.drive.brakeMode             = pros::E_MOTOR_BRAKE_COAST;
+    sweepProfile.minObjectWidth              = 8;
+    sweepProfile.kp_vision_heading           = kpVisionHeading;
+    sweepProfile.kp_distToHeadScaling        = kpDistToHead;
+    sweepProfile.minX = 0; sweepProfile.maxX = 320;
+    sweepProfile.minY = 0; sweepProfile.maxY = 240;
 
-    // ── Alliance colour ───────────────────────────────────────────────────────
-    pros::AIVision::Color blockSig = g_isRedAlliance ? aiVision_redCube : aiVision_blueCube;
+    // ── Cube counters ─────────────────────────────────────────────────────────
+    int redCount  = 0;
+    int blueCount = 0;
+    uint32_t lastCountMs = 0;
 
-    // ── Intake runs for full sweep duration ───────────────────────────────────
-    intakeHopperStart(SWEEP_DURATION_MS + 2000.0, 80.0, 0.0, true);
+    // ── Intake runs throughout ────────────────────────────────────────────────
+    intakeHopperStart(120000.0, 80.0, 0.0, true);
 
-    uint32_t sweepStart = pros::millis();
+    // ── Exit condition ────────────────────────────────────────────────────────
+    auto shouldExit = [&]() -> bool {
+        if (colourMode == 0) return redCount  >= maxCubes;
+        if (colourMode == 1) return blueCount >= maxCubes;
+        // colourMode == 2 — exit when either colour hits maxCubes
+        return redCount >= maxCubes || blueCount >= maxCubes;
+    };
 
     // ── Main sweep loop ───────────────────────────────────────────────────────
-    while (pros::millis() - sweepStart < static_cast<uint32_t>(SWEEP_DURATION_MS)) {
+    while (!shouldExit()) {
+        updateOdometry();
 
-        // 1. CHECK — is a block visible right now?
-        bool blockVisible = false;
-        {
-            int cnt = aiVision.get_object_count();
-            for (int i = 0; i < cnt; i++) {
-                pros::AIVision::Object o = aiVision.get_object(i);
-                if (pros::AIVision::is_type(o, pros::AivisionDetectType::color) &&
-                    o.id == blockSig.id &&
-                    o.object.color.width >= MIN_BLOCK_WIDTH_PX) {
-                    blockVisible = true;
-                    break;
-                }
+        // 1. SCAN — find best (widest) visible block, skip park-zone headings
+        pros::AIVision::Object bestObj = {};
+        bool bestRed = false;
+        int  bestW   = -1;
+
+        int cnt = aiVision.get_object_count();
+        for (int i = 0; i < cnt; i++) {
+            pros::AIVision::Object o = aiVision.get_object(i);
+            if (!pros::AIVision::is_type(o, pros::AivisionDetectType::color)) continue;
+
+            bool isRed  = (o.id == aiVision_redCube.id);
+            bool isBlue = (o.id == aiVision_blueCube.id);
+
+            if (colourMode == 0 && !isRed)           continue;
+            if (colourMode == 1 && !isBlue)          continue;
+            if (colourMode == 2 && !isRed && !isBlue) continue;
+            if (o.object.color.width < 8)            continue;
+
+            // Geofence — skip if heading toward park zone
+            double detHeading = getContinuousStandardHeading() +
+                                (static_cast<double>(o.object.color.xoffset) / 160.0 * 25.5);
+            if (headingIntoParkZone(globalX, globalY, detHeading)) continue;
+
+            if (o.object.color.width > bestW) {
+                bestW   = o.object.color.width;
+                bestObj = o;
+                bestRed = isRed;
             }
         }
 
-        if (blockVisible) {
-            // 2. CHASE — visionOnly drives toward block, exits on:
-            //    - block fills CHASE_PIXEL_WIDTH px (close enough to intake)
-            //    - overcurrent trip (wall or block pile contact)
-            //    - timeout (3s)
-            //    - encoder distance cap (CHASE_DISTANCE_CM)
-            visionOnly(blockSig, CHASE_PIXEL_WIDTH, CHASE_DISTANCE_CM, sweepProfile);
+        if (bestW >= 8) {
+            // 2. CHASE — visionOnly in a monitored task, encoder stall kills it
+            pros::AIVision::Color chaseSig = bestRed ? aiVision_redCube : aiVision_blueCube;
 
-            // 3. BACK UP — clear contact point so we can turn and scan again
+            volatile bool chaseRunning = true;
+            pros::Task chaseTask([&]{
+                visionOnly(chaseSig, 9999, 999.0, sweepProfile);
+                chaseRunning = false;
+            }, TASK_PRIORITY_DEFAULT - 1, TASK_STACK_DEPTH_DEFAULT, "SweepChase");
+
+            uint32_t stallStart   = 0;
+            bool     stallStarted = false;
+
+            while (chaseRunning) {
+                double avgEncRPM = (std::fabs(globalLeftEncoderRPM) +
+                                    std::fabs(globalRightEncoderRPM)) / 2.0;
+                if (avgEncRPM < STALL_DETECTION_RPM) {
+                    if (!stallStarted) { stallStart = pros::millis(); stallStarted = true; }
+                    else if (pros::millis() - stallStart >= static_cast<uint32_t>(STALL_CONFIRM_MS)) {
+                        chaseTask.remove();
+                        chaseRunning = false;
+                        leftDrive.move(0);
+                        rightDrive.move(0);
+                        break;
+                    }
+                } else {
+                    stallStarted = false;
+                }
+                pros::delay(10);
+            }
+
+            // 3. COUNT — intake if block was wide enough and debounce passed
+            uint32_t now = pros::millis();
+            if (bestW >= targetPixelWidth &&
+                now - lastCountMs >= static_cast<uint32_t>(debounceMs)) {
+                if (bestRed) redCount++;
+                else         blueCount++;
+                lastCountMs = now;
+                pros::screen::print(pros::E_TEXT_MEDIUM, 3, "R:%d B:%d", redCount, blueCount);
+            }
+
+            // 4. BACK UP
             leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
             rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-            int32_t backMv = static_cast<int32_t>(-sweepProfile.drive.minSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+            int32_t backMv = static_cast<int32_t>(
+                -sweepSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
             leftDrive.move_voltage(backMv);
             rightDrive.move_voltage(backMv);
-            pros::delay(static_cast<uint32_t>(BACKUP_MS));
+            pros::delay(static_cast<uint32_t>(backupMs));
             leftDrive.move(0);
             rightDrive.move(0);
             pros::delay(100);
 
         } else {
-            // 4. SCAN — spin until block appears or 360° elapsed
+            // 5. NOTHING VISIBLE — spin to scan
             leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
             rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 
-            int32_t turnMv  = static_cast<int32_t>(SWEEP_TURN_SPEED * 0.01 * absoluteMaxVoltage * 1000.0);
-            double  degTurned = 0.0;
-            double  lastH     = getContinuousStandardHeading();
+            int32_t turnMv   = static_cast<int32_t>(
+                scanTurnSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+            double degTurned = 0.0;
+            double lastH     = getContinuousStandardHeading();
 
-            while (degTurned < SCAN_MAX_DEG &&
-                   pros::millis() - sweepStart < static_cast<uint32_t>(SWEEP_DURATION_MS)) {
-
-                bool scanFound = false;
-                {
-                    int scnt = aiVision.get_object_count();
-                    for (int si = 0; si < scnt; si++) {
-                        pros::AIVision::Object so = aiVision.get_object(si);
-                        if (pros::AIVision::is_type(so, pros::AivisionDetectType::color) &&
-                            so.id == blockSig.id &&
-                            so.object.color.width >= MIN_BLOCK_WIDTH_PX) {
-                            scanFound = true;
-                            break;
-                        }
-                    }
+            while (degTurned < SCAN_MAX_DEG && !shouldExit()) {
+                bool found = false;
+                int scnt = aiVision.get_object_count();
+                for (int si = 0; si < scnt; si++) {
+                    pros::AIVision::Object so = aiVision.get_object(si);
+                    if (!pros::AIVision::is_type(so, pros::AivisionDetectType::color)) continue;
+                    bool isR = (so.id == aiVision_redCube.id);
+                    bool isB = (so.id == aiVision_blueCube.id);
+                    if (colourMode == 0 && !isR) continue;
+                    if (colourMode == 1 && !isB) continue;
+                    if (so.object.color.width >= 8) { found = true; break; }
                 }
-                if (scanFound) break;
+                if (found) break;
 
                 leftDrive.move_voltage( turnMv);
                 rightDrive.move_voltage(-turnMv);
@@ -822,29 +926,25 @@ void visionSweepNorth() {
             rightDrive.move(0);
             pros::delay(50);
         }
+
+        // 6. SCORE if cube cap hit — then reset and resume
+        if (shouldExit()) {
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            leftDrive.move(0);
+            rightDrive.move(0);
+
+            sweepScoreNearest();
+
+            redCount  = 0;
+            blueCount = 0;
+        }
     }
 
-    // ── Sweep done — stop everything ─────────────────────────────────────────
+    // ── Done — stop everything ────────────────────────────────────────────────
     leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     leftDrive.move(0);
     rightDrive.move(0);
     intakeHopperStop();
-
-    // ── Navigate to nearest long goal ─────────────────────────────────────────
-    updateOdometry();
-
-    const TargetID longGoals[4] = { LONG_GOAL_NE, LONG_GOAL_SE, LONG_GOAL_NW, LONG_GOAL_SW };
-    TargetID nearestGoal = LONG_GOAL_NE;
-    double   bestDist    = 1e9;
-
-    for (int i = 0; i < 4; i++) {
-        const NamedTarget& t = getTarget(longGoals[i]);
-        double dx = t.approachX - globalX;
-        double dy = t.approachY - globalY;
-        double d  = std::hypot(dx, dy);
-        if (d < bestDist) { bestDist = d; nearestGoal = longGoals[i]; }
-    }
-
-    navigateTo(nearestGoal);
 }

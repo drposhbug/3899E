@@ -76,15 +76,15 @@ void autonomous()
     // ─────────────────────────────────────────────────────────────────────────
 
 
-    // PosDisplay — uncomment to show live position during testing
-    // pros::Task([]{
-    //     while (posDisplayRunning) {
-    //         pros::screen::print(pros::E_TEXT_MEDIUM, 0,
-    //             "X:%.1f Y:%.1f H:%.1f",
-    //             globalX, globalY, getContinuousStandardHeading());
-    //         pros::delay(100);
-    //     }
-    // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "PosDisplay");
+    // PosDisplay — live position + heading on brain screen line 0
+    pros::Task([]{
+        while (posDisplayRunning) {
+            pros::screen::print(pros::E_TEXT_MEDIUM, 0,
+                "X:%.1f Y:%.1f H:%.1f",
+                globalX, globalY, getContinuousStandardHeading());
+            pros::delay(100);
+        }
+    }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "PosDisplay");
 
     // DEBUG velocity display task — remove before competition
     // Comment back in after fieldTargetsTest debugging is done
@@ -103,17 +103,20 @@ void autonomous()
     // }, TASK_PRIORITY_MIN, TASK_STACK_DEPTH_DEFAULT, "VelDebug");
 
     // ── Uncomment one to test at home ─────────────────────────────────────────
-    //fieldTargetsTest();
-    //visionSweepNorth();
+    // fieldTargetsTest();
     //gpsTest();
-    visionTest();
+    //visionTest();
     //navTest();
     //runAIMatchRoute();
     //routeTest();
     //routeGridTest();
     //systemTest();
     //coordinateFinder();
-    //rightSideAuton();
+   // rightSideAuton();
+   // setAllianceRed(true);   // 0=red  1=blue — set before sweepAndScore
+   //longGoalAuto15s(); 
+   sweepAndScore(true);
+   //TestTurn();    // defaults: 80px, 500ms, 8 cubes, red only, 40% speed
     // ─────────────────────────────────────────────────────────────────────────
 
     // Hold for remainder of autonomous period — prevents task cleanup killing the screen
@@ -126,5 +129,5 @@ void opcontrol()
 {
     pros::screen::erase();
     Controller.clear();
-    driverControl();
+  //  driverControl();
 }

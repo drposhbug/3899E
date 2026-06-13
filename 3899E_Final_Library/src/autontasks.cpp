@@ -379,6 +379,30 @@ void scoreStart(double timeMs, double power) {
     pros::Task(scoringTaskEntry, nullptr, "scoringTask");
 }
 
+// scoreRedStart — async, left gate = red blocks
+static double g_scoreRedTimeMs = 0;
+void scoreRedTask(void*) { leftScore(g_scoreRedTimeMs, 80.0); }
+void scoreRedStart(double timeMs) {
+    g_scoreRedTimeMs = timeMs;
+    pros::Task(scoreRedTask, nullptr, "scoreRed");
+}
+
+// scoreBlueStart — async, right gate = blue blocks
+static double g_scoreBlueTimeMs = 0;
+void scoreBlueTask(void*) { rightScore(g_scoreBlueTimeMs, 80.0); }
+void scoreBlueStart(double timeMs) {
+    g_scoreBlueTimeMs = timeMs;
+    pros::Task(scoreBlueTask, nullptr, "scoreBlue");
+}
+
+void scoringStop() {
+    g_scoringTaskRunning.store(false);
+    intakeMotor1.move(0);
+    intakeMotor2.move(0);
+    leftGatePneumatics.set_value(true);
+    rightGatePneumatics.set_value(true);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // COORDINATE FINDER TASK
 // ══════════════════════════════════════════════════════════════════════════════

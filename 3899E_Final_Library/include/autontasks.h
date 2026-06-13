@@ -43,6 +43,9 @@ void stopOuttake();
 
 // Start scoring for timeMs milliseconds (non-blocking).
 void scoreStart(double timeMs, double power);
+void scoreRedStart(double timeMs);   // async, opens left gate (red blocks)
+void scoreBlueStart(double timeMs);  // async, opens right gate (blue blocks)
+void scoringStop();                  // halt scoring, close both gates
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DISPLAY / TELEMETRY TASKS
