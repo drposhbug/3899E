@@ -686,20 +686,82 @@ void longGoalAuto15s(bool isRedAlliance) {
 }
 
 void TestTurn(bool isRedAlliance) {
-
+/* 30 profle 
     TurnProfile customTurn = MID_TURN;
-    customTurn.breakDistance         = 80.0;
-    customTurn.minSpeed              = 22.0;
-    customTurn.maxSpeed              = 60.0;
+    customTurn.breakDistance         = 80.0;  // was 80 — start braking earlier
+    customTurn.minSpeed              = 19.5;  // was 22 — crawl into target
+    customTurn.maxSpeed              = 60.0;  // was 60 — less momentum to shed
     customTurn.exitTolerance         = 3.0;
     customTurn.timeout               = 5.0;
     customTurn.accelFactor           = 1.2;
     customTurn.slipThreshold         = 1.0;
-    customTurn.decelStepPercent      = 10.0;
+    customTurn.decelStepPercent      = 5.0;   // was 10 — smoother decel curve
     customTurn.lockThreshold         = 1.0;
     customTurn.maxCurrentA           = 8.0;
     customTurn.overcurrentDurationMs = 500;
-    turnRight(30, customTurn);
+    */
+   /*45 degree turn profile */
+   /*
+ TurnProfile customTurn = MID_TURN;
+ 
+    customTurn.breakDistance         = 80.0;  // was 80 — start braking earlier
+    customTurn.minSpeed              = 22.0;  // was 22 — crawl into target
+    customTurn.maxSpeed              = 70.0;  // was 60 — less momentum to shed
+    customTurn.exitTolerance         = 3.0;
+    customTurn.timeout               = 5.0;
+    customTurn.accelFactor           = 1.2;
+    customTurn.slipThreshold         = 1.0;
+    customTurn.decelStepPercent      = 5.0;   // was 10 — smoother decel curve
+    customTurn.lockThreshold         = 1.0;
+    customTurn.maxCurrentA           = 8.0;
+*/
+/*turn 90
+ TurnProfile customTurn = MID_TURN;
+ 
+    customTurn.breakDistance         = 74.0;  // was 80 — start braking earlier
+    customTurn.minSpeed              = 24.2;  // was 22 — crawl into target
+    customTurn.maxSpeed              = 80.0;  // was 60 — less momentum to shed
+    customTurn.exitTolerance         = 3.0;
+    customTurn.timeout               = 5.0;
+    customTurn.accelFactor           = 1.2;
+    customTurn.slipThreshold         = 1.0;
+    customTurn.decelStepPercent      = 5.0;   // was 10 — smoother decel curve
+    customTurn.lockThreshold         = 1.0;
+    customTurn.maxCurrentA           = 8.0;
+    */
+//turn 180
+/*
+ TurnProfile customTurn = MID_TURN;
+ 
+    customTurn.breakDistance         = 71.0;  // was 80 — start braking earlier
+    customTurn.minSpeed              = 25;  // was 22 — crawl into target
+    customTurn.maxSpeed              = 100.0;  // was 60 — less momentum to shed
+    customTurn.exitTolerance         = 3.0;
+    customTurn.timeout               = 5.0;
+    customTurn.accelFactor           = 1.2;
+    customTurn.slipThreshold         = 1.0;
+    customTurn.decelStepPercent      = 5.0;   // was 10 — smoother decel curve
+    customTurn.lockThreshold         = 1.0;
+    customTurn.maxCurrentA           = 8.0;
+    
+*/
+//turn 270
+
+ TurnProfile customTurn = MID_TURN;
+ 
+    customTurn.breakDistance         = 58;  // was 80 — start braking earlier
+    customTurn.minSpeed              = 25;  // was 22 — crawl into target
+    customTurn.maxSpeed              = 100.0;  // was 60 — less momentum to shed
+    customTurn.exitTolerance         = 3.0;
+    customTurn.timeout               = 5.0;
+    customTurn.accelFactor           = 1.3;
+    customTurn.slipThreshold         = 1.0;
+    customTurn.decelStepPercent      = 5.0;   // was 10 — smoother decel curve
+    customTurn.lockThreshold         = 1.0;
+    customTurn.maxCurrentA           = 8.0;
+    
+
+    turnRight(270, customTurn);
     
 
     // Stop colour sort before scoring — don't want it firing during score run.

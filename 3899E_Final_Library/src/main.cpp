@@ -115,8 +115,8 @@ void autonomous()
    // rightSideAuton();
    // setAllianceRed(true);   // 0=red  1=blue — set before sweepAndScore
    //longGoalAuto15s(); 
-   sweepAndScore(true);
-   //TestTurn();    // defaults: 80px, 500ms, 8 cubes, red only, 40% speed
+  // sweepAndScore(true);
+   TestTurn();    // defaults: 80px, 500ms, 8 cubes, red only, 40% speed
     // ─────────────────────────────────────────────────────────────────────────
 
     // Hold for remainder of autonomous period — prevents task cleanup killing the screen
