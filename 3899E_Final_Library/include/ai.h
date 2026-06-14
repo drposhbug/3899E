@@ -258,7 +258,8 @@ void sweepAndScore(
     double   kpDistToHead     = 5.0,   // steering aggressiveness toward block
     double   backupMs         = 500.0, // ms to reverse after each chase
     double   scanTurnSpeed    = 25.0,  // % speed while spinning to find blocks
-    uint32_t timeLimitMs      = 0      // ms total runtime; 0 = unlimited
+    uint32_t timeLimitMs      = 0,     // ms total runtime; 0 = unlimited
+    double   xBoundary        = 0.0    // quadrant boundary X (cm); 0.0 = disabled
     // alliance read from g_isRedAlliance — call setAllianceRed() before sweepAndScore()
 );
 

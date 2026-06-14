@@ -968,33 +968,47 @@ void blueRightInteraction() {
     colorParams.delayMs   = 0;
     pros::Task(colorDetectionTask, &colorParams, "colourSort");
 
-    // Run sweep as a task so main thread can kill it hard at 85s regardless
-    // of where the robot is mid-navigation or mid-score.
-    volatile bool sweepDone = false;
-    pros::Task sweepTask([&]{
-        sweepAndScore(
-            80,       // targetPixelWidth
-            500,      // debounceMs
-            8,        // maxCubes
-            1,        // colourMode: 1 = blue blocks only (BLUE alliance)
-            25.0,     // sweepSpeed
-            0.02,     // kpVisionHeading
-            0.8,      // kpDistToHead
-            500.0,    // backupMs
-            20.0,     // scanTurnSpeed
-            85000     // timeoutMs
-        );
-        sweepDone = true;
-    }, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "sweepTask");
+    // ── PHASE 1: NE quadrant sweep (~40s) ────────────────────────────────────
+    // Blue blocks only. Scores internally at nearest long goal when maxCubes hit.
+    sweepAndScore(
+        80,       // targetPixelWidth
+        500,      // debounceMs
+        8,        // maxCubes
+        1,        // colourMode: 1 = blue blocks only (BLUE alliance)
+        25.0,     // sweepSpeed
+        0.02,     // kpVisionHeading
+        0.8,      // kpDistToHead
+        500.0,    // backupMs
+        20.0,     // scanTurnSpeed
+        40000,    // timeoutMs — half of 85s budget minus 5s for crossing
+        0.0       // xBoundary — field center X; stay in NE quadrant (X > 0)
+    );
 
-    // Wait up to 85s then kill sweep no matter what it's doing
-    uint32_t start = pros::millis();
-    while (!sweepDone && pros::millis() - start < 85000) {
-        pros::delay(50);
-    }
-    if (!sweepDone) sweepTask.remove();
+    // ── CROSS TO NW QUADRANT ─────────────────────────────────────────────────
+    // Drive to center of NW quadrant (-91, 91). Intake stays running.
+    // 2s timeout at 80% — gets there from anywhere in NE quadrant.
+    StraightProfile crossProfile = MID_FWD;
+    crossProfile.maxSpeed = 80.0;
+    crossProfile.timeout  = 2.0;
+    forwardToPoint(-91.0, 91.0, crossProfile);
 
-    // Stop everything cleanly before park
+    // ── PHASE 2: NW quadrant sweep (~40s) ────────────────────────────────────
+    // Same params — blue blocks only, scores at nearest long goal when full.
+    sweepAndScore(
+        80,       // targetPixelWidth
+        500,      // debounceMs
+        8,        // maxCubes
+        1,        // colourMode: 1 = blue blocks only (BLUE alliance)
+        25.0,     // sweepSpeed
+        0.02,     // kpVisionHeading
+        0.8,      // kpDistToHead
+        500.0,    // backupMs
+        20.0,     // scanTurnSpeed
+        40000,    // timeoutMs
+        0.0       // xBoundary — field center X; stay in NW quadrant (X < 0)
+    );
+
+    // ── STOP & PARK ──────────────────────────────────────────────────────────
     leftDrive.move(0);
     rightDrive.move(0);
     intakeHopperStop();
@@ -1089,33 +1103,47 @@ void redRightInteraction() {
     colorParams.delayMs   = 0;
     pros::Task(colorDetectionTask, &colorParams, "colourSort");
 
-    // Run sweep as a task so main thread can kill it hard at 85s regardless
-    // of where the robot is mid-navigation or mid-score.
-    volatile bool sweepDone = false;
-    pros::Task sweepTask([&]{
-        sweepAndScore(
-            80,       // targetPixelWidth
-            500,      // debounceMs
-            8,        // maxCubes
-            0,        // colourMode: 0 = red blocks only (RED alliance)
-            25.0,     // sweepSpeed
-            0.02,     // kpVisionHeading
-            0.8,      // kpDistToHead
-            500.0,    // backupMs
-            20.0,     // scanTurnSpeed
-            85000     // timeoutMs
-        );
-        sweepDone = true;
-    }, TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "sweepTask");
+    // ── PHASE 1: SW quadrant sweep (~40s) ────────────────────────────────────
+    // Red blocks only. Scores internally at nearest long goal when maxCubes hit.
+    sweepAndScore(
+        80,       // targetPixelWidth
+        500,      // debounceMs
+        8,        // maxCubes
+        0,        // colourMode: 0 = red blocks only (RED alliance)
+        25.0,     // sweepSpeed
+        0.02,     // kpVisionHeading
+        0.8,      // kpDistToHead
+        500.0,    // backupMs
+        20.0,     // scanTurnSpeed
+        40000,    // timeoutMs — half of 85s budget minus 5s for crossing
+        0.0       // xBoundary — field center X; stay in SW quadrant (X < 0)
+    );
 
-    // Wait up to 85s then kill sweep no matter what it's doing
-    uint32_t start = pros::millis();
-    while (!sweepDone && pros::millis() - start < 85000) {
-        pros::delay(50);
-    }
-    if (!sweepDone) sweepTask.remove();
+    // ── CROSS TO SE QUADRANT ─────────────────────────────────────────────────
+    // Drive to center of SE quadrant (91, -91). Intake stays running.
+    // 2s timeout at 80% — gets there from anywhere in SW quadrant.
+    StraightProfile crossProfile = MID_FWD;
+    crossProfile.maxSpeed = 80.0;
+    crossProfile.timeout  = 2.0;
+    forwardToPoint(91.0, -91.0, crossProfile);
 
-    // Stop everything cleanly before park
+    // ── PHASE 2: SE quadrant sweep (~40s) ────────────────────────────────────
+    // Same params — red blocks only, scores at nearest long goal when full.
+    sweepAndScore(
+        80,       // targetPixelWidth
+        500,      // debounceMs
+        8,        // maxCubes
+        0,        // colourMode: 0 = red blocks only (RED alliance)
+        25.0,     // sweepSpeed
+        0.02,     // kpVisionHeading
+        0.8,      // kpDistToHead
+        500.0,    // backupMs
+        20.0,     // scanTurnSpeed
+        40000,    // timeoutMs
+        0.0       // xBoundary — field center X; stay in SE quadrant (X > 0)
+    );
+
+    // ── STOP & PARK ──────────────────────────────────────────────────────────
     leftDrive.move(0);
     rightDrive.move(0);
     intakeHopperStop();
@@ -1124,8 +1152,6 @@ void redRightInteraction() {
     // strategyPark() reads g_isRedAlliance (set to true above) and navigates
     // to PARK_ALLIANCE (west wall) — correct zone for red alliance.
     strategyPark();
-    turnRight(90, TURN_270);
-    driveBackward(90, 90, DEFAULT_STRAIGHT);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

@@ -1,265 +1,1016 @@
-/*----------------------------------------------------------------------------
- * ai.h — VAIRC-specific AI functions for the V5 Brain (Team 3899E)
+//*----------------------------------------------------------------------------
+ * ai.cpp — VAIRC-specific AI functions for the V5 Brain (Team 3899E)
  *
- * This file is VAIRC competition-specific. Contains everything the V5 Brain
- * needs to participate in a fully autonomous VAIRC match:
+ * Contains all VAIRC match logic:
+ *   SECTION 1 — Jetson data accessors
+ *   SECTION 2 — moveVisionOdometryAI (vision navigation)
+ *   SECTION 3 — Navigation helper functions (blindApproach, navigateTo)
+ *   SECTION 4 — Strategy functions
+ *   SECTION 5 — Match dispatch loop
+ *   SECTION 6 — Behavior stubs
  *
- *   SECTION 1 — Strategy codes & class IDs
- *   SECTION 2 — JetsonDetection struct
- *   SECTION 3 — Jetson data accessors (getLatestDetection, getStrategy)
- *   SECTION 4 — Vision navigation (moveVisionOdometryAI)
- *   SECTION 5 — Navigation result types (NavResult, TargetType)
- *   SECTION 6 — Three-phase navigation wrapper (navigateToTarget)
- *   SECTION 7 — Strategy functions (one per game action)
- *   SECTION 8 — Match dispatch (runAIMatch, setStrategyCode)
- *   SECTION 9 — Behavior stubs (visionSweepNorth, etc.)
- *
- * Dependencies:
- *   jetson_comms.h  — AI_RECORD, DETECTION_OBJECT, g_jetson
- *   route_planner.h — RoutePath, routePlan(), routeExecute()
- *   robot_geometry.h — field constants, robot dimensions
+ * g_jetson is defined in jetson_comms.cpp. This file only calls its
+ * public interface (get_data(), get_strategy()) — never touches internals.
  *----------------------------------------------------------------------------*/
 
-#ifndef AI_H
-#define AI_H
+#include "ai.h"
+#include "robot_config.h"
+#include "robot_geometry.h"
+#include "route_planner.h"
+#include "odometry.h"
+#include "navigation.h"
+#include "motion_config.h"  // VISION_LONG_GOAL_FWD and all named motion profiles
+#include "autontasks.h"
+#include "pid.h"
+#include "utils.h"
+#include "field_targets.h"   // FIELD_TARGETS table, getTarget(), waitAndResetGPS()
+#include <cmath>
+#include <atomic>
 
-#include "jetson_comms.h"   // AI_RECORD, DETECTION_OBJECT, g_jetson
-#include "route_planner.h"  // RoutePath, routePlan, routeExecute
-#include "robot_geometry.h" // field constants
-#include "robot_config.h"   // aiVision_orangeCap, aiVision_redCube, aiVision_blueCube
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
-// ============================================================================
-// SECTION 1 — Strategy codes & class IDs
-// ============================================================================
+using namespace RobotGeometry;
 
-// Strategy codes — dispatched by Jetson field-state model.
-// Must match STRATEGY_* constants in jetson_ai.py on the Jetson side.
-#define STRATEGY_IDLE             0
-#define STRATEGY_SCORE_TOP        1   // Score into top long goal
-#define STRATEGY_SCORE_BOTTOM     2   // Score into bottom long goal
-#define STRATEGY_SCORE_CENTER     3   // Score into center goal
-#define STRATEGY_DESCORE_TOP      4   // Descore opponent blocks from top goal
-#define STRATEGY_DESCORE_BOTTOM   5   // Descore opponent blocks from bottom goal
-#define STRATEGY_BLOCK_TOP        6   // Block opponent from top goal
-#define STRATEGY_BLOCK_BOTTOM     7   // Block opponent from bottom goal
-#define STRATEGY_USE_MATCH_LOADER 8   // Navigate to match loader and intake
-#define STRATEGY_PARK             9   // Navigate to park zone
-// Legacy codes — kept for backwards compatibility with existing jetson_ai.py
-#define STRATEGY_SCORE_BLUE       1
-#define STRATEGY_SCORE_RED        2
-#define STRATEGY_DESCORE          4
-#define STRATEGY_DEFEND           6
-#define STRATEGY_SURVEY           0
-#define STRATEGY_SKILLS_SEQ       100
-
-// Class IDs — match YOLO label ordering in vaic_protocol.py
-// Forward camera (e-CAM25_CUONX):
-#define CLASS_FWD_BLUE_BLOCK    0
-#define CLASS_FWD_RED_BLOCK     1
-#define CLASS_FWD_GOAL          2
-#define CLASS_FWD_ROBOT         3
-#define CLASS_FWD_PARK_ZONE     4
-// Survey camera (RealSense D435, Phase 2 only):
-#define CLASS_SURVEY_OPP_ROBOT  10
-#define CLASS_SURVEY_BLUE_BLOCK 11
-#define CLASS_SURVEY_RED_BLOCK  12
+// Horizontal FOV constant for the e-CAM25_CUONX (AR0234CS) at 640px wide.
+// AR0234CS HFOV ≈ 70° → half-frame = 35°. hOffset of 1.0 = 35° from center.
+// Tune after physical calibration — replace 25.5 (VEX AI Vision) with this.
+static constexpr double AI_CAM_DEG_PER_UNIT = 35.0;
 
 // ============================================================================
-// SECTION 2 — JetsonDetection struct
+// SECTION 1 — Jetson data accessors
 // ============================================================================
 
-// Simplified detection result for navigation functions.
-// Decouples callers from AI_RECORD internals.
-struct JetsonDetection {
-    float   hOffset;      // Normalized horizontal offset: -1.0=left, 0=center, +1.0=right
-    float   distanceCm;   // Estimated distance to target (cm)
-    int32_t classID;      // Object class (CLASS_FWD_* or CLASS_SURVEY_*)
-    float   confidence;   // YOLO confidence 0.0–1.0
-    float   mapX;         // Field X position (meters, Jetson map — VEX Coordinates, field center = 0,0)
-    float   mapY;         // Field Y position (meters, Jetson map — VEX Coordinates, field center = 0,0)
-    int32_t seqNum;       // Jetson frame counter — use for dedup in nav loops
-};
+// Atomic serial state — populated by the serial receive task in jetson_comms.cpp
+// Declared extern; defined in jetson_comms.cpp alongside the serial task.
+extern std::atomic<bool>   jetsonTargetTrackedAtomic;
+extern std::atomic<double> jetsonTargetDistanceCmAtomic;
+extern std::atomic<bool>   jetsonObstacleDetectedAtomic;
+
+bool   jetsonObstacleDetected() { return jetsonObstacleDetectedAtomic.load(); }
+double jetsonTargetDistance()   { return jetsonTargetDistanceCmAtomic.load(); }
+bool   jetsonTargetTracked()    { return jetsonTargetTrackedAtomic.load(); }
+
+// getLatestDetection — searches latest AI_RECORD for classID match
+bool getLatestDetection(int classID, float minConfidence, JetsonDetection* out) {
+    if (out == nullptr) return false;
+
+    AI_RECORD rec;
+    int32_t   len = g_jetson.get_data(&rec);
+    if (len == 0) return false;
+
+    for (int32_t i = 0; i < rec.detectionCount; i++) {
+        const DETECTION_OBJECT& d = rec.detections[i];
+        if (d.classID == classID && d.probability >= minConfidence) {
+            float cx        = static_cast<float>(d.screenLocation.x) +
+                              static_cast<float>(d.screenLocation.width) * 0.5f;
+            out->hOffset    = (cx - 320.0f) / 320.0f;
+            out->distanceCm = d.depth * 100.0f;
+            out->classID    = d.classID;
+            out->confidence = d.probability;
+            out->mapX       = d.mapLocation.x;
+            out->mapY       = d.mapLocation.y;
+            out->seqNum     = rec.pos.framecnt;
+            return true;
+        }
+    }
+    return false;
+}
+
+// getStrategy — returns strategyCode from latest AI_RECORD
+int32_t getStrategy(void) {
+    return g_jetson.get_strategy();
+}
 
 // ============================================================================
-// SECTION 3 — Jetson data accessors
+// SECTION 2 — moveVisionOdometryAI
 // ============================================================================
 
-/**
- * getLatestDetection — find best matching detection in latest AI_RECORD.
- * Returns true and fills *out on success.
- * Returns false if no packet received or no match found.
- *
- * @param classID        Target class (CLASS_FWD_RED_BLOCK etc.)
- * @param minConfidence  Minimum YOLO confidence to accept (0.0–1.0)
- * @param out            Filled on success — caller allocates
- */
-bool getLatestDetection(int classID, float minConfidence, JetsonDetection* out);
-
-/**
- * getStrategy — returns strategyCode from latest AI_RECORD.
- * Returns STRATEGY_IDLE (0) if no packet received yet.
- */
-int32_t getStrategy(void);
-
-// Jetson serial state accessors — populated by serial receive task
-bool   jetsonObstacleDetected();   // true if Jetson flags an obstacle in forward path
-double jetsonTargetDistance();     // distance estimate to tracked target (cm), -1 if none
-bool   jetsonTargetTracked();      // true if Jetson currently has a target lock
-
-// ============================================================================
-// SECTION 4 — Vision navigation
-// ============================================================================
-
-/**
- * moveVisionOdometryAI — vision-guided autonomous movement using Jetson YOLO.
- *
- * Open-loop encoder distance tracking with Jetson YOLO heading correction.
- * Same LAUNCH→CRUISE→DECEL→APPROACH architecture as moveVisionOdometryOpen.
- * VEX AI Vision sensor replaced by g_jetson data.
- *
- * Key differences from moveVisionOdometryOpen:
- *   - Exit: Jetson distanceCm <= targetStopDistanceCm (not pixel width)
- *   - Frame dedup via seqNum (not centerX/width cache)
- *   - Bounding box filtering done on Jetson — no min/maxX/Y params
- *   - FOV: AI_CAM_DEG_PER_UNIT = 35° (not 25.5° VEX AI Vision)
- */
 void moveVisionOdometryAI(int    objectClassID,
                           float  targetStopDistanceCm,
                           double targetX,
                           double targetY,
                           double breakDistance,
-                          pros::motor_brake_mode_e_t brakeMode        = pros::E_MOTOR_BRAKE_COAST,
-                          double maxSpeed                              = 75.0,
-                          double kp_head                              = 0.1,
-                          double ki_head                              = 0.0,
-                          double kd_head                              = 0.0,
-                          double kp_distToHeadScaling                 = 0.3,
-                          double minSpeed                             = 16.0,
-                          double accelHeadingScaling                  = 0.2,
-                          double decelHeadingScaling                  = 0.2,
-                          double approachHeadingScaling               = 0.2,
-                          double headingLockDistance                  = 15.0,
-                          double timeout                              = 3.0);
+                          pros::motor_brake_mode_e_t brakeMode,
+                          double maxSpeed,
+                          double kp_head,
+                          double ki_head,
+                          double kd_head,
+                          double kp_distToHeadScaling,
+                          double minSpeed,
+                          double accelHeadingScaling,
+                          double decelHeadingScaling,
+                          double approachHeadingScaling,
+                          double headingLockDistance,
+                          double timeout)
+{
+    const double LAUNCH_VOLTAGE          = 6.0;
+    const double ACCEL_FACTOR_LAUNCH     = 1.2;
+    const double SLIP_THRESHOLD_TRACTION = 20.0;
+    const double DECEL_STEP_PERCENT      = 0.45;
+    const double LOCK_THRESHOLD_DECEL    = 0.25;
+    const int    REQUIRED_CONSECUTIVE    = 3;
+
+    updateOdometry();
+
+    double pathVectorX            = targetX - globalX;
+    double pathVectorY            = targetY - globalY;
+    double initialDistance        = sqrt(pathVectorX * pathVectorX + pathVectorY * pathVectorY);
+    // atan2(X, Y) gives North=0°, CW+ heading — matches VEX Coordinates throughout codebase
+    double initialOdometryHeading = atan2(pathVectorX, pathVectorY) * 180.0 / M_PI;
+
+    double startDist = getCurrentEncoderDistanceCM();
+    double dir       = 1.0;
+
+    PID headingPID(kp_head, ki_head, kd_head);
+    headingPID.pidReset();
+
+    double maxSpeedVoltage       = std::copysign(maxSpeed * 0.01 * absoluteMaxVoltage, initialDistance);
+    double minSpeedVoltage       = std::copysign(minSpeed * 0.01 * absoluteMaxVoltage, initialDistance);
+    double minLaunchSpeedVoltage = std::copysign(std::min(fabs(maxSpeedVoltage), fabs(LAUNCH_VOLTAGE)), initialDistance);
+    double minDriveMotorRPM      = (minSpeed * 0.01) * absoluteMaxRPM;
+
+    double motorVoltageLeft  = minLaunchSpeedVoltage;
+    double motorVoltageRight = minLaunchSpeedVoltage;
+
+    bool decel = false, decelCompleted = false, accelCompleted = false;
+    double leftEncoderRollingAverage = 0, rightEncoderRollingAverage = 0;
+    int consecutiveDistCount = 0;
+
+    double lastVisionHorizontalOffset = 0.0;
+    bool   visionEverTracked = false, visionCurrentlyTracked = false;
+    bool   visionDropoutHandled = false;
+    double lastFusedHeading = 0.0;
+    bool   headingLocked = false;
+    double lockedHeadingValue = 0.0;
+    int    lastProcessedSeq = -1;
+
+    tractionControl tractionControlLeft (minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+    tractionControl tractionControlRight(minLaunchSpeedVoltage, maxSpeedVoltage, SLIP_THRESHOLD_TRACTION);
+    adaptiveABS adaptiveABSLeft (DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+    adaptiveABS adaptiveABSRight(DECEL_STEP_PERCENT, LOCK_THRESHOLD_DECEL);
+
+    uint32_t safetyStart = pros::millis();
+    double   timeoutMs   = timeout * 1000.0;
+
+    pros::screen::erase();
+    pros::screen::print(pros::E_TEXT_MEDIUM, 0, "AI classID:%d stop:%.1fcm", objectClassID, targetStopDistanceCm);
+
+    while (true)
+    {
+        // 1. DISTANCE STATE
+        double currentDistance         = getCurrentEncoderDistanceCM() - startDist;
+        double currentDistanceToTarget = initialDistance - fabs(currentDistance);
+        double odometryTargetHeading   = initialOdometryHeading;
+        double currentGyroHeading      = getContinuousStandardHeading();
+
+        // 2. TIMEOUT
+        if (pros::millis() - safetyStart > (uint32_t)timeoutMs) break;
+
+        // 3. ENCODER OVERSHOOT GUARD
+        if (fabs(currentDistance) >= initialDistance) break;
+
+        // 4. JETSON DATA READ
+        visionCurrentlyTracked = false;
+        JetsonDetection det;
+        if (getLatestDetection(objectClassID, 0.4f, &det)) {
+            if (det.seqNum != lastProcessedSeq) {
+                visionCurrentlyTracked     = true;
+                lastProcessedSeq           = det.seqNum;
+                lastVisionHorizontalOffset = det.hOffset;
+                visionEverTracked          = true;
+                if (det.distanceCm <= targetStopDistanceCm) {
+                    consecutiveDistCount++;
+                    if (consecutiveDistCount >= REQUIRED_CONSECUTIVE) break;
+                } else {
+                    consecutiveDistCount = 0;
+                }
+            }
+        }
+
+        pros::screen::print(pros::E_TEXT_MEDIUM, 1, "ever:%d curr:%d consec:%d",
+            (int)visionEverTracked, (int)visionCurrentlyTracked, consecutiveDistCount);
+
+        // 5. HEADING CALCULATION
+        double rotationsDifference = std::round((currentGyroHeading - odometryTargetHeading) / 360.0);
+        odometryTargetHeading += rotationsDifference * 360.0;
+
+        double fusedTargetHeading;
+        if (!visionEverTracked) {
+            if (currentDistanceToTarget <= headingLockDistance) {
+                if (!headingLocked) { lockedHeadingValue = odometryTargetHeading; headingLocked = true; }
+                fusedTargetHeading = lockedHeadingValue;
+            } else {
+                headingLocked = false;
+                fusedTargetHeading = odometryTargetHeading;
+            }
+        } else {
+            // Object right (positive hOffset) → truth heading > current → positive correction → steers right
+            double visualTruthHeading = currentGyroHeading + (lastVisionHorizontalOffset * AI_CAM_DEG_PER_UNIT);
+            fusedTargetHeading = currentGyroHeading +
+                                 ((visualTruthHeading - currentGyroHeading) * kp_distToHeadScaling);
+            lastFusedHeading = fusedTargetHeading;
+            if (visionCurrentlyTracked) {
+                visionDropoutHandled = false;
+            } else if (!visionDropoutHandled) {
+                visionDropoutHandled = true;
+            }
+        }
+
+        double headingCorrection = headingPID.calculate(fusedTargetHeading, currentGyroHeading);
+        pros::screen::print(pros::E_TEXT_MEDIUM, 2, "odomH:%.1f fusedH:%.1f corr:%.3f",
+            odometryTargetHeading, fusedTargetHeading, headingCorrection);
+
+        // 6. MOTOR RPM READINGS
+        double leftMotorRPM    = leftDrive.get_actual_velocity()   * DRIVE_MOTOR_RPM_ADJ;
+        double rightMotorRPM   = rightDrive.get_actual_velocity()  * DRIVE_MOTOR_RPM_ADJ;
+        double leftEncoderRPM  = passiveEncoderLeft.get_velocity()  * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+        double rightEncoderRPM = passiveEncoderRight.get_velocity() * (encoderWheelCircumferenceCM / wheelCircumferenceCM);
+
+        // 7. MOTION PHASES
+        if (currentDistanceToTarget > breakDistance && !accelCompleted && !decel) {
+            // LAUNCH
+            double leftTractionVoltage  = tractionControlLeft.tractionControlSpeed(
+                motorVoltageLeft,  leftMotorRPM,  leftEncoderRPM,  ACCEL_FACTOR_LAUNCH);
+            double rightTractionVoltage = tractionControlRight.tractionControlSpeed(
+                motorVoltageRight, rightMotorRPM, rightEncoderRPM, ACCEL_FACTOR_LAUNCH);
+            motorVoltageLeft  = leftTractionVoltage  + (headingCorrection * accelHeadingScaling);
+            motorVoltageRight = rightTractionVoltage - (headingCorrection * accelHeadingScaling);
+            if (std::fabs(motorVoltageLeft)  >= std::fabs(maxSpeedVoltage) &&
+                std::fabs(motorVoltageRight) >= std::fabs(maxSpeedVoltage))
+                accelCompleted = true;
+        } else if (currentDistanceToTarget > breakDistance && accelCompleted) {
+            // CRUISE
+            motorVoltageLeft  = maxSpeedVoltage + headingCorrection;
+            motorVoltageRight = maxSpeedVoltage - headingCorrection;
+        } else if (currentDistanceToTarget <= breakDistance && !decelCompleted) {
+            // DECELERATION
+            if (!decel) {
+                decel = true;
+                adaptiveABSLeft.initialize(std::fabs(motorVoltageLeft));
+                adaptiveABSRight.initialize(std::fabs(motorVoltageRight));
+            }
+            adaptiveABSLeft.decelControlSpeed(leftMotorRPM,  leftEncoderRPM);
+            adaptiveABSRight.decelControlSpeed(rightMotorRPM, rightEncoderRPM);
+            pros::motor_brake_mode_e_t leftBrakeMode  = adaptiveABSLeft.getBrakeMode();
+            pros::motor_brake_mode_e_t rightBrakeMode = adaptiveABSRight.getBrakeMode();
+            double adjustedHeadingCorrection = headingCorrection * decelHeadingScaling * dir;
+            leftDrive.set_brake_mode(leftBrakeMode);
+            rightDrive.set_brake_mode(rightBrakeMode);
+            motorVoltageLeft  = std::max(0.0,  adjustedHeadingCorrection);
+            motorVoltageRight = std::max(0.0, -adjustedHeadingCorrection);
+            leftEncoderRollingAverage  = rollingAverage(leftEncoderRPM,  leftEncoderRollingAverage,  3);
+            rightEncoderRollingAverage = rollingAverage(rightEncoderRPM, rightEncoderRollingAverage, 3);
+            if (std::fabs(leftEncoderRollingAverage)  <= std::fabs(minDriveMotorRPM) &&
+                std::fabs(rightEncoderRollingAverage) <= std::fabs(minDriveMotorRPM))
+                decelCompleted = true;
+        } else if (decelCompleted) {
+            // APPROACH
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            motorVoltageLeft  = minSpeedVoltage + (headingCorrection * approachHeadingScaling);
+            motorVoltageRight = minSpeedVoltage - (headingCorrection * approachHeadingScaling);
+        }
+
+        // 8. VOLTAGE SATURATION LIMITER
+        double maxVoltage = std::max(std::fabs(motorVoltageLeft), std::fabs(motorVoltageRight));
+        if (maxVoltage > absoluteMaxVoltage) {
+            double scale = absoluteMaxVoltage / maxVoltage;
+            motorVoltageLeft  *= scale;
+            motorVoltageRight *= scale;
+        }
+
+        // 9. MOTOR OUTPUT
+        leftDrive.move_voltage(static_cast<int32_t>(motorVoltageLeft  * 1000));
+        rightDrive.move_voltage(static_cast<int32_t>(motorVoltageRight * 1000));
+
+        pros::delay(10);
+    }
+
+    leftDrive.set_brake_mode(brakeMode);
+    rightDrive.set_brake_mode(brakeMode);
+    leftDrive.move(0);
+    rightDrive.move(0);
+}
 
 // ============================================================================
-// SECTION 5 — Navigation result types
+// SECTION 3 — Three-phase navigation wrapper
 // ============================================================================
 
-// What type of target the robot is navigating to.
-// Controls blind approach behavior (power, stall detection, timeout).
-enum class TargetType {
-    LONG_GOAL,     // Rigid, fixed. Stall detection. Moderate blind power.
-    CENTER_GOAL,   // Rigid, fixed. Same as long goal.
-    MATCH_LOADER,  // Wall-mounted. Stall at wall = confirmed position.
-    BLOCK,         // Light, moveable. Lower blind power, no stall detection.
-    PARK_ZONE,     // Position only — no vision or blind phase.
-};
+struct BlindParams { double powerPct; double timeoutMs; bool useStall; };
 
-// Result of a navigateToTarget() call.
-// Strategy functions switch on this to decide the next action.
-enum class NavResult {
-    SUCCESS,          // Reached target cleanly
-    BLIND_CONTACT,    // Stall detected — physically at target
-    BLIND_TIMEOUT,    // Blind phase timed out — probably close enough
-    VISION_LOST,      // Vision dropped before blind threshold
-    BLOCKED_REROUTE,  // Timed out mid-navigation — obstacle, replan needed
-};
+static BlindParams getBlindParams(TargetType target) {
+    switch (target) {
+        case TargetType::LONG_GOAL:
+        case TargetType::CENTER_GOAL:
+        case TargetType::MATCH_LOADER: return { 35.0, BLIND_TIMEOUT_MS, true  };
+        case TargetType::BLOCK:        return { 20.0, 600.0,            false };
+        case TargetType::PARK_ZONE:    return {  0.0, 0.0,              false };
+    }
+    return { 35.0, BLIND_TIMEOUT_MS, true };
+}
 
-// ============================================================================
-// SECTION 6 — Three-phase navigation wrapper
-// ============================================================================
+NavResult blindApproach(TargetType target) {
+    BlindParams p = getBlindParams(target);
+    if (p.powerPct <= 0.0) return NavResult::SUCCESS;
 
-/**
- * navigateToTarget — low-level three-phase navigation to raw XY coordinates.
- * Called internally by navigateTo() and strategy functions.
- * Can use a pre-planned RoutePath (pass count > 0) or plans internally.
- */
-NavResult navigateToTarget(double goalX, double goalY,
-                           TargetType target,
-                           const RoutePath& precomputedPath = RoutePath{});
+    // Convert % to millivolts for PROS move_voltage (max 12000mV)
+    int32_t mv = static_cast<int32_t>(p.powerPct * 0.01 * absoluteMaxVoltage * 1000.0);
 
-// Blind approach only — for when already in position for final push.
-NavResult blindApproach(TargetType target);
+    uint32_t blindStart = pros::millis();
+    uint32_t stallStart = 0;
+    bool stallStarted   = false;
 
-// arrivedAt — returns true if NavResult indicates the robot reached its target.
-// Treats SUCCESS and BLIND_CONTACT as success; everything else as failure.
-// Usage: if (!arrivedAt(navigateTo(LONG_GOAL_SW))) { return; }
-bool arrivedAt(NavResult result);
+    leftDrive.move_voltage(mv);
+    rightDrive.move_voltage(mv);
 
-// ============================================================================
-// SECTION 7 — Strategy functions
-// ============================================================================
-
-// Each function is one complete robot action:
-//   navigate to target → execute game mechanism → return
-
-void strategyScoreTopGoal();       // Score blocks into top long goal
-void strategyScoreBottomGoal();    // Score blocks into bottom long goal
-void strategyScoreCenterGoal();    // Score blocks into center goal
-void strategyDescoreTopGoal();     // Descore opponent blocks from top goal
-void strategyDescoreBottomGoal();  // Descore opponent blocks from bottom goal
-void strategyBlockTopGoal();       // Block opponent from top goal
-void strategyBlockBottomGoal();    // Block opponent from bottom goal
-void strategyUseMatchLoader();     // Navigate to match loader and intake
-void strategyPark();               // Navigate to park zone
-
-// Set alliance color at match start — determines which park zone to use
-void setAllianceRed(bool isRed);
-
-// Returns current alliance — true = red, false = blue
-bool getIsRedAlliance();
-
-// Returns park zone X coordinate for active alliance
-double getParkX();
+    while (true) {
+        if (pros::millis() - blindStart >= static_cast<uint32_t>(p.timeoutMs)) {
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            leftDrive.move(0);
+            rightDrive.move(0);
+            return NavResult::BLIND_TIMEOUT;
+        }
+        if (p.useStall) {
+            double avgV = (std::fabs(globalLeftEncoderRPM) +
+                           std::fabs(globalRightEncoderRPM)) / 2.0;
+            if (avgV < STALL_DETECTION_RPM) {
+                if (!stallStarted) { stallStart = pros::millis(); stallStarted = true; }
+                else if (pros::millis() - stallStart >= static_cast<uint32_t>(STALL_CONFIRM_MS)) {
+                    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+                    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+                    leftDrive.move(0);
+                    rightDrive.move(0);
+                    return NavResult::BLIND_CONTACT;
+                }
+            } else { stallStarted = false; }
+        }
+        pros::delay(10);
+    }
+}
 
 // ============================================================================
-// SECTION 8 — Match dispatch
-// ============================================================================
-
-/**
- * runAIMatch — top-level VAIRC match loop. Call from autonomous() in auton.cpp.
- *
- * Priority hierarchy evaluated each cycle:
- *   1. Match timer — dynamic park trigger (always wins, no override)
- *   2. Rules/safety — illegal strategy codes rejected locally (VAIG3/SG7)
- *   3. Jetson strategy code — normal operation
- *   4. Last known strategy — serial dropout fallback (V5 never goes idle)
- */
-void runAIMatch();
-
-// Update current strategy code — called by serial receive task (thread-safe)
-void setStrategyCode(int code);
-
-// Read current strategy code
-int getStrategyCode();
-
-// ============================================================================
-// SECTION 9 — Sweep behaviors
-// ============================================================================
-
-// sweepAndScore — reactive block sweep using VEX AI Vision sensor.
+// navigateTo — single-call navigation to a named field target
 //
-// Chases largest visible block (by pixel width), counts intakes, scores at
-// nearest long goal when maxCubes reached, resets and resumes.
+// Reads approach point, heading, and type from FIELD_TARGETS table.
+// Waypoint loop uses 25° threshold: turns before forwardToPoint only when
+// heading error exceeds what PID can safely correct in one 30cm cell.
+// ============================================================================
+
+NavResult navigateTo(TargetID id,
+                     pros::AIVision::Color matchLoaderSig) {
+
+    const NamedTarget& t = getTarget(id);
+
+    // ── Phase 1: A* to approach point with 25° turn threshold ────────────────
+    RoutePath path = routePlan(globalX, globalY, t.approachX, t.approachY);
+    if (path.count == 0) {
+        pros::lcd::print(2, "NO PATH to (%.0f,%.0f)", t.approachX, t.approachY);
+        return NavResult::BLOCKED_REROUTE;
+    }
+
+    pros::lcd::print(2, "%d WPs → (%.0f,%.0f)", path.count, t.approachX, t.approachY);
+
+    int lcdLine = 3;  // start waypoint log at line 3, increment per waypoint
+    for (int i = 0; i < path.count; i++) {
+        updateOdometry();
+
+        double wpDist, waypointHeading;
+        calculatePathToTarget(globalX, globalY, path.x[i], path.y[i],
+                              wpDist, waypointHeading);
+
+        double currentH = fmod(getContinuousStandardHeading(), 360.0);
+        if (currentH < 0) currentH += 360.0;
+
+        double error = waypointHeading - currentH;
+        if (error >  180.0) error -= 360.0;
+        if (error < -180.0) error += 360.0;
+        error = fabs(error);
+
+        // Profile selected per segment — distance and angle determine which tier
+        StraightProfile wpProfile   = selectFwdProfile(wpDist);
+        TurnProfile     turnProfile = selectTurnProfile(error);
+        wpProfile.timeout = 8.0;  // per-waypoint safety ceiling — not a tuning value
+
+        if (lcdLine <= 7) {
+            pros::lcd::print(lcdLine++, "WP%d(%.0f,%.0f)e:%.0f %s",
+                             i, path.x[i], path.y[i], error,
+                             error > 25.0 ? "TRN" : "go");
+        }
+
+        if (error > 25.0)
+            turnToPoint(path.x[i], path.y[i], turnProfile);
+
+        uint32_t wpStart = pros::millis();
+        forwardToPoint(path.x[i], path.y[i], wpProfile);
+
+        // Timeout on a transit waypoint = obstacle or position drift.
+        // GPS reset and continue to the next waypoint — do not abort the route.
+        if (pros::millis() - wpStart >= static_cast<uint32_t>(wpProfile.timeout * 1000.0 - 50.0)) {
+            requestGpsReset();
+        }
+    }
+
+    // ── Parking: turn to face east/west wall, short approach, then drive in ───
+    if (t.type == TargetType::PARK_ZONE) {
+        // 1. Turn to absolute wall-facing heading
+        //    PARK_ALLIANCE = west wall → 270°; PARK_OPPONENT = east wall → 90°
+        double wallHeading  = (id == PARK_ALLIANCE) ? 270.0 : 90.0;
+        double currentH     = getContinuousStandardHeading();
+        double currentHNorm = fmod(currentH, 360.0);
+        if (currentHNorm < 0) currentHNorm += 360.0;
+        double delta = fmod((wallHeading - currentHNorm) + 540.0, 360.0) - 180.0;
+        if (fabs(delta) > 5.0)
+            turnOdometry(currentH + delta, TURN_180);
+
+        // 2. Short creep ~30cm at close-range speed, timeout 1.5s
+        StraightProfile parkCreep = SHORT_FWD;
+        parkCreep.timeout = 1.5;
+        driveForward(30.48, wallHeading, parkCreep);
+
+        // 3. Full power drive into wall, timeout 4s, no stall detection
+        int32_t fullMv = static_cast<int32_t>(absoluteMaxVoltage * 1000.0);
+        leftDrive.move_voltage(fullMv);
+        rightDrive.move_voltage(fullMv);
+        pros::delay(4000);
+        leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+        rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+        leftDrive.move(0);
+        rightDrive.move(0);
+
+        return NavResult::SUCCESS;
+    }
+
+    // ── Turn to face target ───────────────────────────────────────────────────
+    // Long goals and match loaders use turnToPoint — computes correct heading
+    // from current position to target directly.
+    // Center goals and park zones use approachHeading (diagonal/wall headings).
+    if (t.type == TargetType::LONG_GOAL || t.type == TargetType::MATCH_LOADER) {
+        turnToPoint(t.targetX, t.targetY, selectTurnProfile(180.0));
+    } else {
+        double currentH     = getContinuousStandardHeading();
+        double currentHNorm = fmod(currentH, 360.0);
+        if (currentHNorm < 0) currentHNorm += 360.0;
+        double delta = fmod((t.approachHeading - currentHNorm) + 540.0, 360.0) - 180.0;
+        pros::lcd::print(1, "Ph2:%s cH:%.0f tH:%.0f d:%.0f",
+            t.type == TargetType::MATCH_LOADER ? "ML" : "CG",
+            currentH, t.approachHeading, delta);
+        if (fabs(delta) > 5.0)
+            turnOdometry(currentH + delta, selectTurnProfile(fabs(delta)));
+    }
+
+    // ── Phase 2: final approach — target-type specific, 24" bot ──────────────
+#if ACTIVE_BOT == BOT_24INCH
+    if (t.type == TargetType::LONG_GOAL) {
+        // 1s settle after approach turn before vision locks on
+        pros::delay(1000);
+
+        // Vision-guided approach — orangeBase signature, circuit breaker on contact
+        visionForwardToPoint(aiVision_orangeBase,
+                             220,              // stop when orangeBase reaches 220px wide
+                             t.targetX, t.targetY,
+                             VISION_LONG_GOAL_FWD);
+
+        // GPS reset is non-blocking — task runs in parallel with scoring.
+        requestGpsReset();
+
+        return NavResult::SUCCESS;
+    }
+
+    if (t.type == TargetType::MATCH_LOADER) {
+        // Final drive to post — wall contact (stall/overcurrent/timeout) = SUCCESS.
+        // No settle delay needed — odometry approach, no vision lock.
+        forwardToPoint(t.targetX, t.targetY, SHORT_FWD);
+        requestGpsReset();
+        return NavResult::SUCCESS;
+    }
+#endif
+
+    // Non-long-goal targets and 15" bot: A* transit + approach turn is the
+    // full Phase 1. Phase 2+3 for these targets added in a later pass.
+    return NavResult::SUCCESS;
+
+    // ── Phase 2+3 stubs — kept for reference, enable per target type later ────
+    // Each target type has a 24" bot path and a 15" bot path.
+    // 24" bot: Jetson vision (YOLO) or VEX AI Vision sensor.
+    // 15" bot: GPS reset + odometry drive. Profile tier chosen from target distance.
+    // Both paths end with blindApproach() for final contact confirmation.
+    //
+    // To enable: remove the debug return above and uncomment this block.
+    // ─────────────────────────────────────────────────────────────────────────
+    // updateOdometry();
+    // double ph2Dist = hypot(t.targetX - globalX, t.targetY - globalY);
+    //
+    // if (t.type == TargetType::LONG_GOAL) {
+    // #if ACTIVE_BOT == BOT_24INCH
+    //     // 24" bot: Jetson vision — rear approach, back into goal
+    //     uint32_t visionWaitStart = pros::millis();
+    //     while (!jetsonTargetTracked() && pros::millis() - visionWaitStart < 300)
+    //         pros::delay(10);
+    //     if (jetsonTargetTracked())
+    //         moveVisionOdometryAI(CLASS_FWD_GOAL, (float)BLIND_HANDOFF_DISTANCE_CM,
+    //                              t.targetX, t.targetY, 15.0,
+    //                              pros::E_MOTOR_BRAKE_COAST, 60.0);
+    //     return blindApproach(t.type);
+    // #else
+    //     // 15" bot: GPS reset + backward odometry — rear faces goal
+    //     waitAndResetGPS(500);
+    //     backwardToPoint(t.targetX, t.targetY, selectBwdProfile(ph2Dist));
+    //     return blindApproach(t.type);
+    // #endif
+    // }
+    //
+    // if (t.type == TargetType::MATCH_LOADER) {
+    // #if ACTIVE_BOT == BOT_24INCH
+    //     // 24" bot: VEX AI Vision sensor — front approach
+    //     visionOnly(matchLoaderSig, DEFAULT_VISION.minObjectWidth, 10.0, DEFAULT_VISION);
+    //     return blindApproach(t.type);
+    // #else
+    //     // 15" bot: GPS reset + forward odometry
+    //     waitAndResetGPS(500);
+    //     forwardToPoint(t.targetX, t.targetY, selectFwdProfile(ph2Dist));
+    //     return blindApproach(t.type);
+    // #endif
+    // }
+    //
+    // if (t.type == TargetType::CENTER_GOAL) {
+    // #if ACTIVE_BOT == BOT_24INCH
+    //     // 24" bot: Jetson vision — forward approach
+    //     uint32_t visionWaitStart = pros::millis();
+    //     while (!jetsonTargetTracked() && pros::millis() - visionWaitStart < 300)
+    //         pros::delay(10);
+    //     if (jetsonTargetTracked())
+    //         moveVisionOdometryAI(CLASS_FWD_GOAL, (float)BLIND_HANDOFF_DISTANCE_CM,
+    //                              t.targetX, t.targetY, 15.0,
+    //                              pros::E_MOTOR_BRAKE_COAST, 60.0);
+    //     return blindApproach(t.type);
+    // #else
+    //     // 15" bot: GPS reset + forward odometry
+    //     waitAndResetGPS(500);
+    //     forwardToPoint(t.targetX, t.targetY, selectFwdProfile(ph2Dist));
+    //     return blindApproach(t.type);
+    // #endif
+    // }
+    //
+    // return NavResult::BLOCKED_REROUTE;
+}
+
+// ============================================================================
+// SECTION 4 — Strategy functions
+// ============================================================================
+
+static bool g_isRedAlliance = true;
+void setAllianceRed(bool isRed) { g_isRedAlliance = isRed; }
+bool getIsRedAlliance()         { return g_isRedAlliance; }
+double getParkX() { return g_isRedAlliance ? RED_PARK_X : BLUE_PARK_X; }
+
+// Mechanism stubs — replace with actual function calls when defined
+// doScore — calls sweepScore() from autontasks.cpp.
+// Alliance read from g_isRedAlliance — set via setAllianceRed() before calling.
+static void doScore() {
+    sweepScore(g_isRedAlliance);
+}
+static void doDescore() { outtake(1000, 80); }
+static void doIntake()  { intakeHopperStart(3000, 80); }
+static void doNothing() {}
+
+// Shared result check — mechanism fires on any successful arrival
+ bool arrivedAt(NavResult r) {
+    return r == NavResult::SUCCESS      ||
+           r == NavResult::BLIND_CONTACT ||
+           r == NavResult::BLIND_TIMEOUT;
+}
+
+void strategyScoreTopGoal() {
+    if (arrivedAt(navigateTo(LONG_GOAL_NE))) doScore();
+}
+
+void strategyScoreBottomGoal() {
+    if (arrivedAt(navigateTo(LONG_GOAL_SE))) doScore();
+}
+
+void strategyScoreCenterGoal() {
+#if ACTIVE_BOT == BOT_15INCH
+    // 15" bot: own approach sequence — navigateTo handles A* + turns via the
+    // 15" field_targets table (rear-facing headings, GPS-reset Phase 2).
+    if (arrivedAt(navigateTo(CENTER_GOAL_NE))) doScore();
+#else
+    // 24" bot: standard navigateTo — Jetson vision Phase 2 when uncommented
+    if (arrivedAt(navigateTo(CENTER_GOAL_NE))) doScore();
+#endif
+}
+
+void strategyDescoreTopGoal() {
+    if (arrivedAt(navigateTo(LONG_GOAL_NE))) doDescore();
+}
+
+void strategyDescoreBottomGoal() {
+    if (arrivedAt(navigateTo(LONG_GOAL_SE))) doDescore();
+}
+
+void strategyBlockTopGoal() {
+    // Navigate to goal position and hold — no mechanism action
+    navigateTo(LONG_GOAL_NE);
+}
+
+void strategyBlockBottomGoal() {
+    navigateTo(LONG_GOAL_SE);
+}
+
+void strategyUseMatchLoader() {
+    // Pick nearest match loader — compare approach points to current position
+    updateOdometry();
+    double bestDist = 1e9;
+    TargetID bestID = LOADER_NE;
+    const TargetID loaderIDs[4] = { LOADER_NE, LOADER_SE, LOADER_SW, LOADER_NW };
+    for (int i = 0; i < 4; i++) {
+        const NamedTarget& t = getTarget(loaderIDs[i]);
+        double dx = t.approachX - globalX;
+        double dy = t.approachY - globalY;
+        double d  = sqrt(dx*dx + dy*dy);
+        if (d < bestDist) { bestDist = d; bestID = loaderIDs[i]; }
+    }
+    if (arrivedAt(navigateTo(bestID))) doIntake();
+}
+
+void strategyPark() {
+    navigateTo(g_isRedAlliance ? PARK_ALLIANCE : PARK_OPPONENT);
+}
+
+
+// ============================================================================
+// SECTION 5 — Match dispatch loop
+// ============================================================================
+
+static std::atomic<int> g_strategyCode(STRATEGY_IDLE);
+
+void setStrategyCode(int code)  { g_strategyCode.store(code); }
+int  getStrategyCode()          { return g_strategyCode.load(); }
+
+static const double AUTON_DURATION_SEC = 60.0;
+
+// Match start time — captured once when runAIMatch() is called
+static uint32_t g_matchStartMs = 0;
+
+static double timeRemainingSeconds() {
+    double elapsed   = (pros::millis() - g_matchStartMs) / 1000.0;
+    double remaining = AUTON_DURATION_SEC - elapsed;
+    return remaining > 0.0 ? remaining : 0.0;
+}
+
+static bool shouldParkNow() {
+    double timeLeft = timeRemainingSeconds();
+    if (timeLeft <= PARK_TIME_BUFFER_SEC) return true;
+
+    RoutePath pathToPark = routePlan(globalX, globalY, getParkX(), PARK_Y);
+    if (pathToPark.count == 0) return timeLeft <= 8.0;
+
+    return timeLeft <= (pathToPark.estimatedTimeSec + PARK_TIME_BUFFER_SEC);
+}
+
+static bool strategyIsLegal(int code) {
+    // VAIG3/SG7: during isolation window (~first 15s), reject cross-field strategies
+    if (timeRemainingSeconds() > AUTON_DURATION_SEC - 15.0) {
+        if (code == STRATEGY_DESCORE_TOP || code == STRATEGY_BLOCK_TOP)
+            return false;
+    }
+    return true;
+}
+
+void runAIMatch() {
+    g_matchStartMs = pros::millis();  // capture match start for timer
+    updateOdometry();
+    int lastCode = STRATEGY_IDLE;
+
+    while (true) {
+        // Priority 1 — timer (always wins)
+        if (shouldParkNow()) {
+            routeOpenParkZones();  // clear D blocks so A* can route into park zone
+            strategyPark();
+            return;
+        }
+
+        // Priority 2 — safety/rules
+        int currentCode = getStrategyCode();
+        if (!strategyIsLegal(currentCode)) currentCode = lastCode;
+
+        // Priority 3/4 — Jetson strategy or last known fallback
+        // Note: legacy aliases map to same values as new codes — no duplicate cases
+        switch (currentCode) {
+            case STRATEGY_SCORE_TOP:        strategyScoreTopGoal();      break;  // 1
+            case STRATEGY_SCORE_BOTTOM:     strategyScoreBottomGoal();   break;  // 2
+            case STRATEGY_SCORE_CENTER:     strategyScoreCenterGoal();   break;  // 3
+            case STRATEGY_DESCORE_TOP:      strategyDescoreTopGoal();    break;  // 4
+            case STRATEGY_DESCORE_BOTTOM:   strategyDescoreBottomGoal(); break;  // 5
+            case STRATEGY_BLOCK_TOP:        strategyBlockTopGoal();      break;  // 6
+            case STRATEGY_BLOCK_BOTTOM:     strategyBlockBottomGoal();   break;  // 7
+            case STRATEGY_USE_MATCH_LOADER: strategyUseMatchLoader();    break;  // 8
+            case STRATEGY_PARK:             strategyPark(); return;              // 9
+            case STRATEGY_IDLE:
+            default:                        pros::delay(50);             break;  // 0
+        }
+
+        if (currentCode != STRATEGY_IDLE) lastCode = currentCode;
+        pros::delay(10);
+    }
+}
+
+// ============================================================================
+// SECTION 6 — Sweep behaviors
+// ============================================================================
+
+// ── Park zone geofence helper ─────────────────────────────────────────────────
+// Returns true if the heading from (rx,ry) projects into a park zone.
+// Projects 80cm forward and checks against PARK_ZONES[] from robot_geometry.h.
+static bool headingIntoParkZone(double rx, double ry, double detHeadingDeg) {
+    double rad = detHeadingDeg * M_PI / 180.0;
+    double px  = rx + 80.0 * std::sin(rad);
+    double py  = ry + 80.0 * std::cos(rad);
+    for (int z = 0; z < NUM_PARK_ZONES; z++) {
+        const RobotGeometry::Zone& zone = PARK_ZONES[z];
+        if (px >= zone.xMin && px <= zone.xMax &&
+            py >= zone.yMin && py <= zone.yMax)
+            return true;
+    }
+    return false;
+}
+
+// ── Nearest long goal scorer ──────────────────────────────────────────────────
+// Tries all 4 long goals nearest→furthest. Skips BLOCKED_REROUTE.
+// Returns true if scored at any goal.
+static bool sweepScoreNearest() {
+    const TargetID longGoals[4] = { LONG_GOAL_NE, LONG_GOAL_SE, LONG_GOAL_NW, LONG_GOAL_SW };
+    updateOdometry();
+
+    // Build distance order
+    int    order[4] = {0, 1, 2, 3};
+    double dists[4] = {};
+    for (int i = 0; i < 4; i++) {
+        const NamedTarget& t = getTarget(longGoals[i]);
+        dists[i] = std::hypot(t.approachX - globalX, t.approachY - globalY);
+    }
+    // Insertion sort by distance
+    for (int i = 1; i < 4; i++) {
+        int ki = order[i]; double kd = dists[i]; int j = i - 1;
+        while (j >= 0 && dists[order[j]] > kd) { order[j+1] = order[j]; j--; }
+        order[j+1] = ki; dists[i] = kd;
+    }
+
+    for (int i = 0; i < 4; i++) {
+        NavResult r = navigateTo(longGoals[order[i]]);
+        if (r != NavResult::BLOCKED_REROUTE) {
+            doScore();
+            return true;
+        }
+    }
+    return false;
+}
+
+// ── sweepAndScore ─────────────────────────────────────────────────────────────
+// Reactive block sweep using VEX AI Vision sensor.
 //
-// Stall detection: passive encoder wheels (globalLeftEncoderRPM/Right).
-// Park zones geofenced — detections pointing into park zone are skipped.
+// Chases largest visible block (filtered by colourMode), counts intakes by
+// pixel width threshold, scores at nearest unblocked long goal when maxCubes
+// reached, resets counters and resumes sweep.
 //
-// colourMode: 0=red only  1=blue only  2=both (largest cluster wins)
-// Exit: when count of trigger colour(s) hits maxCubes.
-//   colourMode=2 exits when EITHER colour hits maxCubes.
+// Stall detection uses passive encoder wheels (globalLeftEncoderRPM /
+// globalRightEncoderRPM) — reliable ground speed, not motor velocity.
+// Park zones geofenced — detections pointing into park zone skipped.
+//
+// Parameters — all have defaults; call sweepAndScore() for red-only with defaults.
+// ─────────────────────────────────────────────────────────────────────────────
 void sweepAndScore(
-    int      targetPixelWidth = 80,    // px — width at exit counts as intaked
-    int      debounceMs       = 500,   // ms before counting next cube
-    int      maxCubes         = 8,     // cube count triggers scoring run
-    int      colourMode       = 0,     // 0=red  1=blue  2=both
-    double   sweepSpeed       = 40.0,  // % — single speed throughout
-    double   kpVisionHeading  = 0.05,  // heading PID gain after vision locks
-    double   kpDistToHead     = 5.0,   // steering aggressiveness toward block
-    double   backupMs         = 500.0, // ms to reverse after each chase
-    double   scanTurnSpeed    = 25.0,  // % speed while spinning to find blocks
-    uint32_t timeLimitMs      = 0      // ms total runtime; 0 = unlimited
-    // alliance read from g_isRedAlliance — call setAllianceRed() before sweepAndScore()
-);
+    int      targetPixelWidth,
+    int      debounceMs,
+    int      maxCubes,
+    int      colourMode,
+    double   sweepSpeed,
+    double   kpVisionHeading,
+    double   kpDistToHead,
+    double   backupMs,
+    double   scanTurnSpeed,
+    uint32_t timeLimitMs,     // 0 = unlimited
+    double   xBoundary)       // 0.0 = disabled; else block detections crossing this X
+    // Alliance read from g_isRedAlliance — set via setAllianceRed() before calling
+{
+    static constexpr double SCAN_MAX_DEG = 360.0;
+    static constexpr double SCAN_STEP_MS = 20.0;
 
-#endif // AI_H
+    const uint32_t sweepStart  = pros::millis();
+    const double   sweepStartX = globalX;  // capture starting side for boundary enforcement
+    auto timeUp = [&]() -> bool {
+        return timeLimitMs > 0 && pros::millis() - sweepStart >= timeLimitMs;
+    };
+
+    // ── Vision profile — DEFAULT_VISION, single speed, encoder stall ──────────
+    VisionProfile sweepProfile = DEFAULT_VISION;
+    sweepProfile.drive.maxSpeed              = sweepSpeed;
+    sweepProfile.drive.minSpeed              = sweepSpeed;  // single speed
+    sweepProfile.drive.timeout               = 999.0;       // no timeout — stall handles exit
+    sweepProfile.drive.maxCurrentA           = 50.0;        // current trip disabled
+    sweepProfile.drive.overcurrentDurationMs = 9999;
+    sweepProfile.drive.brakeMode             = pros::E_MOTOR_BRAKE_COAST;
+    sweepProfile.minObjectWidth              = 8;
+    sweepProfile.kp_vision_heading           = kpVisionHeading;
+    sweepProfile.kp_distToHeadScaling        = kpDistToHead;
+    sweepProfile.minX = 0; sweepProfile.maxX = 320;
+    sweepProfile.minY = 0; sweepProfile.maxY = 240;
+
+    // ── Cube counters ─────────────────────────────────────────────────────────
+    int redCount  = 0;
+    int blueCount = 0;
+    uint32_t lastCountMs = 0;
+
+    // ── Intake runs throughout ────────────────────────────────────────────────
+    intakeHopperStart(120000.0, -100.0, 0.0, true);
+    startIntakeIndexer();  // upper indexer pulls blocks in, hood stays down
+
+    // ── Exit condition ────────────────────────────────────────────────────────
+    auto shouldExit = [&]() -> bool {
+        if (colourMode == 0) return redCount  >= maxCubes;
+        if (colourMode == 1) return blueCount >= maxCubes;
+        // colourMode == 2 — exit when either colour hits maxCubes
+        return redCount >= maxCubes || blueCount >= maxCubes;
+    };
+
+    // ── Main sweep loop ───────────────────────────────────────────────────────
+    while (!shouldExit() && !timeUp()) {
+        updateOdometry();
+
+        // 1. SCAN — find best (widest) visible block, skip park-zone headings
+        pros::AIVision::Object bestObj = {};
+        bool bestRed = false;
+        int  bestW   = -1;
+
+        int cnt = aiVision.get_object_count();
+        for (int i = 0; i < cnt; i++) {
+            pros::AIVision::Object o = aiVision.get_object(i);
+            if (!pros::AIVision::is_type(o, pros::AivisionDetectType::color)) continue;
+
+            bool isRed  = (o.id == aiVision_redCube.id);
+            bool isBlue = (o.id == aiVision_blueCube.id);
+
+            if (colourMode == 0 && !isRed)           continue;
+            if (colourMode == 1 && !isBlue)          continue;
+            if (colourMode == 2 && !isRed && !isBlue) continue;
+            if (o.object.color.width < 8)            continue;
+
+            // Geofence — skip if heading toward park zone
+            double detHeading = getContinuousStandardHeading() +
+                                (static_cast<double>(o.object.color.xoffset) / 160.0 * 25.5);
+            if (headingIntoParkZone(globalX, globalY, detHeading)) continue;
+
+            // Geofence — skip if heading crosses quadrant X boundary
+            if (xBoundary != 0.0) {
+                double rad = detHeading * M_PI / 180.0;
+                double px  = globalX + 80.0 * std::sin(rad);
+                if (sweepStartX < xBoundary && px > xBoundary) continue;  // started left, don't cross right
+                if (sweepStartX > xBoundary && px < xBoundary) continue;  // started right, don't cross left
+            }
+
+            if (o.object.color.width > bestW) {
+                bestW   = o.object.color.width;
+                bestObj = o;
+                bestRed = isRed;
+            }
+        }
+
+        if (bestW >= 8) {
+            // 2. CHASE — visionOnly in a monitored task, encoder stall kills it
+            pros::AIVision::Color chaseSig = bestRed ? aiVision_redCube : aiVision_blueCube;
+
+            volatile bool chaseRunning = true;
+            bool stalledAndBacked = false;
+            pros::Task chaseTask([&]{
+                visionOnly(chaseSig, 9999, 999.0, sweepProfile);
+                chaseRunning = false;
+            }, TASK_PRIORITY_DEFAULT - 1, TASK_STACK_DEPTH_DEFAULT, "SweepChase");
+
+            uint32_t stallStart   = 0;
+            bool     stallStarted = false;
+            constexpr double   SWEEP_STALL_CURRENT_A  = 3.0;   // A — current trip threshold
+            constexpr uint32_t SWEEP_STALL_CONFIRM_MS = 150;   // ms both must persist
+
+            while (chaseRunning) {
+                double avgEncRPM = (std::fabs(globalLeftEncoderRPM) +
+                                    std::fabs(globalRightEncoderRPM)) / 2.0;
+                double totalCurrentA = (leftDrive.get_current_draw() +
+                                        rightDrive.get_current_draw()) / 1000.0;
+
+                // Stall if EITHER encoder RPM near-zero OR current spike detected
+                bool stallCondition = (avgEncRPM < STALL_DETECTION_RPM) ||
+                                      (totalCurrentA > SWEEP_STALL_CURRENT_A);
+
+                if (stallCondition) {
+                    if (!stallStarted) { stallStart = pros::millis(); stallStarted = true; }
+                    else if (pros::millis() - stallStart >= SWEEP_STALL_CONFIRM_MS) {
+                        chaseTask.remove();
+                        chaseRunning = false;
+                        // Back up and retry — don't just sit there
+                        leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                        rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                        int32_t backMv = static_cast<int32_t>(
+                            -sweepSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+                        leftDrive.move_voltage(backMv);
+                        rightDrive.move_voltage(backMv);
+                        pros::delay(1500);  // 1.5s — enough to clear obstacle
+                        leftDrive.move(0);
+                        rightDrive.move(0);
+                        pros::delay(100);
+                        stalledAndBacked = true;
+                        break;
+                    }
+                } else {
+                    stallStarted = false;
+                }
+                pros::delay(10);
+            }
+
+            // 3. COUNT — intake if block was wide enough and debounce passed
+            uint32_t now = pros::millis();
+            if (bestW >= targetPixelWidth &&
+                now - lastCountMs >= static_cast<uint32_t>(debounceMs)) {
+                if (bestRed) redCount++;
+                else         blueCount++;
+                lastCountMs = now;
+                pros::screen::print(pros::E_TEXT_MEDIUM, 3, "R:%d B:%d", redCount, blueCount);
+            }
+
+            // 4. BACK UP — skip if stall watchdog already backed up
+            if (!stalledAndBacked) {
+                leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+                int32_t backMv = static_cast<int32_t>(
+                    -sweepSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+                leftDrive.move_voltage(backMv);
+                rightDrive.move_voltage(backMv);
+                pros::delay(static_cast<uint32_t>(backupMs));
+                leftDrive.move(0);
+                rightDrive.move(0);
+                pros::delay(100);
+            }
+
+        } else {
+            // 5. NOTHING VISIBLE — spin to scan
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+            int32_t turnMv   = static_cast<int32_t>(
+                scanTurnSpeed * 0.01 * absoluteMaxVoltage * 1000.0);
+            double degTurned = 0.0;
+            double lastH     = getContinuousStandardHeading();
+
+            while (degTurned < SCAN_MAX_DEG && !shouldExit()) {
+                bool found = false;
+                int scnt = aiVision.get_object_count();
+                for (int si = 0; si < scnt; si++) {
+                    pros::AIVision::Object so = aiVision.get_object(si);
+                    if (!pros::AIVision::is_type(so, pros::AivisionDetectType::color)) continue;
+                    bool isR = (so.id == aiVision_redCube.id);
+                    bool isB = (so.id == aiVision_blueCube.id);
+                    if (colourMode == 0 && !isR) continue;
+                    if (colourMode == 1 && !isB) continue;
+                    if (so.object.color.width >= 8) { found = true; break; }
+                }
+                if (found) break;
+
+                leftDrive.move_voltage( turnMv);
+                rightDrive.move_voltage(-turnMv);
+                pros::delay(static_cast<uint32_t>(SCAN_STEP_MS));
+
+                double newH = getContinuousStandardHeading();
+                degTurned  += std::fabs(newH - lastH);
+                lastH       = newH;
+            }
+
+            leftDrive.move(0);
+            rightDrive.move(0);
+            pros::delay(50);
+        }
+
+        // 6. SCORE if cube cap hit — then reset and resume
+        if (shouldExit()) {
+            leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+            leftDrive.move(0);
+            rightDrive.move(0);
+
+            sweepScoreNearest();
+
+            redCount  = 0;
+            blueCount = 0;
+
+            if (timeUp()) break;
+        }
+    }
+
+    // ── Done — stop everything ────────────────────────────────────────────────
+    leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    leftDrive.move(0);
+    rightDrive.move(0);
+    stopIntakeIndexer();
+    intakeHopperStop();
+}
