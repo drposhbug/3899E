@@ -784,26 +784,31 @@ void autonLeftAStar(std::pmr::string teamColor) {
     pros::screen::print(pros::E_TEXT_MEDIUM, 4, "RIGHT = Blue");
     pros::screen::print(pros::E_TEXT_MEDIUM, 5, "A = Start");
     bool isRedTeam;
+    int xMult, yMult;
+    double startHeading;
     
     if (teamColor == "RED") {
-        bool isRedTeam = true;  // default to red
+        bool isRedTeam = true;
+        int xMult = -1;
+        int yMult = 1; // default to red
+        double startHeading = 90;
     } else {
         bool isRedTeam = false;
+        int xMult = 1;
+        int yMult = -1;
+        double startHeading = 270;
     }
     bool confirmed = false;
 
     // Clear screen and start autonomous
     pros::screen::erase();
-    pros::screen::print(pros::E_TEXT_MEDIUM, 1, "Starting Auton...");
-    pros::delay(500);
+    // pros::screen::print(pros::E_TEXT_MEDIUM, 1, "X: %d, Y: %d, H: %d" (119.0*xMult), (34.0*yMult), startHeading);
+    // pros::delay(50000);
     
     // ── Initialize systems ─────────────────────────────────────────────────────
     startOdometryTask();
-    if (teamColor == "RED") {
-        setStartPosition(-119.0, 34.0, 90.0);
-    } else {
-        setStartPosition(-119.0, 34.0, 270.0);
-    }
+
+    setStartPosition(119.0*xMult, 34.0*yMult, startHeading);
     
     // Start color sort based on team selection
     if (isRedTeam) {
@@ -853,30 +858,31 @@ void autonLeftAStar(std::pmr::string teamColor) {
     pros::screen::print(pros::E_TEXT_MEDIUM, 2, "Route Phase 1...");
     
     // Plan A* path from current position to target waypoint
-    RoutePath path = routePlan(globalX, globalY, -43.0, 44.0);
+    // RoutePath path = routePlan(globalX, globalY, 43.0*xMult, 44.0*yMult);
     
-    if (path.count == 0) {
-        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "No path found!");
-        Controller.rumble("---");
-        return;
-    }
+    // if (path.count == 0) {
+    //     pros::screen::print(pros::E_TEXT_MEDIUM, 3, "No path found!");
+    //     Controller.rumble("---");
+    //     return;
+    // }
     
-    // Execute the planned route
-    bool routeSuccess = routeExecute(path);
-    if (!routeSuccess) {
-        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Route blocked!");
-        Controller.rumble("---");
-    } else {
-        pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Route complete");
-        Controller.rumble(".");
-    }
+    // // Execute the planned route
+    // bool routeSuccess = routeExecute(path);
+    // if (!routeSuccess) {
+    //     pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Route blocked!");
+    //     Controller.rumble("---");
+    // } else {
+    //     pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Route complete");
+    //     Controller.rumble(".");
+    // }
     
+    forwardToPoint(43,44,DEFAULT_STRAIGHT);
     pros::delay(300);
     
     // ── PHASE 2: Turn to face towards (-119, 120) ─────────────────────────────
     // Calculate heading to face the target direction
-    double targetPointX = -119.0;
-    double targetPointY = 120.0;
+    double targetPointX = 119.0*xMult;
+    double targetPointY = 120.0*yMult;
     double dx = targetPointX - globalX;
     double dy = targetPointY - globalY;
     double targetHeading = atan2(dx, dy) * 180.0 / 3.14159265359;  // convert radians to degrees

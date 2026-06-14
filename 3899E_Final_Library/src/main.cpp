@@ -23,7 +23,7 @@ void initialize()
 
     leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
     rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-    gpsSensor.set_offset(-0.11, 0.1175); // X offset 15cm right, Y offset -25cm back
+    gpsSensor.set_offset(-0.17, 0.1175); // X offset 15cm right, Y offset -25cm back
 
     if (teamColor == "RED") {
         blueColorSortStart();
@@ -146,7 +146,7 @@ void autonomous()
     //coordinateFinder();
     // autonLeft15();
     // leftAuton();
-    autonLeftAStar("BLUE"); //PUT TEAM COLOUR IN, DETERMINES COLOUR SORT AND A STAR NAV
+    // autonLeftAStar("BLUE"); //PUT TEAM COLOUR IN, DETERMINES COLOUR SORT AND A STAR NAV
     //skills();
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -177,7 +177,7 @@ void opcontrol() {
     //     pros::delay(100);
     // }
     while (true) {
-        opScoring("RED"); // put alliance colour here as argument: "RED" or "BLUE"
+        opScoring("BLUE"); // put alliance colour here as argument: "RED" or "BLUE"
         // AITracking("RED"); // put alliance colour here as argument: "RED" or "BLUE"
         pros::delay(20);
     }

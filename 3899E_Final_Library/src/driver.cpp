@@ -678,7 +678,7 @@ void opScoring(std::pmr::string teamColor) {
     opticalSensor.set_led_pwm(100); // Ensure the LED is on for accurate readings
     blockCount = 0;
     wasColor = false;
-    bool intakeFull = false;
+    bool intakeFull = true;
     int retryCount = 0;
     const int MAX_RETRIES_PER_BLOCK = 3;  // Backtrack if vision fails 3 times in a row
     StraightProfile dp = DEFAULT_STRAIGHT;
@@ -801,6 +801,7 @@ void opScoring(std::pmr::string teamColor) {
     if (intakeFull) {
         intakeMotor.move(127);
         colorSortMotor.move(127);
+        // turnRight(180,DEFAULT_TURN);
         // Trigger scoring mechanism here (e.g., activate pneumatics, run motors)
         // GPS reset
         double headingOffset = 90.0; // Adjust for cartesian vs VEX if needed
@@ -815,7 +816,8 @@ void opScoring(std::pmr::string teamColor) {
         while (heading >= 360.0) heading -= 360.0;
 
         setStartPosition(xPosition, yPosition, heading);
-
+        // setStartPosition(60,-60,180);
+        requestGpsReset();
         pros::lcd::print(1, "GPS raw X: %.3f m Y: %.3f m", rawGpsX, rawGpsY);
         pros::lcd::print(2, "GPS err: %.3f m heading: %.1f", gpsError, gpsSensor.get_heading());
         pros::lcd::print(3, "SET X: %.1f cm Y: %.1f cm H: %.1f", xPosition, yPosition, heading);
@@ -825,16 +827,16 @@ void opScoring(std::pmr::string teamColor) {
         // pros::lcd::print(5, "Post-turn GPS heading: %.1f", gpsSensor.get_heading());
         // pros::delay(50000);
         if (teamColor == "RED") {
-            NavResult result = navigateTo(LONG_GOAL_SE);
-        } else {
             NavResult result = navigateTo(LONG_GOAL_NW);
+        } else {
+            NavResult result = navigateTo(LONG_GOAL_SE);
         }
         pros::delay(500);
-        setStartPosition(globalX, globalY, gpsSensor.get_heading()-headingOffset);
+        // setStartPosition(globalX, globalY, gpsSensor.get_heading()-headingOffset);
         // turnRight(90, DEFAULT_TURN);
         pros::delay(500);
         scorePiston.set_value(true);
-        driveBackward(30, globalRotation, dp);
+        driveBackward(40, globalRotation, dp);
         scoreFlap.set_value(true);
         pros::delay(200);
         lever.move(127);
@@ -882,10 +884,10 @@ void opScoring(std::pmr::string teamColor) {
         // driveForward(30, globalRotation, dp); // Back away from the wall after scoring
         if (teamColor == "RED") {
             driveForward(20.0, globalRotation, DEFAULT_STRAIGHT); // kick forward to release any preloaded game pieces and verify drive is working before giving control to driver
-            turnRight(315, DEFAULT_TURN);
+            turnRight(135, DEFAULT_TURN);
         } else {
             driveForward(20.0, globalRotation, DEFAULT_STRAIGHT); // kick forward to release any preloaded game pieces and verify drive is working before giving control to driver
-            turnRight(135, DEFAULT_TURN);
+            turnLeft(315, DEFAULT_TURN);
         }
         scoreFlap.set_value(false);
         scorePiston.set_value(false);

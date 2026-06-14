@@ -54,7 +54,7 @@ std::int8_t colorSortMotorPort = 3;
 
 std::int8_t horizontalEncoderPort = 2;
 std::int8_t verticalEncoderPort = 4;
-std::int8_t imuPort = 17; 
+std::int8_t imuPort = 21; 
 std::int8_t colorSensorPort = 15;
 std::int8_t gpsSensorPort = 13; // not real
 std::int8_t aiVisionFrontPort = 12;
