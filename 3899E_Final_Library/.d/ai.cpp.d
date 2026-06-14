@@ -1,5 +1,5 @@
-bin/ai.cpp.o: src/ai.cpp include/ai.h include/jetson_comms.h \
- include/main.h include/api.h include/pros/adi.h include/pros/ai_vision.h \
+bin/ai.cpp.o: src/ai.cpp include/jetson_comms.h include/main.h \
+ include/api.h include/pros/adi.h include/pros/ai_vision.h \
  include/pros/colors.h include/pros/device.h include/pros/distance.h \
  include/pros/error.h include/pros/ext_adi.h include/pros/adi.h \
  include/pros/adi.h include/pros/gps.h include/pros/imu.h \
@@ -169,13 +169,13 @@ bin/ai.cpp.o: src/ai.cpp include/ai.h include/jetson_comms.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_obj_event.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../misc/lv_event.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/lv_indev.h \
- C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/core/lv_group.h \
- C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h \
- C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h \
- C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h \
- C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_area.h \
- C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_timer.h \
- C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_event.h \
+ c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/core/lv_group.h \
+ c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h \
+ c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h \
+ c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h \
+ c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_area.h \
+ c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_timer.h \
+ c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_event.h \
  include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_group.h \
  include/liblvgl/core/../stdlib/builtin/lv_tlsf.h \
  include/liblvgl/core/../stdlib/builtin/../../lv_conf_internal.h \
@@ -667,12 +667,7 @@ bin/ai.cpp.o: src/ai.cpp include/ai.h include/jetson_comms.h \
  include/pros/rtos.hpp include/pros/screen.hpp include/pros/screen.h \
  include/pros/serial.hpp include/pros/serial.h include/pros/vision.hpp \
  include/pros/vision.h include/route_planner.h include/robot_geometry.h \
- include/robot_config.h include/robot_config.h include/robot_geometry.h \
- include/route_planner.h include/odometry.h include/navigation.h \
- include/utils.h include/motion_config.h include/motion_config.h \
- include/autontasks.h include/pid.h include/utils.h \
- include/field_targets.h include/ai.h
-include/ai.h:
+ include/robot_config.h
 include/jetson_comms.h:
 include/main.h:
 include/api.h:
@@ -857,13 +852,13 @@ include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_obj_pr
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_obj_event.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../misc/lv_event.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/../indev/lv_indev.h:
-C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/core/lv_group.h:
-C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h:
-C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h:
-C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h:
-C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_area.h:
-C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_timer.h:
-C:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_event.h:
+c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/core/lv_group.h:
+c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/lv_conf_internal.h:
+c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_types.h:
+c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_ll.h:
+c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_area.h:
+c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_timer.h:
+c:/Users/oscar/OneDrive/Documents/GitHub/3899E/3899E_Final_Library/include/liblvgl/misc/lv_event.h:
 include/liblvgl/core/../others/sysmon/../../others/observer/../../core/lv_group.h:
 include/liblvgl/core/../stdlib/builtin/lv_tlsf.h:
 include/liblvgl/core/../stdlib/builtin/../../lv_conf_internal.h:
@@ -1418,16 +1413,3 @@ include/pros/vision.h:
 include/route_planner.h:
 include/robot_geometry.h:
 include/robot_config.h:
-include/robot_config.h:
-include/robot_geometry.h:
-include/route_planner.h:
-include/odometry.h:
-include/navigation.h:
-include/utils.h:
-include/motion_config.h:
-include/motion_config.h:
-include/autontasks.h:
-include/pid.h:
-include/utils.h:
-include/field_targets.h:
-include/ai.h:

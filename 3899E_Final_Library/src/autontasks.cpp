@@ -90,9 +90,11 @@ static std::atomic<bool> g_intakeIndexerRunning{false};
 static void intakeIndexerTask(void*) {
     while (g_intakeIndexerRunning.load()) {
         upperIndexerMotor.move_voltage(-12000);  // opposite of scoring direction
+        hoodMotor.move_voltage(-12000);          // same as driver R1 intake
         pros::delay(10);
     }
     upperIndexerMotor.move(0);
+    hoodMotor.move(0);
 }
 
 void startIntakeIndexer() {
@@ -448,7 +450,7 @@ void sweepScore(bool isRed) {
     frontHoodPneumatics.set_value(true);
     upperIndexerMotor.move_voltage(12000);
     lowerIndexerMotor.move_voltage(12000);
-    hoodMotor.move_voltage(-12000);
+    hoodMotor.move_voltage(12000);
 
     if (isRed) leftScore(3000, 100.0);   // red → left gate (blocks 3s)
     else       rightScore(3000, 100.0);  // blue → right gate (blocks 3s)
@@ -457,10 +459,6 @@ void sweepScore(bool isRed) {
     lowerIndexerMotor.move(0);
     hoodMotor.move(0);
     frontHoodPneumatics.set_value(false);
-
-    // Restart intake for next sweep cycle
-    intakeHopperStart(120000.0, -100.0, 0.0, true);
-    startIntakeIndexer();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

@@ -511,7 +511,7 @@ void rightSideAuton(){
         driveProfile2.maxCurrentA            = 8.0;
         driveProfile2.overcurrentDurationMs  = 500;
 
-    intakeHopperStart(10000, 100.0, 0.0, true);
+    intakeHopperStart(10000, -100.0, 0.0, true);
     
     turnLeft(-96,turnProfile1);
     driveForward(37,-96,driveProfile);
@@ -606,7 +606,7 @@ void longGoalAuto15s(bool isRedAlliance) {
         0
     };
     pros::Task colorSortTask(colorDetectionTask, &colorParams, "Color Sort");
-    intakeHopperStart(10000, 100.0, 0.0, true);
+    intakeHopperStart(10000, -100.0, 0.0, true);
  // turnRight(, DEFAULT_TURN);
 
     StraightProfile customFwd = MID_FWD;
@@ -789,7 +789,7 @@ void longGoalAuto15sOg(bool isRedAlliance) {
     while (!timeUp()) {
 
         // ── Goal 1: (81.442, 117.722) ─────────────────────────────────────────
-        intakeHopperStart(15000, 100.0, 0.0, true);
+        intakeHopperStart(15000, -100.0, 0.0, true);
         RoutePath p1 = routePlan(globalX, globalY, 81.442, 117.722);
         if (p1.count > 0) routeExecute(p1);
 
@@ -805,7 +805,7 @@ void longGoalAuto15sOg(bool isRedAlliance) {
         if (timeUp()) break;
 
         // ── Goal 2: (82.528, -131.304) ────────────────────────────────────────
-        intakeHopperStart(15000, 100.0, 0.0, true);
+        intakeHopperStart(15000, -100.0, 0.0, true);
         RoutePath p2 = routePlan(globalX, globalY, 82.528, -131.304);
         if (p2.count > 0) routeExecute(p2);
 
@@ -885,60 +885,62 @@ void longGoalAuto15sOg(bool isRedAlliance) {
 // Stay on east side (X > 0). Collect blue blocks on own side only.
 // No sweep — sweep is interaction-only to avoid crossing center line.
 void blueRightIsolation() {
-    // !! QUADRANT I START: X POSITIVE, Y POSITIVE !!
-    // East side (+X), north of center (+Y), facing West (-90°) toward opponent.
-    // Tune these coordinates to match your exact starting tile.
-    setStartPosition(122.0, 60.0, 270.0);
+    // East side (+X), slightly south of center (-Y), facing West (270°) toward opponent.
+    setStartPosition(122.0, 36.0, 270.0);
 
     // Alliance must be set before any navigation or sweep calls.
     setAllianceRed(false);  // BLUE alliance
 
-    // GPS reset — non-blocking, improves position accuracy before moving.
-   // requestGpsReset();
-  //  pros::delay(200);
+    requestGpsReset();
+    pros::delay(200);
 
-
-
-  //  turnLeft(2, MID_TURN);
-    //forwardToPoint(117.0, 151.0,  customFwd);  // heading ~275
-
-    // Colour sort task — runs entire match, fires flipper when block passes sensor.
-    // Blue blocks → right bay. Red blocks → left bay.
+    // Colour sort task — blue blocks → right bay. Red blocks → left bay.
     static ColorTaskParams colorParams;
     colorParams.isRunning = true;
     colorParams.delayMs   = 0;
     pros::Task(colorDetectionTask, &colorParams, "colourSort");
 
     // Intake — start collecting blocks immediately from match start.
-    // 15000ms covers the full isolation period with buffer.
-    intakeHopperStart(15000, 100.0, 0.0, true);
+    intakeHopperStart(15000, -100.0, 0.0, true);
     startIntakeIndexer();
 
-    forwardToPoint(75.0,  37.0,  DEFAULT_STRAIGHT);  // heading ~82
+    // Profile for forward moves — tuned for loaded mid-distance legs
+    StraightProfile customFwd = MID_FWD;
+    customFwd.breakDistance     = 70.0;
+    customFwd.minSpeed          = 13.0;
+    customFwd.maxSpeed          = 70.0;
+    customFwd.distanceTolerance = 1.0;
+    customFwd.timeout           = 2.0;
+    customFwd.brakeMode         = pros::E_MOTOR_BRAKE_BRAKE;
+    customFwd.kp_heading        = 0.6;
+    customFwd.ki_heading        = 0.0;
+    customFwd.kd_heading        = 0.0;
 
-    turnRight(30, TURN_45);
-      pros::delay(300);
+    // Move 1 — drive west toward centre field, collecting blocks along south corridor
+    forwardToPoint(37.0, -64.0, customFwd);
 
-    forwardToPoint(117.0,  96.0, DEFAULT_STRAIGHT);  // heading ~200
+    // Backup 1 — reverse east to wall corridor, sweeping blocks back
+    backwardToPoint(120.0, -64.0, MID_BWD);
 
-    // ── Isolation routine ─────────────────────────────────────────────────────
-    // Stay on east side (X > 0). Navigate to east long goal — safe during isolation.
-    // LONG_GOAL_NE = north end of east long goal, approach from east corridor.
-    // DO NOT navigate to west-side goals during isolation — crosses center line.
-    if (arrivedAt(navigateTo(LONG_GOAL_NE))) {
-        pros::delay(3000);  // hold at goal, let intake collect
-    }
+    // Turn to face south toward south wall
+    turnToPoint(120.0, -180.0, TURN_90);
+    pros::delay(300);
 
-    const NamedTarget& t = getTarget(LONG_GOAL_NE);
-    visionForwardToPoint(aiVision_orangeBase, 60, t.targetX, t.targetY, VISION_LONG_GOAL_FWD);
+    // Move 2 — drive south along east wall into corner, collecting everything
+    forwardToPoint(120.0, -180.0, customFwd);
+
+    // Backup 2 — reverse north to NE long goal approach point
+    backwardToPoint(120.0, 120.0, MID_BWD);
+
+    // A* to NE long goal — stays X > 0, safe during isolation
+    navigateTo(LONG_GOAL_NE);
     sweepScore(false);  // full sequence — hood + indexers + right gate (blue)
 
     // Stop intake at end of isolation — interaction period relaunches it.
     stopIntakeIndexer();
     intakeHopperStop();
 
-    // Kill colour sort task cleanly — interaction period will relaunch after
-    // setAllianceRed() is called, preventing duplicate task conflict.
+    // Kill colour sort task cleanly — interaction period relaunches after setAllianceRed().
     colorParams.isRunning = false;
     pros::delay(50);
 }
@@ -1013,11 +1015,11 @@ void blueRightInteraction() {
 // ── ISOLATION PERIOD (15 seconds) ────────────────────────────────────────────
 // Stay on west side (X < 0). Collect red blocks on own side only.
 void redRightIsolation() {
-    // !! QUADRANT II START: X NEGATIVE, Y POSITIVE !!
-    // West side (-X), north of center (+Y), facing East (90°) toward opponent.
+    // West side (-X), slightly south of center (-Y), facing East (90°) toward opponent.
     setStartPosition(-122.0, -36.0, 90.0);
-  requestGpsReset();
+    requestGpsReset();
     pros::delay(200);
+
     // Alliance must be set before any navigation or sweep calls.
     setAllianceRed(true);  // RED alliance
 
@@ -1028,45 +1030,46 @@ void redRightIsolation() {
     pros::Task(colorDetectionTask, &colorParams, "colourSort");
 
     // Intake — start collecting blocks immediately from match start.
-    intakeHopperStart(15000, 100.0, 0.0, true);
+    intakeHopperStart(15000, -100.0, 0.0, true);
     startIntakeIndexer();
 
-
+    // Profile for forward moves — tuned for loaded mid-distance legs
     StraightProfile customFwd = MID_FWD;
     customFwd.breakDistance     = 70.0;
     customFwd.minSpeed          = 13.0;
     customFwd.maxSpeed          = 70.0;
     customFwd.distanceTolerance = 1.0;
-    customFwd.timeout           = 8.0;
+    customFwd.timeout           = 2.0;
     customFwd.brakeMode         = pros::E_MOTOR_BRAKE_BRAKE;
     customFwd.kp_heading        = 0.6;
     customFwd.ki_heading        = 0.0;
     customFwd.kd_heading        = 0.0;
 
-    // ── STEP 6: Manual waypoints (odometry point-to-point) ───────────────────
-    forwardToPoint(-37.0,  -64.0,  customFwd);  // heading ~82
+    // Move 1 — drive east toward centre field, collecting blocks along south corridor
+    forwardToPoint(-37.0, -64.0, customFwd);
 
-    turnRight(240, TURN_270);
-      pros::delay(300);
+    // Backup 1 — reverse west to wall corridor, sweeping blocks back
+    backwardToPoint(-120.0, -64.0, MID_BWD);
 
-    forwardToPoint(-117.0,  -96.0, customFwd);  // heading ~200
+    // Turn to face south toward south wall
+    turnToPoint(-120.0, -180.0, TURN_90);
+    pros::delay(300);
 
-    // Navigate to SW long goal — closer from red right start, stays X < 0.
-    // DO NOT navigate to east-side goals during isolation — crosses center line.
-    if (arrivedAt(navigateTo(LONG_GOAL_SW))) {
-        pros::delay(3000);  // hold at goal, let intake collect
-    }
+    // Move 2 — drive south along west wall into corner, collecting everything
+    forwardToPoint(-120.0, -180.0, customFwd);
 
-    const NamedTarget& t = getTarget(LONG_GOAL_SW);
-    visionForwardToPoint(aiVision_orangeBase, 60, t.targetX, t.targetY, VISION_LONG_GOAL_FWD);
-    sweepScore(true);  // full sequence — hood + indexers + left gate
+    // Backup 2 — reverse north to SW long goal approach point
+    backwardToPoint(-120.0, -120.0, MID_BWD);
+
+    // A* to SW long goal — stays X < 0, safe during isolation
+    navigateTo(LONG_GOAL_SW);
+    sweepScore(true);  // full sequence — hood + indexers + left gate (red)
 
     // Stop intake at end of isolation — interaction period relaunches it.
     stopIntakeIndexer();
     intakeHopperStop();
 
-    // Kill colour sort task cleanly — interaction period will relaunch after
-    // setAllianceRed() is called, preventing duplicate task conflict.
+    // Kill colour sort task cleanly — interaction period relaunches after setAllianceRed().
     colorParams.isRunning = false;
     pros::delay(50);
 }
