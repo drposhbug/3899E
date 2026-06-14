@@ -1196,3 +1196,23 @@ void testSweepIntake() {
 
     pros::screen::print(pros::E_TEXT_MEDIUM, 1, "DONE");
 }
+// ══════════════════════════════════════════════════════════════════════════════
+// skillsPark — Skills run: park on blue (east) wall.
+//
+// Starts facing East (90°). Sets alliance to blue so strategyPark() navigates
+// to PARK_OPPONENT (east wall, X = +161cm).
+// Slot 8 — Skills.
+// ══════════════════════════════════════════════════════════════════════════════
+void skillsPark() {
+    // Start center field facing east
+    setStartPosition(0.0, 0.0, 90.0);
+
+    // Blue alliance → strategyPark() goes to east wall (PARK_OPPONENT)
+    setAllianceRed(false);
+
+    requestGpsReset();
+    pros::delay(200);
+
+    // Navigate to east wall park zone
+    strategyPark();
+}

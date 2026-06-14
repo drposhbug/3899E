@@ -791,15 +791,13 @@ void sweepAndScore(
     double   kpDistToHead,
     double   backupMs,
     double   scanTurnSpeed,
-    uint32_t timeLimitMs,     // 0 = unlimited
-    double   xBoundary)       // 0.0 = disabled; else block detections crossing this X
+    uint32_t timeLimitMs)     // 0 = unlimited
     // Alliance read from g_isRedAlliance — set via setAllianceRed() before calling
 {
     static constexpr double SCAN_MAX_DEG = 360.0;
     static constexpr double SCAN_STEP_MS = 20.0;
 
     const uint32_t sweepStart  = pros::millis();
-    const double   sweepStartX = globalX;  // capture starting side for boundary enforcement
     auto timeUp = [&]() -> bool {
         return timeLimitMs > 0 && pros::millis() - sweepStart >= timeLimitMs;
     };
@@ -861,14 +859,6 @@ void sweepAndScore(
             double detHeading = getContinuousStandardHeading() +
                                 (static_cast<double>(o.object.color.xoffset) / 160.0 * 25.5);
             if (headingIntoParkZone(globalX, globalY, detHeading)) continue;
-
-            // Geofence — skip if heading crosses quadrant X boundary
-            if (xBoundary != 0.0) {
-                double rad = detHeading * M_PI / 180.0;
-                double px  = globalX + 80.0 * std::sin(rad);
-                if (sweepStartX < xBoundary && px > xBoundary) continue;  // started left, don't cross right
-                if (sweepStartX > xBoundary && px < xBoundary) continue;  // started right, don't cross left
-            }
 
             if (o.object.color.width > bestW) {
                 bestW   = o.object.color.width;

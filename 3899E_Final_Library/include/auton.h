@@ -34,13 +34,8 @@ void blueRightInteraction();
 void redRightIsolation();
 void redRightInteraction();
 
-// ── SCORING MECHANISM TEST ────────────────────────────────────────────────────
-// Tests hood piston, indexers, hood motor, and gate individually then together.
-// Use from Slot 6 (dev/test only). isRed=true → left gate, false → right gate.
-void testSweepScore(bool isRed);
-
-// Tests intake motors + upper indexer as they run during sweep (5 seconds).
-// Hood stays down. Use to verify intake direction before a match.
-void testSweepIntake();
+// ── SKILLS ────────────────────────────────────────────────────────────────────
+// Park on blue (east) wall. Start facing East (90°). Slot 8.
+void skillsPark();
 
 #endif // AUTON_H
